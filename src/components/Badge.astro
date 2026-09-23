@@ -1,0 +1,8 @@
+---
+import type { EstadoMascota } from '../data/mockPets';
+interface Props { estado: EstadoMascota; }
+const { estado } = Astro.props as Props;
+const cls = estado === 'Disponible' ? 'badge-disponible' : estado === 'En proceso' ? 'badge-proceso' : 'badge-adoptada';
+const dot = estado === 'Disponible' ? '#10B981' : estado === 'En proceso' ? '#F59E0B' : '#6366F1';
+---
+<span class={`badge ${cls}`}><span class="dot" style={`background:${dot}`}></span>{estado}</span>

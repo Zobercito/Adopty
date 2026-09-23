@@ -1,0 +1,68 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+import Badge from '../components/Badge.astro';
+import { PETS } from '../data/mockPets';
+
+// SSR: lee query params para URL compartible (?especie=&q=&tamano=) — Fase 3 lo moverá a /api + Supabase.
+const especie = (Astro.url.searchParams.get('especie') ?? '').toLowerCase();
+const q = (Astro.url.searchParams.get('q') ?? '').toLowerCase();
+const tamano = Astro.url.searchParams.get('tamano') ?? '';
+
+const resultados = PETS.filter((p) => {
+  if (especie && especie !== 'todas' && p.especie !== especie) return false;
+  if (tamano && p.tamano !== tamano) return false;
+  if (q && !(p.nombre + p.raza + p.ubicacion).toLowerCase().includes(q)) return false;
+  return true;
+});
+---
+<Layout title="Adopty — Explorar mascotas">
+  <Navbar active="explorar" />
+  <div class="max-w-6xl mx-auto px-4 mt-6 grid lg:grid-cols-[280px_1fr] gap-5">
+    <aside class="soft-card p-6 h-fit lg:sticky lg:top-24" aria-label="Filtros de búsqueda">
+      <h2 class="font-display font-extrabold text-lg" style="color:#1E293B">Filtros</h2>
+      <form method="get" action="/explorar">
+        <label class="sr-only" for="q">Buscar por nombre, raza o ubicación</label>
+        <input id="q" name="q" value={Astro.url.searchParams.get('q') ?? ''} class="input-soft mt-3 text-sm" placeholder="Buscar: nombre, raza..." />
+        <p class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide">Especie</p>
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Especie">
+          <button type="submit" name="especie" value="" class={`chip ${!especie ? 'active' : ''}`}>Todas</button>
+          <button type="submit" name="especie" value="perro" class={`chip ${especie === 'perro' ? 'active' : ''}`}>Perros</button>
+          <button type="submit" name="especie" value="gato" class={`chip ${especie === 'gato' ? 'active' : ''}`}>Gatos</button>
+          <button type="submit" name="especie" value="otro" class={`chip ${especie === 'otro' ? 'active' : ''}`}>Otros</button>
+        </div>
+        <label class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide block" for="tamano">Tamaño</label>
+        <select id="tamano" name="tamano" class="input-soft mt-1 text-sm" onchange="this.form.submit()">
+          <option value="">Todos los tamaños</option>
+          <option selected={tamano === 'Pequeño'}>Pequeño</option>
+          <option selected={tamano === 'Mediano'}>Mediano</option>
+          <option selected={tamano === 'Grande'}>Grande</option>
+        </select>
+        <button class="btn-primary w-full mt-5 py-3 text-sm" type="submit">Aplicar filtros</button>
+        <a href="/explorar" class="w-full text-xs mt-2 text-gray-400 hover:underline block text-center">Limpiar</a>
+      </form>
+      <p class="text-xs mt-4 text-gray-400">Fase 0: filtros por URL (?especie=&amp;q=) sin backend. URL copiable.</p>
+    </aside>
+
+    <main>
+      <p class="text-sm" role="status">{resultados.length} mascotas encontradas</p>
+      <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-4">
+        {resultados.map((p) => (
+          <article class="soft-card overflow-hidden">
+            <div class={`pet-photo ${p.grad} w-full h-48`}>
+              <img src={p.foto} alt={`${p.nombre} - ${p.raza}`} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />
+            </div>
+            <div class="p-5">
+              <div class="flex items-center justify-between"><Badge estado={p.estado} /><span class="text-xs">👁 {p.interesados}</span></div>
+              <h3 class="font-display font-bold mt-1" style="color:#1E293B">{p.nombre} <span class="text-sm font-medium text-gray-400">· {p.raza}</span></h3>
+              <p class="text-sm">{p.edad} · {p.sexo} · {p.tamano}</p>
+              <p class="text-xs mt-1">📍 {p.ubicacion}</p>
+              <span class="btn-primary text-sm px-5 py-2.5 block text-center mt-4 opacity-60" title="Detalle dinámico en Fase 2">Ver perfil</span>
+            </div>
+          </article>
+        ))}
+      </div>
+      {resultados.length === 0 && <p class="text-sm mt-4">Sin resultados. Prueba limpiar filtros.</p>}
+    </main>
+  </div>
+</Layout>
