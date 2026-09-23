@@ -1,11 +1,12 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
+import vercel from '@astrojs/vercel';
 
 // https://astro.build/config
 export default defineConfig({
+  adapter: vercel(),
   vite: {
-    // npm user config trae ignore-scripts=true; este plugin no necesita scripts
     plugins: [tailwindcss()],
   },
 });
