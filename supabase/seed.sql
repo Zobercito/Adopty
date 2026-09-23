@@ -2,17 +2,39 @@
 -- Correr DESPUÉS de las migraciones, en SQL editor o `supabase db execute`.
 -- Los UUIDs son fijos para que el seed sea idempotente (ON CONFLICT DO NOTHING).
 
--- Publicadores demo (huérfanos de auth.users a propósito: solo para pruebas de lectura)
-INSERT INTO usuarios (id, correo, tipo_usuario) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'patitas@adopty.pa', 'organizacion'),
-  ('22222222-2222-2222-2222-222222222222', 'rescatista@adopty.pa', 'persona')
+-- Publicadores demo: se crean como usuarios REALES de auth.users (password: Adopty123!
+-- SOLO para pruebas locales/piloto — cambiar o borrar antes de producción).
+-- El trigger handle_new_user crea las filas espejo en usuarios/personas/organizaciones.
+INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token)
+VALUES
+  ('00000000-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111',
+   'authenticated', 'authenticated', 'patitas@adopty.pa', crypt('Adopty123!', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}',
+   '{"tipo_usuario":"organizacion","nombre":"Refugio Patitas Felices"}', now(), now(), '', ''),
+  ('00000000-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222',
+   'authenticated', 'authenticated', 'rescatista@adopty.pa', crypt('Adopty123!', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}',
+   '{"tipo_usuario":"persona","nombre":"Eira R. (rescatista)"}', now(), now(), '', '')
 ON CONFLICT (id) DO NOTHING;
+
+-- GoTrue exige una fila en auth.identities para el signIn (proveedor email)
+INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+SELECT gen_random_uuid(), u.id,
+  jsonb_build_object('sub', u.id::text, 'email', u.email),
+  'email', u.email, now(), now(), now()
+FROM auth.users u
+WHERE u.id IN ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222')
+  AND NOT EXISTS (SELECT 1 FROM auth.identities i WHERE i.user_id = u.id);
+
+-- Completa los perfiles creados por el trigger (idempotente)
 INSERT INTO organizaciones (id, nombre_oficial, direccion, descripcion, verificada) VALUES
   ('11111111-1111-1111-1111-111111111111', 'Refugio Patitas Felices', 'Ciudad de Panamá', 'Refugio aliado del piloto Adopty.', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET nombre_oficial = EXCLUDED.nombre_oficial, direccion = EXCLUDED.direccion,
+  descripcion = EXCLUDED.descripcion, verificada = EXCLUDED.verificada;
 INSERT INTO personas (id, nombre, descripcion) VALUES
   ('22222222-2222-2222-2222-222222222222', 'Eira R. (rescatista)', 'Rescatista independiente en San Miguelito.')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion;
 
 -- 9 base (del mockup) + 21 sintéticas = 30
 INSERT INTO mascotas (id_publicador, nombre, especie, raza, edad_meses, sexo, tamano, descripcion, estado_salud, ubicacion, estado)
@@ -31,13 +53,13 @@ ON CONFLICT DO NOTHING;
 -- 21 sintéticas para probar filtros/paginación (nombres deterministas)
 INSERT INTO mascotas (id_publicador, nombre, especie, raza, edad_meses, sexo, tamano, descripcion, estado_salud, ubicacion, estado)
 SELECT
-  CASE WHEN g % 2 = 0 THEN '11111111-1111-1111-1111-111111111111' ELSE '22222222-2222-2222-2222-222222222222' END,
+  CASE WHEN g % 2 = 0 THEN '11111111-1111-1111-1111-111111111111' ELSE '22222222-2222-2222-2222-222222222222' END::uuid,
   'Mascota ' || g,
-  (ARRAY['perro','gato','otro'])[1 + (g % 3)],
+  (ARRAY['perro','gato','otro'])[1 + (g % 3)]::especie,
   'Raza ' || g,
   1 + (g * 7) % 120,
-  CASE WHEN g % 2 = 0 THEN 'Macho' ELSE 'Hembra' END,
-  (ARRAY['Pequeño','Mediano','Grande'])[1 + (g % 3)],
+  (CASE WHEN g % 2 = 0 THEN 'Macho' ELSE 'Hembra' END)::sexo_mascota,
+  (ARRAY['Pequeño','Mediano','Grande'])[1 + (g % 3)]::tamano_mascota,
   'Descripción de prueba generada por el seed para la mascota número ' || g || '.',
   'Sano',
   (ARRAY['Bethania','Tocumen','Arraiján','El Cangrejo','Albrook','Clayton'])[1 + (g % 6)],

@@ -130,24 +130,27 @@ CREATE TRIGGER trg_mascotas_updated BEFORE UPDATE ON mascotas
 
 -- ============ espejo auth.users -> usuarios ============
 -- Crea la fila en usuarios al registrarse; el tipo y nombre llegan en user_metadata.
-CREATE OR REPLACE FUNCTION handle_new_user() RETURNS trigger AS $$
-DECLARE v_tipo tipo_usuario := 'persona';
+-- NOTA: SECURITY DEFINER + SET search_path = public + nombres calificados son
+-- obligatorios: GoTrue invoca el trigger con un search_path sin `public`.
+CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_tipo public.tipo_usuario := 'persona';
 BEGIN
   IF (NEW.raw_user_meta_data ->> 'tipo_usuario') = 'organizacion' THEN v_tipo := 'organizacion'; END IF;
-  INSERT INTO usuarios (id, correo, tipo_usuario)
+  INSERT INTO public.usuarios (id, correo, tipo_usuario)
   VALUES (NEW.id, NEW.email, v_tipo)
   ON CONFLICT (id) DO NOTHING;
   IF v_tipo = 'persona' THEN
-    INSERT INTO personas (id, nombre)
+    INSERT INTO public.personas (id, nombre)
     VALUES (NEW.id, coalesce(NEW.raw_user_meta_data ->> 'nombre', split_part(NEW.email, '@', 1)))
     ON CONFLICT (id) DO NOTHING;
   ELSE
-    INSERT INTO organizaciones (id, nombre_oficial, direccion)
+    INSERT INTO public.organizaciones (id, nombre_oficial, direccion)
     VALUES (NEW.id, coalesce(NEW.raw_user_meta_data ->> 'nombre', split_part(NEW.email, '@', 1)), 'Panamá')
     ON CONFLICT (id) DO NOTHING;
   END IF;
   RETURN NEW;
-END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+END; $$;
 DROP TRIGGER IF EXISTS trg_new_user ON auth.users;
 CREATE TRIGGER trg_new_user AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
