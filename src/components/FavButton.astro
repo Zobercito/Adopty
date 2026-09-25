@@ -1,9 +1,7 @@
 ---
 /**
- * FavButton — corazón ♥ con migración localStorage → DB (Fase 1).
- * - Sin login: guarda en `adopty_favs` (comportamiento mockup) y redirige a /login?next= al hacer clic.
- * - Con login + id UUID: POST/DELETE /api/favoritos.
- * - Con login + id mock (no-UUID): sigue en localStorage + intenta migrar lo migrable al montar.
+ * FavButton — ♥ con migración localStorage → DB (Fase 1) + delegación de eventos,
+ * para que siga funcionando en cards inyectadas por JS (Fase 3, filtros client-side).
  */
 interface Props { id: string; nombre: string; }
 const { id, nombre } = Astro.props as Props;
@@ -16,52 +14,82 @@ const { id, nombre } = Astro.props as Props;
   title="Guardar en favoritos"
   class="text-gray-300 text-xl hover:scale-110 transition-transform"
 >♥</button>
-<script define:vars={{ id }}>
-  (function () {
-    const btn = document.querySelector(`[data-fav-btn="${id}"]`);
-    if (!btn) return;
-    const KEY = 'adopty_favs';
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    const getLocal = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
-    const setLocal = (f) => localStorage.setItem(KEY, JSON.stringify(f));
-    const paint = (on) => {
-      btn.setAttribute('aria-pressed', String(on));
-      btn.style.color = on ? '#FF7A29' : '';
-    };
-    // Estado inicial: local (Fase 0). Si es UUID, reconciliar con DB en segundo plano.
-    paint(getLocal().includes(id));
-    if (isUuid) {
-      fetch('/api/favoritos').then((r) => (r.ok ? r.json() : null)).then((d) => {
-        if (!d) return;
-        const inDb = (d.favoritos || []).includes(id);
-        // Migración: lo que haya en local con formato UUID se sube una vez.
-        const pending = getLocal().filter((x) => /^[0-9a-f-]{36}$/i.test(x));
-        pending.forEach((mid) => fetch('/api/favoritos', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_mascota: mid }),
-        }).catch(() => {}));
-        if (pending.length) setLocal(getLocal().filter((x) => !/^[0-9a-f-]{36}$/i.test(x) || x === id));
-        paint(inDb || getLocal().includes(id));
-      }).catch(() => {});
+<script>
+  // Delegación única a nivel documento: válida para todos los botones, presentes o futuros.
+  type FavBtn = HTMLElement & { dataset: { favBtn: string } };
+  const KEY = 'adopty_favs';
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const getLocal = (): string[] => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
+  const setLocal = (f: string[]) => localStorage.setItem(KEY, JSON.stringify(f));
+  const paint = (btn: FavBtn, on: boolean) => {
+    btn.setAttribute('aria-pressed', String(on));
+    btn.style.color = on ? '#FF7A29' : '';
+  };
+  // caché compartido: una sola petición de DB por página
+  let dbPromise: Promise<string[]> | null = null;
+  const dbFavs = (): Promise<string[]> => {
+    if (!dbPromise) {
+      dbPromise = fetch('/api/favoritos')
+        .then((r) => (r.ok ? r.json() : { favoritos: [] }))
+        .then((d) => (d.favoritos || []) as string[])
+        .catch(() => []);
     }
-    btn.addEventListener('click', async () => {
-      const local = getLocal();
-      const on = local.includes(id);
-      if (!isUuid) {
-        // Mock Fase 0: solo local + aviso para loguearse si quiere persistencia real.
-        const next = on ? local.filter((x) => x !== id) : [...local, id];
-        setLocal(next); paint(!on);
-        return;
+    return dbPromise;
+  };
+
+  async function init(btn: FavBtn) {
+    const id = btn.dataset.favBtn;
+    if (UUID.test(id)) {
+      const favoritos = await dbFavs();
+      paint(btn, favoritos.includes(id) || getLocal().includes(id));
+      // migración puntual de ids UUID locales → DB
+      const pendientes = getLocal().filter((x) => UUID.test(x) && !favoritos.includes(x));
+      for (const mid of pendientes) {
+        await fetch('/api/favoritos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_mascota: mid }),
+        }).catch(() => {});
       }
-      const res = on
-        ? await fetch(`/api/favoritos?id_mascota=${id}`, { method: 'DELETE' })
-        : await fetch('/api/favoritos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_mascota: id }) });
-      if (res.status === 401) {
-        if (!on) setLocal([...local, id]); // guarda intención y retoma tras login (?next=)
-        location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
-        return;
-      }
-      if (res.ok) { paint(!on); setLocal(local.filter((x) => x !== id)); }
+      if (pendientes.length) setLocal(getLocal().filter((x) => !UUID.test(x)));
+    } else {
+      paint(btn, getLocal().includes(id));
+    }
+  }
+
+  async function toggle(btn: FavBtn) {
+    const id = btn.dataset.favBtn;
+    const local = getLocal();
+    const on = local.includes(id);
+    if (!UUID.test(id)) {
+      // catálogo demo (Fase 0): solo local
+      setLocal(on ? local.filter((x) => x !== id) : [...local, id]);
+      paint(btn, !on);
+      return;
+    }
+    const res = on
+      ? await fetch(`/api/favoritos?id_mascota=${id}`, { method: 'DELETE' })
+      : await fetch('/api/favoritos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_mascota: id }),
+        });
+    if (res.status === 401) {
+      if (!on) setLocal([...local, id]); // intención guardada; retoma con ?next=
+      location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+      return;
+    }
+    if (res.ok) { paint(btn, !on); setLocal(local.filter((x) => x !== id)); }
+  }
+
+  if (!(window as unknown as Record<string, unknown>).__adoptyFav) {
+    (window as unknown as Record<string, unknown>).__adoptyFav = true;
+    document.addEventListener('click', (e) => {
+      const t = (e.target as Element | null)?.closest?.('[data-fav-btn]') as FavBtn | null;
+      if (t) void toggle(t);
     });
-  })();
+  }
+  document.querySelectorAll<FavBtn>('[data-fav-btn]').forEach((b) => void init(b));
+  // llamable desde scripts que inyectan cards (explorar Fase 3)
+  (window as unknown as { adoptyFavInit?: (b: FavBtn) => void }).adoptyFavInit = init;
 </script>

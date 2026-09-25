@@ -1,70 +1,226 @@
 ---
-export const prerender = true;
+export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
-import Badge from '../components/Badge.astro';
-import FavButton from '../components/FavButton.astro';
-import { PETS } from '../data/mockPets';
+import PetCard from '../components/PetCard.astro';
+import { supabaseServer } from '../lib/supabase';
+import { buscarMascotas, edadLabel, paramsFrom, type ResultadoBusqueda } from '../lib/mascotas';
 
-// SSR: lee query params para URL compartible (?especie=&q=&tamano=) — Fase 3 lo moverá a /api + Supabase.
-const especie = (Astro.url.searchParams.get('especie') ?? '').toLowerCase();
-const q = (Astro.url.searchParams.get('q') ?? '').toLowerCase();
-const tamano = Astro.url.searchParams.get('tamano') ?? '';
-
-const resultados = PETS.filter((p) => {
-  if (especie && especie !== 'todas' && p.especie !== especie) return false;
-  if (tamano && p.tamano !== tamano) return false;
-  if (q && !(p.nombre + p.raza + p.ubicacion).toLowerCase().includes(q)) return false;
-  return true;
-});
+// Fase 3: SSR con DB (URL compartible reproduce resultados) + refetch client-side
+// con skeletons para no recargar la página al filtrar.
+const b = paramsFrom(Astro.url.searchParams);
+let resultado: ResultadoBusqueda | null = null;
+let errorMsg = '';
+try {
+  resultado = await buscarMascotas(supabaseServer(Astro.cookies), b);
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error al buscar';
+}
+const { especie = '', tamano = '', sexo = '', q = '', orden = 'recientes' } = b;
+const spec: { val: string; label: string }[] = [
+  { val: '', label: 'Todas' },
+  { val: 'perro', label: 'Perros' },
+  { val: 'gato', label: 'Gatos' },
+  { val: 'otro', label: 'Otros' },
+];
 ---
-<Layout title="Adopty — Explorar mascotas">
+<Layout title="Adopty — Explorar mascotas en Panamá" description="Busca perros, gatos y otras mascotas en adopción por especie, tamaño, ubicación o nombre.">
   <Navbar active="explorar" />
   <div class="max-w-6xl mx-auto px-4 mt-6 grid lg:grid-cols-[280px_1fr] gap-5">
     <aside class="soft-card p-6 h-fit lg:sticky lg:top-24" aria-label="Filtros de búsqueda">
       <h2 class="font-display font-extrabold text-lg" style="color:#1E293B">Filtros</h2>
-      <form method="get" action="/explorar">
-        <label class="sr-only" for="q">Buscar por nombre, raza o ubicación</label>
-        <input id="q" name="q" value={Astro.url.searchParams.get('q') ?? ''} class="input-soft mt-3 text-sm" placeholder="Buscar: nombre, raza..." />
-        <p class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide">Especie</p>
-        <div class="flex flex-wrap gap-2" role="group" aria-label="Especie">
-          <button type="submit" name="especie" value="" class={`chip ${!especie ? 'active' : ''}`}>Todas</button>
-          <button type="submit" name="especie" value="perro" class={`chip ${especie === 'perro' ? 'active' : ''}`}>Perros</button>
-          <button type="submit" name="especie" value="gato" class={`chip ${especie === 'gato' ? 'active' : ''}`}>Gatos</button>
-          <button type="submit" name="especie" value="otro" class={`chip ${especie === 'otro' ? 'active' : ''}`}>Otros</button>
+      <form id="filtros" method="get" action="/explorar">
+        <label class="text-xs font-bold uppercase tracking-wide block mt-3" for="q">Buscar</label>
+        <input id="q" name="q" value={q} class="input-soft mt-1 text-sm" placeholder="Nombre, raza, ubicación..." />
+        <p class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide" id="lblEspecie">Especie</p>
+        <div class="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="lblEspecie">
+          {spec.map((s) => (
+            <label class="chip">
+              <input type="radio" name="especie" value={s.val} class="sr-only" checked={especie === s.val} />
+              {s.label}
+            </label>
+          ))}
         </div>
         <label class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide block" for="tamano">Tamaño</label>
-        <select id="tamano" name="tamano" class="input-soft mt-1 text-sm" onchange="this.form.submit()">
-          <option value="">Todos los tamaños</option>
-          <option selected={tamano === 'Pequeño'}>Pequeño</option>
-          <option selected={tamano === 'Mediano'}>Mediano</option>
-          <option selected={tamano === 'Grande'}>Grande</option>
+        <select id="tamano" name="tamano" class="input-soft mt-1 text-sm">
+          <option value="">Todos</option>
+          <option value="Pequeño" selected={tamano === 'Pequeño'}>Pequeño</option>
+          <option value="Mediano" selected={tamano === 'Mediano'}>Mediano</option>
+          <option value="Grande" selected={tamano === 'Grande'}>Grande</option>
         </select>
-        <button class="btn-primary w-full mt-5 py-3 text-sm" type="submit">Aplicar filtros</button>
-        <a href="/explorar" class="w-full text-xs mt-2 text-gray-400 hover:underline block text-center">Limpiar</a>
+        <label class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide block" for="sexo">Sexo</label>
+        <select id="sexo" name="sexo" class="input-soft mt-1 text-sm">
+          <option value="">Todos</option>
+          <option value="Macho" selected={sexo === 'Macho'}>Macho</option>
+          <option value="Hembra" selected={sexo === 'Hembra'}>Hembra</option>
+        </select>
+        <label class="text-xs font-bold mt-4 mb-2 uppercase tracking-wide block" for="orden">Ordenar</label>
+        <select id="orden" name="orden" class="input-soft mt-1 text-sm">
+          <option value="recientes" selected={orden === 'recientes'}>Más recientes</option>
+          <option value="antiguos" selected={orden === 'antiguos'}>Más antiguos</option>
+        </select>
+        <button id="aplicar" class="btn-primary w-full mt-5 py-3 text-sm" type="submit">Aplicar filtros</button>
+        <a href="/explorar" class="w-full text-xs mt-2 text-gray-400 hover:underline block text-center">Limpiar todo</a>
       </form>
-      <p class="text-xs mt-4 text-gray-400">Fase 0: filtros por URL (?especie=&amp;q=) sin backend. URL copiable.</p>
+      <p class="text-xs mt-4 text-gray-400">La URL se actualiza: cópiala para compartir tu búsqueda.</p>
     </aside>
 
     <main>
-      <p class="text-sm" role="status">{resultados.length} mascotas encontradas</p>
-      <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-4">
-        {resultados.map((p) => (
-          <article class="soft-card overflow-hidden">
-            <div class={`pet-photo ${p.grad} w-full h-48`}>
-              <img src={p.foto} alt={`${p.nombre} - ${p.raza}`} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />
-            </div>
-            <div class="p-5">
-              <div class="flex items-center justify-between"><Badge estado={p.estado} /><span class="flex items-center gap-2"><span class="text-xs">👁 {p.interesados}</span><FavButton id={p.id} nombre={p.nombre} /></span></div>
-              <h3 class="font-display font-bold mt-1" style="color:#1E293B">{p.nombre} <span class="text-sm font-medium text-gray-400">· {p.raza}</span></h3>
-              <p class="text-sm">{p.edad} · {p.sexo} · {p.tamano}</p>
-              <p class="text-xs mt-1">📍 {p.ubicacion}</p>
-              <span class="btn-primary text-sm px-5 py-2.5 block text-center mt-4 opacity-60" title="Detalle dinámico en Fase 2">Ver perfil</span>
+      <p id="count" class="text-sm" role="status">
+        {errorMsg ? 'Error al buscar' : `${resultado?.total ?? 0} mascotas encontradas`}{resultado && resultado.totalPages > 1 ? ` · página ${resultado.page} de ${resultado.totalPages}` : ''}
+      </p>
+
+      <!-- Skeleton (Fase 3) mientras llega el fetch de filtros -->
+      <div id="skeleton" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-4" hidden aria-hidden="true">
+        {Array.from({ length: 6 }).map(() => (
+          <article class="soft-card overflow-hidden animate-pulse">
+            <div class="h-52 bg-gray-200"></div>
+            <div class="p-5 space-y-3">
+              <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+              <div class="h-3 bg-gray-200 rounded w-2/3"></div>
             </div>
           </article>
         ))}
       </div>
-      {resultados.length === 0 && <p class="text-sm mt-4">Sin resultados. Prueba limpiar filtros.</p>}
+
+      <div id="grid" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-4" aria-busy="false">
+        {(resultado?.items ?? []).map((p) => (
+          <PetCard
+            id={p.id}
+            nombre={p.nombre}
+            raza={p.raza}
+            sexo={p.sexo}
+            tamano={p.tamano}
+            ubicacion={p.ubicacion}
+            estado={p.estado}
+            edadLabel={edadLabel(p.edad_meses)}
+            fotos={p.fotos}
+          />
+        ))}
+      </div>
+
+      <div id="empty" class={`soft-card p-8 mt-4 text-center ${resultado && resultado.items.length === 0 ? '' : 'hidden'}`}>
+        <p class="text-4xl" aria-hidden="true">🔍</p>
+        <p class="text-sm mt-2" id="emptyMsg">{errorMsg || 'Sin resultados con esos filtros. Prueba limpiar o probar otra combinación.'}</p>
+        <a href="/explorar" class="btn-ghost text-sm px-6 py-2.5 inline-block mt-4">Limpiar filtros</a>
+      </div>
+
+      <nav id="pager" class="flex items-center justify-between mt-6" aria-label="Paginación" hidden>
+        <a id="prev" href="/explorar" class="chip">← Anterior</a>
+        <span id="pageNum" class="text-sm"></span>
+        <a id="next" href="/explorar" class="chip">Siguiente →</a>
+      </nav>
     </main>
   </div>
+
+  <script define:vars={{ supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL }}>
+    const form = document.getElementById('filtros');
+    const grid = document.getElementById('grid');
+    const skeleton = document.getElementById('skeleton');
+    const empty = document.getElementById('empty');
+    const emptyMsg = document.getElementById('emptyMsg');
+    const count = document.getElementById('count');
+    const pager = document.getElementById('pager');
+    const prev = document.getElementById('prev');
+    const next = document.getElementById('next');
+    const pageNum = document.getElementById('pageNum');
+
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fotoUrl = (p) => (!p ? '' : p.startsWith('/') || p.startsWith('http') ? p : `${supabaseUrl}/storage/v1/object/public/mascotas/${p}`);
+    const gradFor = (id) => { let n = 0; for (let i = 0; i < id.length; i++) n = (n + id.charCodeAt(i)) % 6; return `pet-grad-${n + 1}`; };
+    const edadLabel = (m) => (m <= 0 ? 'Recién nacido' : m < 12 ? `${m} ${m === 1 ? 'mes' : 'meses'}` : `${Math.floor(m / 12)} ${Math.floor(m / 12) === 1 ? 'año' : 'años'}, ${m % 12 ? `${m % 12} meses` : ''}`.trim());
+    const badge = (e) => {
+      const cls = e === 'en_proceso' ? ['badge-proceso', '#F59E0B', 'En proceso'] : e === 'adoptada' ? ['badge-adoptada', '#6366F1', 'Adoptada'] : ['badge-disponible', '#10B981', 'Disponible'];
+      return `<span class="badge ${cls[0]}"><span class="dot" style="background:${cls[1]}"></span>${cls[2]}</span>`;
+    };
+    const card = (p) => {
+      const principal = [...(p.fotos || [])].sort((a, b) => (a.es_principal === b.es_principal ? a.orden - b.orden : a.es_principal ? -1 : 1))[0];
+      const foto = fotoUrl(principal?.url_foto);
+      return `<article class="soft-card overflow-hidden">
+        <a href="/mascota/${esc(p.id)}" aria-label="Ver perfil de ${esc(p.nombre)}">
+          <div class="pet-photo ${gradFor(p.id)} w-full h-52">${foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)} - ${esc(p.raza)}" loading="lazy" class="absolute inset-0 w-full h-full object-cover" style="object-position:center" onerror="this.remove()">` : ''}</div>
+        </a>
+        <div class="p-5">
+          <div class="flex items-center justify-between">${badge(p.estado)}
+            <button type="button" data-fav-btn="${esc(p.id)}" aria-label="Guardar ${esc(p.nombre)} en favoritos" aria-pressed="false" title="Guardar en favoritos" class="text-gray-300 text-xl hover:scale-110 transition-transform">♥</button></div>
+          <h3 class="font-display font-bold text-lg mt-2" style="color:#1E293B">${esc(p.nombre)} <span class="text-sm font-medium text-gray-400">· ${esc(p.raza)}</span></h3>
+          <p class="text-sm mt-1">${esc(edadLabel(p.edad_meses))} · ${esc(p.sexo)} · ${esc(p.ubicacion)}</p>
+          <div class="flex gap-2 mt-4"><a href="/mascota/${esc(p.id)}" class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a></div>
+        </div>
+      </article>`;
+    };
+
+    const estadoForm = () => {
+      const fd = new FormData(form);
+      const sp = new URLSearchParams();
+      for (const [k, v] of fd) if (v) sp.set(k, String(v));
+      return sp;
+    };
+    const pintaPager = (d, sp) => {
+      if (d.totalPages <= 1) { pager.hidden = true; return; }
+      pager.hidden = false;
+      pageNum.textContent = `Página ${d.page} de ${d.totalPages}`;
+      const url = (p) => { const c = new URLSearchParams(sp); c.set('page', String(p)); return `/explorar?${c}`; };
+      prev.href = url(Math.max(1, d.page - 1));
+      next.href = url(Math.min(d.totalPages, d.page + 1));
+      prev.style.visibility = d.page <= 1 ? 'hidden' : 'visible';
+      next.style.visibility = d.page >= d.totalPages ? 'hidden' : 'visible';
+    };
+
+    let cargando = false;
+    async function cargar(page, push = true) {
+      if (cargando) return;
+      cargando = true;
+      const sp = estadoForm();
+      sp.set('page', String(page));
+      if (push) history.pushState({ qs: sp.toString() }, '', `/explorar?${sp}`);
+      skeleton.hidden = false;
+      grid.hidden = true;
+      grid.setAttribute('aria-busy', 'true');
+      empty.classList.add('hidden');
+      pager.hidden = true;
+      try {
+        const res = await fetch(`/api/mascotas?${sp}`);
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Error de búsqueda');
+        grid.innerHTML = d.items.map(card).join('');
+        grid.querySelectorAll('[data-fav-btn]').forEach((b) => window.adoptyFavInit?.(b));
+        count.textContent = `${d.total} mascotas encontradas${d.totalPages > 1 ? ` · página ${d.page} de ${d.totalPages}` : ''}`;
+        if (d.items.length === 0) {
+          emptyMsg.textContent = 'Sin resultados con esos filtros. Prueba limpiar o probar otra combinación.';
+          empty.classList.remove('hidden');
+        }
+        pintaPager(d, sp);
+      } catch (e) {
+        emptyMsg.textContent = e.message || 'Error al buscar';
+        empty.classList.remove('hidden');
+        count.textContent = 'Error al buscar';
+      } finally {
+        skeleton.hidden = true;
+        grid.hidden = false;
+        grid.setAttribute('aria-busy', 'false');
+        cargando = false;
+      }
+    }
+
+    form.addEventListener('submit', (e) => { e.preventDefault(); cargar(1); });
+    form.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => form.requestSubmit()));
+    pager.addEventListener('click', (e) => {
+      const a = e.target.closest('a');
+      if (!a) return;
+      e.preventDefault();
+      cargar(Number(new URL(a.href).searchParams.get('page') || 1));
+    });
+    window.addEventListener('popstate', () => {
+      const sp = new URLSearchParams(location.search);
+      for (const el of form.elements) {
+        if (!el.name) continue;
+        const val = sp.get(el.name) ?? '';
+        if (el.type === 'radio' || el.type === 'checkbox') el.checked = el.value === val;
+        else el.value = val;
+      }
+      cargar(Number(sp.get('page') || 1), false);
+    });
+  </script>
 </Layout>

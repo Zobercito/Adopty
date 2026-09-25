@@ -1,25 +1,50 @@
 ---
 import Badge from './Badge.astro';
 import FavButton from './FavButton.astro';
-import type { Pet } from '../data/mockPets';
-interface Props { pet: Pet; }
-const { pet } = Astro.props as Props;
+import { estadoLabel, fotoUrl, gradFor, type FotoRow } from '../lib/mascotas';
+
+interface Props {
+  id: string;
+  nombre: string;
+  raza: string;
+  sexo: string;
+  tamano: string;
+  ubicacion: string;
+  estado: string;
+  edadLabel: string;
+  fotos?: FotoRow[];
+}
+const { id, nombre, raza, sexo, tamano, ubicacion, estado, edadLabel, fotos } = Astro.props as Props;
+const principal = [...(fotos ?? [])].sort((a, b) => (a.es_principal === b.es_principal ? a.orden - b.orden : a.es_principal ? -1 : 1))[0];
+const foto = fotoUrl(principal?.url_foto);
+const grad = gradFor(id);
 ---
 <article class="soft-card overflow-hidden">
-  <a href={`/explorar?q=${pet.id}`} aria-label={`Ver perfil de ${pet.nombre}`}>
-    <div class={`pet-photo ${pet.grad} w-full h-52`}>
-      <img src={pet.foto} alt={`${pet.nombre} - ${pet.raza}`} loading="lazy" class="absolute inset-0 w-full h-full object-cover" style="object-position:center" onerror="this.remove()" />
+  <a href={`/mascota/${id}`} aria-label={`Ver perfil de ${nombre}`}>
+    <div class={`pet-photo ${grad} w-full h-52`}>
+      {foto && (
+        <img
+          src={foto}
+          alt={`${nombre} - ${raza}`}
+          loading="lazy"
+          class="absolute inset-0 w-full h-full object-cover"
+          style="object-position:center"
+          onerror="this.remove()"
+        />
+      )}
     </div>
   </a>
   <div class="p-5">
     <div class="flex items-center justify-between">
-      <Badge estado={pet.estado} />
-      <FavButton id={pet.id} nombre={pet.nombre} />
+      <Badge estado={estadoLabel(estado)} />
+      <FavButton id={id} nombre={nombre} />
     </div>
-    <h3 class="font-display font-bold text-lg mt-2" style="color:#1E293B">{pet.nombre} <span class="text-sm font-medium text-gray-400">· {pet.raza}</span></h3>
-    <p class="text-sm mt-1">{pet.edad} · {pet.sexo} · {pet.ubicacion}</p>
+    <h3 class="font-display font-bold text-lg mt-2" style="color:#1E293B">
+      {nombre} <span class="text-sm font-medium text-gray-400">· {raza}</span>
+    </h3>
+    <p class="text-sm mt-1">{edadLabel} · {sexo} · {ubicacion}</p>
     <div class="flex gap-2 mt-4">
-      <a href="/explorar" class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a>
+      <a href={`/mascota/${id}`} class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a>
     </div>
   </div>
 </article>

@@ -68,10 +68,15 @@ h3,
   cursor: pointer;
   transition: 0.15s;
 }
-.chip.active {
+.chip.active,
+.chip:has(input:checked) {
   background: var(--color-ink);
   color: #fff;
   border-color: var(--color-ink);
+}
+.chip:has(input:focus-visible) {
+  outline: 3px solid var(--color-teal-adopty);
+  outline-offset: 2px;
 }
 .input-soft {
   background: #f8fafc;

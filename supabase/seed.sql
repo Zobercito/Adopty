@@ -5,18 +5,28 @@
 -- Publicadores demo: se crean como usuarios REALES de auth.users (password: Adopty123!
 -- SOLO para pruebas locales/piloto — cambiar o borrar antes de producción).
 -- El trigger handle_new_user crea las filas espejo en usuarios/personas/organizaciones.
+-- IMPORTANTE: TODAS las columnas token de auth.users deben ir en '' y nunca NULL —
+-- GoTrue (v2.197) las escanea como string y NULL provoca 500 "Database error querying
+-- schema" en login/recuperación (supabase/docs + auth#1940).
 INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token)
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token)
 VALUES
   ('00000000-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111',
    'authenticated', 'authenticated', 'patitas@adopty.pa', crypt('Adopty123!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}',
-   '{"tipo_usuario":"organizacion","nombre":"Refugio Patitas Felices"}', now(), now(), '', ''),
+   '{"tipo_usuario":"organizacion","nombre":"Refugio Patitas Felices"}', now(), now(),
+   '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222',
    'authenticated', 'authenticated', 'rescatista@adopty.pa', crypt('Adopty123!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}',
-   '{"tipo_usuario":"persona","nombre":"Eira R. (rescatista)"}', now(), now(), '', '')
-ON CONFLICT (id) DO NOTHING;
+   '{"tipo_usuario":"persona","nombre":"Eira R. (rescatista)"}', now(), now(),
+   '', '', '', '', '', '', '', '')
+ON CONFLICT (id) DO UPDATE SET
+  confirmation_token = '', recovery_token = '', email_change = '',
+  email_change_token_new = '', email_change_token_current = '',
+  phone_change = '', phone_change_token = '', reauthentication_token = '';
 
 -- GoTrue exige una fila en auth.identities para el signIn (proveedor email)
 INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)

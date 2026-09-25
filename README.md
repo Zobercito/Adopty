@@ -1,4 +1,4 @@
-# Adopty — Fase 0 + 1 (Astro base + Auth Supabase)
+# Adopty — Fase 0 + 1 + 2 + 3 (base + Auth + CRUD mascotas + búsqueda DB)
 
 Plataforma web centralizada de adopción de mascotas en Panamá. Plan completo en `../PLAN_DESARROLLO_ADOPTY.md`.
 
@@ -27,9 +27,10 @@ supabase start   # API 54321 · DB 54322 · Studio 54323 · Inbucket 54324
 supabase db reset  # aplica migrations + seed.sql (30 mascotas, 2 usuarios demo: patitas@adopty.pa / rescatista@adopty.pa / Adopty123!)
 ```
 
-Rutas: `/` (hero + destacadas), `/explorar?especie=perro&q=luna&tamano=Pequeño` (filtros URL, aún mock — Fase 3 lo pasa a DB),
+Rutas: `/` (hero + destacadas desde DB con fallback demo), `/explorar?especie=gato&tamano=Pequeño&q=bethania&orden=recientes&page=1` (SSR + refetch con skeletons),
+`/mascota/[id]` (carrusel accesible + publicador + disclaimer legal), `/mascota/nueva`, `/mascota/[id]/editar` (con soft-delete),
 `/login`, `/register` (email + botón Google → `/api/auth/google`), `/recuperar`, `/perfil` (editable persona/org),
-`/favoritos` (DB + migración `adopty_favs` localStorage), `/api/auth/*`, `/api/favoritos`, `/api/perfil`.
+`/favoritos` (DB + migración `adopty_favs` localStorage), `/api/auth/*`, `/api/favoritos`, `/api/perfil`, `/api/mascotas*`.
 
 Google OAuth: **quedó decidido (24 sep) posponerlo al final (F8)** — el código ya existe (`/api/auth/google` + botones + `config.toml`), solo faltará activar credencial Google Cloud → Supabase → redirects de prod. Hasta entonces el botón muestra `/login?error=oauth` y el correo funciona 100%.
 

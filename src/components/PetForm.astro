@@ -1,0 +1,223 @@
+---
+import { fotoUrl, type FotoRow, type MascotaRow } from '../lib/mascotas';
+
+interface Props {
+  mode: 'create' | 'edit';
+  pet?: MascotaRow & { fotos?: FotoRow[] };
+}
+const { mode, pet } = Astro.props as Props;
+const fotos = [...(pet?.fotos ?? [])];
+const nuevo = mode === 'create';
+---
+<form id="petForm" class="grid gap-4">
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="nombre">Nombre</label>
+      <input id="nombre" name="nombre" required minlength="2" maxlength="60" value={pet?.nombre ?? ''} class="input-soft mt-1 text-sm" />
+    </div>
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="raza">Raza</label>
+      <input id="raza" name="raza" required minlength="2" maxlength="80" value={pet?.raza ?? ''} class="input-soft mt-1 text-sm" placeholder="Ej. Labrador mix, Criollo..." />
+    </div>
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="especie">Especie</label>
+      <select id="especie" name="especie" class="input-soft mt-1 text-sm">
+        <option value="perro" selected={pet?.especie === 'perro' || !pet}>Perro</option>
+        <option value="gato" selected={pet?.especie === 'gato'}>Gato</option>
+        <option value="otro" selected={pet?.especie === 'otro'}>Otro</option>
+      </select>
+    </div>
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="edad_meses">Edad en meses</label>
+      <input id="edad_meses" name="edad_meses" type="number" required min="0" max="360" step="1" value={pet?.edad_meses ?? ''} class="input-soft mt-1 text-sm" aria-describedby="edadHint" />
+      <p id="edadHint" class="text-xs mt-1 text-gray-400">0–360 meses (ej. 18 = 1 año, 6 meses)</p>
+    </div>
+    <fieldset>
+      <legend class="text-xs font-bold uppercase tracking-wide">Sexo</legend>
+      <div class="flex gap-2 mt-1">
+        <label class="chip cursor-pointer"><input type="radio" name="sexo" value="Macho" checked={pet?.sexo === 'Macho' || !pet} class="accent-orange-500" /> Macho</label>
+        <label class="chip cursor-pointer"><input type="radio" name="sexo" value="Hembra" checked={pet?.sexo === 'Hembra'} class="accent-orange-500" /> Hembra</label>
+      </div>
+    </fieldset>
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="tamano">Tamaño</label>
+      <select id="tamano" name="tamano" class="input-soft mt-1 text-sm">
+        <option value="Pequeño" selected={pet?.tamano === 'Pequeño' || !pet}>Pequeño</option>
+        <option value="Mediano" selected={pet?.tamano === 'Mediano'}>Mediano</option>
+        <option value="Grande" selected={pet?.tamano === 'Grande'}>Grande</option>
+      </select>
+    </div>
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="ubicacion">Ubicación (corregimiento / ciudad)</label>
+      <input id="ubicacion" name="ubicacion" required minlength="2" maxlength="120" value={pet?.ubicacion ?? ''} class="input-soft mt-1 text-sm" placeholder="Ej. Bethania, Ciudad de Panamá" />
+    </div>
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="estado_salud">Estado de salud (opcional)</label>
+      <input id="estado_salud" name="estado_salud" maxlength="500" value={pet?.estado_salud ?? ''} class="input-soft mt-1 text-sm" placeholder="Ej. Vacunado y desparasitado" />
+    </div>
+  </div>
+
+  <div>
+    <label class="text-xs font-bold uppercase tracking-wide" for="descripcion">Descripción (personalidad, ideal para...)</label>
+    <textarea id="descripcion" name="descripcion" required minlength="10" maxlength="2000" rows="4" class="input-soft mt-1 text-sm" placeholder="Cómo es su carácter, convive con niños/otros animales, necesidades...">{pet?.descripcion ?? ''}</textarea>
+    <p class="text-xs mt-1 text-gray-400">10–2000 caracteres</p>
+  </div>
+
+  {!nuevo && (
+    <div>
+      <label class="text-xs font-bold uppercase tracking-wide" for="estado">Estado</label>
+      <select id="estado" name="estado" class="input-soft mt-1 text-sm">
+        <option value="disponible" selected={!pet || pet.estado === 'disponible'}>Disponible</option>
+        <option value="en_proceso" selected={pet?.estado === 'en_proceso'}>En proceso de adopción</option>
+        <option value="adoptada" selected={pet?.estado === 'adoptada'}>Adoptada</option>
+      </select>
+    </div>
+  )}
+
+  {fotos.length > 0 && (
+    <fieldset>
+      <legend class="text-xs font-bold uppercase tracking-wide">Fotos actuales (desmarca para eliminar)</legend>
+      <div class="flex flex-wrap gap-3 mt-2">
+        {fotos.map((f, i) => (
+          <label class="flex flex-col items-center gap-1 text-xs border border-gray-200 rounded-xl p-2 cursor-pointer">
+            <input type="checkbox" data-keep="1" value={f.url_foto} checked class="accent-orange-500" />
+            <img src={fotoUrl(f.url_foto)} alt={`Foto ${i + 1} de ${pet?.nombre}`} width="64" height="64" class="w-16 h-16 rounded-lg object-cover bg-gray-100" onerror="this.remove()" />
+            <span>{i + 1}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )}
+
+  <div>
+    <label class="text-xs font-bold uppercase tracking-wide" for="fotos">Nuevas fotos (JPEG/PNG/WebP · máx. 5 MB c/u · 1–5 total)</label>
+    <input id="fotos" name="fotos" type="file" accept="image/jpeg,image/png,image/webp" multiple class="input-soft mt-1 text-sm file:mr-3 file:btn-primary file:border-0 file:px-4 file:py-2 file:text-sm" aria-describedby="fotosHint" />
+    <p id="fotosHint" class="text-xs mt-1 text-gray-400">Se comprimen a WebP ≤500 KB en tu navegador y el servidor las revalida.</p>
+    <ul id="preview" class="flex flex-wrap gap-2 mt-2" aria-live="polite"></ul>
+  </div>
+
+  <p id="err" class="text-sm font-semibold hidden" style="color:#B45309" role="alert"></p>
+
+  <button id="petSubmit" class="btn-primary py-3 text-sm" type="submit">{nuevo ? 'Publicar mascota' : 'Guardar cambios'}</button>
+</form>
+<script define:vars={{ mode, petId: pet?.id ?? '', existingCount: fotos.length }}>
+  const form = document.getElementById('petForm');
+  const errEl = document.getElementById('err');
+  const btn = document.getElementById('petSubmit');
+  const fotosInput = document.getElementById('fotos');
+  const preview = document.getElementById('preview');
+
+  const mostrarErr = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+  fotosInput.addEventListener('change', () => {
+    preview.innerHTML = '';
+    for (const file of fotosInput.files) {
+      const li = document.createElement('li');
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.alt = file.name;
+      img.className = 'w-16 h-16 rounded-lg object-cover bg-gray-100';
+      img.onload = () => URL.revokeObjectURL(img.src);
+      li.appendChild(img);
+      preview.appendChild(li);
+    }
+  });
+
+  async function cargarImagen(file) {
+    if (window.createImageBitmap) {
+      try { return await createImageBitmap(file); } catch { /* fallback */ }
+    }
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagen inválida')); };
+      img.src = url;
+    });
+  }
+
+  // Client-side compression: WebP ≤500KB (el servidor revalida con sharp)
+  async function comprimir(file) {
+    if (file.type === 'image/webp' && file.size <= 480 * 1024) return file;
+    const img = await cargarImagen(file);
+    const max = 1600;
+    const escala = Math.min(1, max / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * escala));
+    canvas.height = Math.max(1, Math.round(img.height * escala));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    let ultimo = null;
+    for (const q of [0.85, 0.7, 0.55, 0.4]) {
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/webp', q));
+      if (!blob) throw new Error('No se pudo procesar una imagen');
+      ultimo = blob;
+      if (blob.size <= 500 * 1024) return blob;
+    }
+    return ultimo;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.classList.add('hidden');
+    if (!form.reportValidity()) return;
+    const fd = new FormData(form);
+    const nuevos = [...fotosInput.files];
+    const keeps = [...form.querySelectorAll('[data-keep]:checked')].map((c) => c.value);
+    try {
+      if (mode === 'create' && nuevos.length < 1) throw 'Sube al menos 1 foto';
+      if (nuevos.length + keeps.length > 5) throw 'Máximo 5 fotos en total';
+      if (mode === 'edit' && nuevos.length + keeps.length < 1) throw 'Debe quedar al menos 1 foto';
+      const payload = {
+        nombre: fd.get('nombre'),
+        raza: fd.get('raza'),
+        especie: fd.get('especie'),
+        edad_meses: Number(fd.get('edad_meses')),
+        sexo: fd.get('sexo'),
+        tamano: fd.get('tamano'),
+        ubicacion: fd.get('ubicacion'),
+        estado_salud: fd.get('estado_salud') || '',
+        descripcion: fd.get('descripcion'),
+        ...(mode === 'edit' ? { estado: fd.get('estado') || 'disponible' } : {}),
+      };
+
+      btn.disabled = true;
+      btn.textContent = nuevos.length ? 'Subiendo fotos…' : 'Guardando…';
+      let paths = [];
+      if (nuevos.length) {
+        const formFotos = new FormData();
+        for (const file of nuevos) {
+          const blob = await comprimir(file);
+          formFotos.append('fotos', blob, 'foto.webp');
+        }
+        const res = await fetch('/api/mascotas/upload', { method: 'POST', body: formFotos });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw data.error || 'Error al subir fotos';
+        paths = data.paths;
+      }
+
+      let res;
+      if (mode === 'create') {
+        res = await fetch('/api/mascotas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, fotos: paths }),
+        });
+      } else {
+        const tocarFotos = nuevos.length > 0 || keeps.length !== existingCount;
+        const body = tocarFotos ? { ...payload, fotos_keep: keeps, fotos_new: paths } : payload;
+        res = await fetch(`/api/mascotas/${petId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw data.error || 'Error al guardar';
+      location.href = mode === 'create' ? `/mascota/${data.id}` : `/mascota/${petId}`;
+    } catch (msg) {
+      mostrarErr(typeof msg === 'string' ? msg : msg?.message || 'Error inesperado');
+      btn.disabled = false;
+      btn.textContent = mode === 'create' ? 'Publicar mascota' : 'Guardar cambios';
+    }
+  });
+</script>
