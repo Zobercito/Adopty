@@ -153,13 +153,10 @@ max_indexes = 5
 
 [auth]
 enabled = true
-# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-site_url = "http://127.0.0.1:3000"
-# The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
-# external_url = ""
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Base del sitio. 4321 = `astro dev` por defecto. En cloud se sobreescribe en Dashboard.
+site_url = "http://127.0.0.1:4321"
+# URLs exactas permitidas post-auth (local + callback SSR + previews Vercel).
+additional_redirect_urls = ["http://127.0.0.1:4321", "http://localhost:4321", "http://127.0.0.1:4321/api/auth/callback", "http://localhost:4321/api/auth/callback"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -178,7 +175,8 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# Adopty exige mín. 8 en Zod (registerSchema) — se alinea el servidor local.
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -318,6 +316,15 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+# Adopty Fase 1 — Google OAuth. Activar en local exportando las env vars de abajo
+# (en Supabase Cloud se configura en Dashboard → Auth → Providers → Google).
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# Necesario para sign-in local con Google (nonce check de GoTrue).
+skip_nonce_check = true
+email_optional = false
 [auth.external.apple]
 enabled = false
 client_id = ""

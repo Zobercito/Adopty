@@ -6,7 +6,9 @@ export const prerender = false;
 
 /** POST /api/auth/recuperar — envía email de recuperación (link vuelve al callback). */
 export const POST: APIRoute = async ({ request, cookies, url }) => {
-  const parsed = z.object({ correo: z.string().email() }).safeParse(await request.json().catch(() => null));
+  const parsed = z
+    .object({ correo: z.string().email() })
+    .safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Correo inválido' }, { status: 400 });
   const supabase = supabaseServer(cookies);
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.correo, {

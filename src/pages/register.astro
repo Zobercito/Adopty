@@ -11,6 +11,10 @@ if (Astro.locals.user) return Astro.redirect('/perfil');
     <div class="soft-card p-8">
       <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Crear cuenta</h1>
       <p class="text-sm mt-1">¿Ya tienes? <a href="/login" class="font-bold" style="color:#14A098">Entra</a></p>
+      <a href="/api/auth/google?next=/perfil" class="btn-ghost w-full py-2.5 text-sm mt-4 block text-center" aria-label="Registrarme con Google">
+        <span aria-hidden="true">G&nbsp;</span>Registrarme con Google
+      </a>
+      <div class="flex items-center gap-3 mt-4" aria-hidden="true"><hr class="flex-1 border-gray-200" /><span class="text-xs text-gray-400">o con correo</span><hr class="flex-1 border-gray-200" /></div>
       <p id="err" class="text-sm mt-3 font-semibold hidden" style="color:#B45309" role="alert"></p>
       <p id="ok" class="text-sm mt-3 font-semibold hidden" style="color:#065F46" role="status"></p>
       <form id="regForm" class="mt-5 grid gap-3">

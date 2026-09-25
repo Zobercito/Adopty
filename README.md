@@ -1,32 +1,49 @@
-# Adopty — Fase 0 (Astro base + mock)
+# Adopty — Fase 0 + 1 (Astro base + Auth Supabase)
 
 Plataforma web centralizada de adopción de mascotas en Panamá. Plan completo en `../PLAN_DESARROLLO_ADOPTY.md`.
 
 ## Stack
-Astro v7 + TypeScript strict + Tailwind CSS v4 + (Fase 1: Supabase) + Vercel.
+
+Astro v7 + TypeScript strict + Tailwind CSS v4 + Supabase (Postgres + Auth + Storage) + Vercel.
 
 > Nota: el plan pedía Astro v4; se scaffoldó con la última estable (v7) — misma arquitectura Islands.
 
-## Correr (Fase 0)
+## Correr (Fase 0 + 1)
+
 ```sh
 cd adopty
-npm install --min-release-age=0   # el registry del entorno exige este flag por min-release-age=7
+cp .env.example .env   # llena PUBLIC_SUPABASE_URL / ANON_KEY (supabase start → 127.0.0.1:54321)
+npm install
 npm run dev        # http://localhost:4321
-npm run build      # build estático verde = criterio de aceptación Fase 0
+npm run build      # verde = criterio Fase 0
+npm run lint       # ESLint plano sin plugins (Fase 0)
+npm run format:check
 ```
 
-Rutas: `/` (hero + destacadas), `/explorar?especie=perro&q=luna&tamano=Pequeño` (filtros por URL, datos de `src/data/mockPets.ts`).
+Supabase local:
+
+```sh
+supabase start   # API 54321 · DB 54322 · Studio 54323 · Inbucket 54324
+supabase db reset  # aplica migrations + seed.sql (30 mascotas, 2 usuarios demo: patitas@adopty.pa / rescatista@adopty.pa / Adopty123!)
+```
+
+Rutas: `/` (hero + destacadas), `/explorar?especie=perro&q=luna&tamano=Pequeño` (filtros URL, aún mock — Fase 3 lo pasa a DB),
+`/login`, `/register` (email + botón Google → `/api/auth/google`), `/recuperar`, `/perfil` (editable persona/org),
+`/favoritos` (DB + migración `adopty_favs` localStorage), `/api/auth/*`, `/api/favoritos`, `/api/perfil`.
+
+Google OAuth: **quedó decidido (24 sep) posponerlo al final (F8)** — el código ya existe (`/api/auth/google` + botones + `config.toml`), solo faltará activar credencial Google Cloud → Supabase → redirects de prod. Hasta entonces el botón muestra `/login?error=oauth` y el correo funciona 100%.
 
 ## Estructura
+
 ```
-src/pages/{index,explorar}.astro
-src/components/{Navbar,PetCard,Badge}.astro
-src/layouts/Layout.astro
-src/data/mockPets.ts   # temporal, se reemplaza por Supabase en Fase 1
-src/styles/global.css  # tokens portados de adopty-mockup/css/extras.css
-public/assets/         # fotos + logo copiados del mockup
-supabase/migrations/   # (Fase 1: 001_schema.sql, 002_rls.sql, 003_storage.sql)
+src/pages/{index,explorar,login,register,recuperar,perfil,favoritos,404}.astro
+src/pages/api/{perfil,favoritos,auth/{login,register,logout,callback,recuperar,google}}.ts
+src/components/{Navbar,PetCard,Badge,FavButton}.astro
+src/lib/{supabase.ts,validation/user.ts}
+src/data/mockPets.ts   # temporal, se reemplaza por Supabase en Fase 2/3
+supabase/{migrations/001_schema+002_rls+003_storage.sql,seed.sql}
 ```
 
 ## Equipo
+
 Francisco Gonzalez · Eira Arrocha — Ing. Software II, Prof. Leovigildo Bosquez Barria.

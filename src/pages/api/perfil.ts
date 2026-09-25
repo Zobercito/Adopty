@@ -12,7 +12,11 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
-  const { data: perfil } = await supabase.from('usuarios').select('tipo_usuario').eq('id', user.id).single();
+  const { data: perfil } = await supabase
+    .from('usuarios')
+    .select('tipo_usuario')
+    .eq('id', user.id)
+    .single();
   if (!perfil) return Response.json({ error: 'Perfil no encontrado' }, { status: 404 });
 
   const body = await request.json().catch(() => null);

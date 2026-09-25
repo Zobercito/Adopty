@@ -1,5 +1,6 @@
 ---
 import Badge from './Badge.astro';
+import FavButton from './FavButton.astro';
 import type { Pet } from '../data/mockPets';
 interface Props { pet: Pet; }
 const { pet } = Astro.props as Props;
@@ -13,7 +14,7 @@ const { pet } = Astro.props as Props;
   <div class="p-5">
     <div class="flex items-center justify-between">
       <Badge estado={pet.estado} />
-      <span class="text-gray-300 text-xl" aria-hidden="true">♥</span>
+      <FavButton id={pet.id} nombre={pet.nombre} />
     </div>
     <h3 class="font-display font-bold text-lg mt-2" style="color:#1E293B">{pet.nombre} <span class="text-sm font-medium text-gray-400">· {pet.raza}</span></h3>
     <p class="text-sm mt-1">{pet.edad} · {pet.sexo} · {pet.ubicacion}</p>

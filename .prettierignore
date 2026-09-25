@@ -1,0 +1,7 @@
+# Prettier ignora: Astro requiere prettier-plugin-astro (no instalado en Fase 0/1,
+// el formato de .astro lo cuida el compilador + revisión). Supabase temp es generado.
+*.astro
+supabase/.temp/
+dist/
+.astro/
+.vercel/

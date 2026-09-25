@@ -3,6 +3,7 @@ export const prerender = true;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import Badge from '../components/Badge.astro';
+import FavButton from '../components/FavButton.astro';
 import { PETS } from '../data/mockPets';
 
 // SSR: lee query params para URL compartible (?especie=&q=&tamano=) — Fase 3 lo moverá a /api + Supabase.
@@ -54,7 +55,7 @@ const resultados = PETS.filter((p) => {
               <img src={p.foto} alt={`${p.nombre} - ${p.raza}`} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />
             </div>
             <div class="p-5">
-              <div class="flex items-center justify-between"><Badge estado={p.estado} /><span class="text-xs">👁 {p.interesados}</span></div>
+              <div class="flex items-center justify-between"><Badge estado={p.estado} /><span class="flex items-center gap-2"><span class="text-xs">👁 {p.interesados}</span><FavButton id={p.id} nombre={p.nombre} /></span></div>
               <h3 class="font-display font-bold mt-1" style="color:#1E293B">{p.nombre} <span class="text-sm font-medium text-gray-400">· {p.raza}</span></h3>
               <p class="text-sm">{p.edad} · {p.sexo} · {p.tamano}</p>
               <p class="text-xs mt-1">📍 {p.ubicacion}</p>

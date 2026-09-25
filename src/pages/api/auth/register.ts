@@ -14,7 +14,10 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   }
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }, { status: 400 });
+    return Response.json(
+      { error: parsed.error.issues[0]?.message ?? 'Datos inválidos' },
+      { status: 400 },
+    );
   }
   const { nombre, correo, password, tipo_usuario } = parsed.data;
   const supabase = supabaseServer(cookies);

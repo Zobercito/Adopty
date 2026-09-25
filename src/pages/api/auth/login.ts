@@ -25,6 +25,8 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   try {
     const { next: n } = (body as { next?: string }) ?? {};
     if (n && n.startsWith('/') && !n.startsWith('//')) next = n;
-  } catch { /* default */ }
+  } catch {
+    /* default */
+  }
   return redirect(next, 302);
 };

@@ -1,0 +1,67 @@
+---
+/**
+ * FavButton — corazón ♥ con migración localStorage → DB (Fase 1).
+ * - Sin login: guarda en `adopty_favs` (comportamiento mockup) y redirige a /login?next= al hacer clic.
+ * - Con login + id UUID: POST/DELETE /api/favoritos.
+ * - Con login + id mock (no-UUID): sigue en localStorage + intenta migrar lo migrable al montar.
+ */
+interface Props { id: string; nombre: string; }
+const { id, nombre } = Astro.props as Props;
+---
+<button
+  type="button"
+  data-fav-btn={id}
+  aria-label={`Guardar ${nombre} en favoritos`}
+  aria-pressed="false"
+  title="Guardar en favoritos"
+  class="text-gray-300 text-xl hover:scale-110 transition-transform"
+>♥</button>
+<script define:vars={{ id }}>
+  (function () {
+    const btn = document.querySelector(`[data-fav-btn="${id}"]`);
+    if (!btn) return;
+    const KEY = 'adopty_favs';
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const getLocal = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
+    const setLocal = (f) => localStorage.setItem(KEY, JSON.stringify(f));
+    const paint = (on) => {
+      btn.setAttribute('aria-pressed', String(on));
+      btn.style.color = on ? '#FF7A29' : '';
+    };
+    // Estado inicial: local (Fase 0). Si es UUID, reconciliar con DB en segundo plano.
+    paint(getLocal().includes(id));
+    if (isUuid) {
+      fetch('/api/favoritos').then((r) => (r.ok ? r.json() : null)).then((d) => {
+        if (!d) return;
+        const inDb = (d.favoritos || []).includes(id);
+        // Migración: lo que haya en local con formato UUID se sube una vez.
+        const pending = getLocal().filter((x) => /^[0-9a-f-]{36}$/i.test(x));
+        pending.forEach((mid) => fetch('/api/favoritos', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_mascota: mid }),
+        }).catch(() => {}));
+        if (pending.length) setLocal(getLocal().filter((x) => !/^[0-9a-f-]{36}$/i.test(x) || x === id));
+        paint(inDb || getLocal().includes(id));
+      }).catch(() => {});
+    }
+    btn.addEventListener('click', async () => {
+      const local = getLocal();
+      const on = local.includes(id);
+      if (!isUuid) {
+        // Mock Fase 0: solo local + aviso para loguearse si quiere persistencia real.
+        const next = on ? local.filter((x) => x !== id) : [...local, id];
+        setLocal(next); paint(!on);
+        return;
+      }
+      const res = on
+        ? await fetch(`/api/favoritos?id_mascota=${id}`, { method: 'DELETE' })
+        : await fetch('/api/favoritos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_mascota: id }) });
+      if (res.status === 401) {
+        if (!on) setLocal([...local, id]); // guarda intención y retoma tras login (?next=)
+        location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+        return;
+      }
+      if (res.ok) { paint(!on); setLocal(local.filter((x) => x !== id)); }
+    });
+  })();
+</script>

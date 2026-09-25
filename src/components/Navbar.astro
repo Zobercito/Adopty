@@ -17,8 +17,13 @@ const link = (key: string, href: string, label: string) =>
     <div class="hidden md:flex items-center gap-7 text-sm font-semibold" style="color:#475569">
       <Fragment set:html={link('inicio', '/', 'Inicio')} />
       <Fragment set:html={link('explorar', '/explorar', 'Explorar')} />
-      <span class="opacity-50" title="Fase 1+">Panel</span>
-      <span class="opacity-50" title="Fase 1+">Mensajes</span>
+      {user ? (
+        <Fragment set:html={link('explorar', '/favoritos', 'Favoritos')} />
+      ) : (
+        <span class="opacity-50" title="Entra para ver tus favoritos">Favoritos</span>
+      )}
+      <span class="opacity-50" title="Fase 6">Panel</span>
+      <span class="opacity-50" title="Fase 5">Mensajes</span>
     </div>
     <div class="flex items-center gap-3">
       {user ? (
