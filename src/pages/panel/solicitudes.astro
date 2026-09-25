@@ -1,0 +1,80 @@
+---
+export const prerender = false;
+import Layout from '../../layouts/Layout.astro';
+import Navbar from '../../components/Navbar.astro';
+import { supabaseServer } from '../../lib/supabase';
+import { fechaCorta, getSolicitudesRecibidas, solBadge } from '../../lib/solicitudes';
+
+if (!Astro.locals.user) return Astro.redirect('/login?next=/panel/solicitudes');
+const supabase = supabaseServer(Astro.cookies);
+let lista: Awaited<ReturnType<typeof getSolicitudesRecibidas>> = [];
+let errorMsg = '';
+try {
+  lista = await getSolicitudesRecibidas(supabase, Astro.locals.user.id);
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error al cargar';
+}
+const pendientes = lista.filter((s) => s.estado === 'pendiente').length;
+---
+<Layout title="Adopty — Solicitudes recibidas">
+  <Navbar active="panel" />
+  <main class="max-w-4xl mx-auto px-4 mt-6 mb-6">
+    <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Solicitudes recibidas</h1>
+    <p class="text-sm mt-1" role="status">
+      {pendientes > 0 ? `${pendientes} pendiente${pendientes === 1 ? '' : 's'} de respuesta` : 'Sin pendientes. Todo al día 🎉'}
+      {lista.length > 0 && ` · ${lista.length} en total`}
+    </p>
+
+    {errorMsg && <p class="text-sm mt-4 font-semibold" style="color:#B45309" role="alert">{errorMsg}</p>}
+
+    {lista.length === 0 && !errorMsg ? (
+      <div class="soft-card p-8 mt-5 text-center">
+        <p class="text-4xl" aria-hidden="true">📥</p>
+        <p class="text-sm mt-2">Nadie solicitó tus mascotas todavía. Cuando alguien lo haga, aparece aquí.</p>
+        <a href="/mascota/nueva" class="btn-primary text-sm px-6 py-2.5 inline-block mt-4">Publicar mascota</a>
+      </div>
+    ) : (
+      <div class="grid gap-4 mt-5">
+        {lista.map((s) => {
+          const [cls, dot, etiqueta] = solBadge(s.estado);
+          return (
+            <article class="soft-card p-5">
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href={`/mascota/${s.mascota.id}`} class="font-display font-bold" style="color:#1E293B">{s.mascota.nombre}</a>
+                <span class={`badge ${cls}`}><span class="dot" style={`background:${dot}`}></span>{etiqueta}</span>
+                <span class="text-xs ml-auto text-gray-400">{fechaCorta(s.fecha_solicitud)}</span>
+              </div>
+              <p class="text-sm mt-2"><b>{s.adoptante.nombre}</b> quiere adoptar:</p>
+              <p class="text-sm mt-1 p-3 rounded-xl" style="background:#F8FAFC">“{s.mensaje_inicial}”</p>
+              {s.estado === 'pendiente' ? (
+                <div class="flex gap-2 mt-4">
+                  <button type="button" data-aprobar={s.id} class="btn-primary text-sm px-6 py-2.5">Aprobar</button>
+                  <button type="button" data-rechazar={s.id} class="btn-ghost text-sm px-6 py-2.5">Rechazar</button>
+                </div>
+              ) : s.estado === 'aprobada' ? (
+                <p class="text-xs mt-3 font-semibold" style="color:#065F46">Aprobada: la mascota pasó a En proceso y las demás solicitudes se rechazaron solas.</p>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    )}
+    <p class="text-xs mt-5 text-gray-400">Aprobar mueve la mascota a <b>En proceso</b> y rechaza automáticamente el resto. El acuerdo final se firma fuera de la plataforma.</p>
+  </main>
+  <script>
+    async function accionar(id, accion) {
+      const msg = accion === 'aprobar' ? '¿Aprobar? La mascota pasa a En proceso y se rechaza al resto.' : '¿Rechazar esta solicitud?';
+      if (!confirm(msg)) return;
+      const res = await fetch(`/api/solicitudes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) location.reload();
+      else alert(data.error || 'No se pudo procesar');
+    }
+    document.querySelectorAll('[data-aprobar]').forEach((b) => b.addEventListener('click', () => accionar(b.getAttribute('data-aprobar'), 'aprobar')));
+    document.querySelectorAll('[data-rechazar]').forEach((b) => b.addEventListener('click', () => accionar(b.getAttribute('data-rechazar'), 'rechazar')));
+  </script>
+</Layout>

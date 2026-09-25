@@ -1,0 +1,83 @@
+---
+export const prerender = false;
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+import { supabaseServer } from '../lib/supabase';
+import { fechaCorta, getMisSolicitudes, solBadge } from '../lib/solicitudes';
+
+if (!Astro.locals.user) return Astro.redirect('/login?next=/mis-solicitudes');
+const supabase = supabaseServer(Astro.cookies);
+let lista: Awaited<ReturnType<typeof getMisSolicitudes>> = [];
+let errorMsg = '';
+try {
+  lista = await getMisSolicitudes(supabase, Astro.locals.user.id);
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error al cargar';
+}
+---
+<Layout title="Adopty — Mis solicitudes de adopción">
+  <Navbar active="explorar" />
+  <main class="max-w-4xl mx-auto px-4 mt-6 mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Mis solicitudes</h1>
+        <p class="text-sm mt-1">Pendiente → Aprobada / Rechazada / Cancelada. Te avisamos aquí mismo cuando cambien.</p>
+      </div>
+      <a href="/panel/solicitudes" class="text-sm font-bold" style="color:#14A098">Ver recibidas →</a>
+    </div>
+
+    {errorMsg && <p class="text-sm mt-4 font-semibold" style="color:#B45309" role="alert">{errorMsg}</p>}
+
+    {lista.length === 0 && !errorMsg ? (
+      <div class="soft-card p-8 mt-5 text-center">
+        <p class="text-4xl" aria-hidden="true">📝</p>
+        <p class="text-sm mt-2">Aún no solicitaste ninguna adopción.</p>
+        <a href="/explorar" class="btn-primary text-sm px-6 py-2.5 inline-block mt-4">Explorar mascotas</a>
+      </div>
+    ) : (
+      <div class="grid gap-4 mt-5">
+        {lista.map((s) => {
+          const [cls, dot, etiqueta] = solBadge(s.estado);
+          return (
+            <article class="soft-card p-5 flex gap-4">
+              <a href={`/mascota/${s.mascota.id}`} class="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-gray-100 relative block" aria-label={`Ver ${s.mascota.nombre}`}>
+                {s.mascota.foto && <img src={s.mascota.foto} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />}
+              </a>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <a href={`/mascota/${s.mascota.id}`} class="font-display font-bold" style="color:#1E293B">{s.mascota.nombre}</a>
+                  <span class={`badge ${cls}`}><span class="dot" style={`background:${dot}`}></span>{etiqueta}</span>
+                </div>
+                <p class="text-xs mt-1 text-gray-400">{s.mascota.raza} · {s.mascota.ubicacion} · {fechaCorta(s.fecha_solicitud)}</p>
+                <p class="text-sm mt-2">“{s.mensaje_inicial}”</p>
+                {s.estado === 'pendiente' && (
+                  <button type="button" data-cancelar={s.id} class="text-xs font-bold mt-3 hover:underline" style="color:#B45309">
+                    Cancelar solicitud
+                  </button>
+                )}
+                {s.estado === 'aprobada' && (
+                  <p class="text-xs mt-2 font-semibold" style="color:#065F46">¡Aprobada! La mascota pasó a En proceso. Coordina la entrega con el publicador.</p>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    )}
+  </main>
+  <script>
+    document.querySelectorAll('[data-cancelar]').forEach((btn) =>
+      btn.addEventListener('click', async () => {
+        if (!confirm('¿Cancelar esta solicitud?')) return;
+        const id = btn.getAttribute('data-cancelar');
+        const res = await fetch(`/api/solicitudes/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'cancelar' }),
+        });
+        if (res.ok) location.reload();
+        else alert('No se pudo cancelar');
+      })
+    );
+  </script>
+</Layout>

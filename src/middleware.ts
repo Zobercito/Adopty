@@ -1,7 +1,14 @@
 import { defineMiddleware } from 'astro:middleware';
 import { supabaseServer } from './lib/supabase';
 
-const PROTECTED = ['/panel', '/mensajes', '/mascota/nueva', '/perfil', '/favoritos'];
+const PROTECTED = [
+  '/panel',
+  '/mensajes',
+  '/mascota/nueva',
+  '/perfil',
+  '/favoritos',
+  '/mis-solicitudes',
+];
 
 /** Refresca sesión SSR y protege rutas privadas (redirige a /login?next=). */
 export const onRequest = defineMiddleware(async (context, next) => {

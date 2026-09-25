@@ -22,6 +22,7 @@ const link = (key: string, href: string, label: string) =>
       ) : (
         <span class="opacity-50" title="Entra para ver tus favoritos">Favoritos</span>
       )}
+      {user && <a href="/mis-solicitudes" class="hover:opacity-70">Solicitudes</a>}
       {user && <a href="/mascota/nueva" class="hover:opacity-70">Publicar</a>}
       <span class="opacity-50" title="Fase 6">Panel</span>
       <span class="opacity-50" title="Fase 5">Mensajes</span>
