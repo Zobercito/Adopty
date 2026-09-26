@@ -29,7 +29,11 @@ const link = (key: string, href: string, label: string) =>
       )}
       {user && <a href="/mascota/nueva" class="hover:opacity-70">Publicar</a>}
       {user && <a href="/mis-solicitudes" class="hover:opacity-70">Solicitudes</a>}
-      <span class="opacity-50" title="Fase 6">Panel</span>
+      {user ? (
+        <Fragment set:html={link('panel', '/panel', 'Panel')} />
+      ) : (
+        <span class="opacity-50" title="Entra para gestionar tus publicaciones">Panel</span>
+      )}
     </div>
     <div class="flex items-center gap-3">
       {user ? (

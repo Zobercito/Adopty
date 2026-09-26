@@ -3,45 +3,53 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import Badge from '../components/Badge.astro';
+import FavButton from '../components/FavButton.astro';
 import { supabaseServer } from '../lib/supabase';
-import { PETS } from '../data/mockPets';
+import { estadoLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login?next=/favoritos');
 
 const supabase = supabaseServer(Astro.cookies);
-// Favoritos reales (UUIDs de Supabase) + detalle de mascota visible por RLS.
+// Favoritos reales (UUIDs) + mascota visible por RLS + foto principal.
 const { data: favs } = await supabase
   .from('favoritos')
-  .select('id_mascota, mascotas(id, nombre, especie, raza, ubicacion, estado, tamano, sexo, edad_meses)')
+  .select('id_mascota, mascotas(id, nombre, raza, ubicacion, estado, fotos_mascota(url_foto, es_principal, orden))')
   .eq('id_usuario', user.id)
   .order('fecha', { ascending: false });
-const reales = (favs ?? []).filter((f) => (f as { mascotas: unknown }).mascotas);
+const reales = ((favs ?? []) as { id_mascota: string; mascotas: unknown }[]).filter((f) => f.mascotas);
 ---
 <Layout title="Adopty — Mis favoritos">
   <Navbar active="explorar" />
   <main class="max-w-6xl mx-auto px-4 mt-6">
     <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Mis favoritos</h1>
-    <p class="text-sm mt-1">Guardados en tu cuenta (migran solos desde este dispositivo). Los del catálogo demo se guardan solo en este navegador hasta Fase 3.</p>
+    <p class="text-sm mt-1">Guardados en tu cuenta y visibles en todos tus dispositivos.</p>
     <p id="localWrap" class="text-sm mt-3 hidden">En este navegador: <span id="localCount">0</span> (demo local). <a href="/explorar" class="font-bold" style="color:#14A098">Explorar</a></p>
 
     {reales.length === 0 ? (
       <div class="soft-card p-8 mt-5 text-center">
-        <p class="text-sm">Aún no guardas mascotas reales. Cuando publiques desde Supabase (Fase 2), aparecerán aquí.</p>
+        <p class="text-4xl" aria-hidden="true">🤍</p>
+        <p class="text-sm mt-2">Aún no guardas favoritas. Toca el ♥ en cualquier mascota y aparecerá aquí.</p>
         <a href="/explorar" class="btn-primary text-sm px-6 py-2.5 inline-block mt-4">Explorar mascotas</a>
       </div>
     ) : (
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-5">
-        {reales.map((f: { id_mascota: string; mascotas: unknown }) => {
-          const m = (f as { mascotas: Record<string, string | number> }).mascotas;
-          const demo = PETS.find((p) => p.nombre === m.nombre);
+        {reales.map((f) => {
+          const m = f.mascotas as unknown as { id: string; nombre: string; raza: string; ubicacion: string; estado: string; fotos_mascota: FotoRow[] };
+          const fotos = fotosOrdenadas(m.fotos_mascota);
+          const foto = fotoUrl(fotos[0]?.url_foto);
           return (
             <article class="soft-card overflow-hidden">
-              <div class={`pet-photo ${demo?.grad ?? 'pet-grad-1'} w-full h-48`}>
-                {demo && <img src={demo.foto} alt={String(m.nombre)} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />}
-              </div>
+              <a href={`/mascota/${m.id}`} aria-label={`Ver perfil de ${m.nombre}`}>
+                <div class={`pet-photo ${gradFor(m.id)} w-full h-48`}>
+                  {foto && <img src={foto} alt={`${m.nombre} - ${m.raza}`} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />}
+                </div>
+              </a>
               <div class="p-5">
-                <Badge estado={m.estado === 'disponible' ? 'Disponible' : m.estado === 'en_proceso' ? 'En proceso' : 'Adoptada'} />
+                <div class="flex items-center justify-between">
+                  <Badge estado={estadoLabel(m.estado)} />
+                  <FavButton id={m.id} nombre={m.nombre} />
+                </div>
                 <h3 class="font-display font-bold mt-1" style="color:#1E293B">{m.nombre} <span class="text-sm font-medium text-gray-400">· {m.raza}</span></h3>
                 <p class="text-xs mt-1">📍 {m.ubicacion}</p>
               </div>
