@@ -1,12 +1,64 @@
 ---
+export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import Badge from '../components/Badge.astro';
+import { supabaseServer } from '../lib/supabase';
+import { buscarMascotas, estadoLabel, edadLabel, type MascotaRow, type FotoRow } from '../lib/mascotas';
 import { PETS } from '../data/mockPets';
 
-const destacadas = PETS.filter((p) => p.estado === 'Disponible').slice(0, 6);
-const hero = PETS.slice(0, 4);
+type Card = {
+  id: string;
+  nombre: string;
+  raza: string;
+  sexo: string;
+  tamano: string;
+  ubicacion: string;
+  estado: string;
+  edadLabel: string;
+  fotos: FotoRow[];
+};
+
+const deMock = (p: (typeof PETS)[number]): Card => ({
+  id: p.id,
+  nombre: p.nombre,
+  raza: p.raza,
+  sexo: p.sexo,
+  tamano: p.tamano,
+  ubicacion: p.ubicacion,
+  estado: p.estado === 'En proceso' ? 'en_proceso' : p.estado === 'Adoptada' ? 'adoptada' : 'disponible',
+  edadLabel: p.edad,
+  fotos: [{ id_mascota: p.id, url_foto: p.foto, es_principal: true, orden: 0 }],
+});
+
+// DB primero (Fase 3); si está vacía o falla, catálogo demo del Fase 0.
+let destacadas: Card[] = [];
+let hero: Card[] = [];
+let conDb = false;
+try {
+  const r = await buscarMascotas(supabaseServer(Astro.cookies), { estado: 'disponible', pageSize: 6 });
+  destacadas = r.items.map((p: MascotaRow & { fotos: FotoRow[] }) => ({
+    id: p.id,
+    nombre: p.nombre,
+    raza: p.raza,
+    sexo: p.sexo,
+    tamano: p.tamano,
+    ubicacion: p.ubicacion,
+    estado: p.estado,
+    edadLabel: edadLabel(p.edad_meses),
+    fotos: p.fotos,
+  }));
+  hero = destacadas.slice(0, 4);
+  conDb = destacadas.length > 0;
+} catch {
+  conDb = false;
+}
+if (!conDb) {
+  destacadas = PETS.filter((p) => p.estado === 'Disponible').slice(0, 6).map(deMock);
+  hero = PETS.slice(0, 4).map(deMock);
+}
+const totalDisponibles = conDb ? destacadas.length : destacadas.length;
 ---
 <Layout title="Adopty — Adopta con amor en Panamá">
   <Navbar active="inicio" />
@@ -15,7 +67,7 @@ const hero = PETS.slice(0, 4);
     <div class="soft-card overflow-hidden grid md:grid-cols-2" style="background:linear-gradient(120deg,#FFF8F1 60%,#E6FAF7)">
       <div class="p-8 sm:p-12">
         <Badge estado="Disponible" />
-        <span class="text-xs font-bold ml-2">+120 adopciones en Panamá</span>
+        <span class="text-xs font-bold ml-2">Adopción centralizada en Panamá</span>
         <h1 class="font-display font-extrabold text-4xl sm:text-5xl leading-tight mt-3" style="color:#1E293B">Encuentra a tu<br />compañero <span style="color:#FF7A29">ideal</span></h1>
         <p class="mt-4">Deja los estados de WhatsApp. Busca por especie, edad y ubicación, habla por chat interno y solicita adopción sin exponer tu número.</p>
         <form action="/explorar" method="get" class="mt-6 flex flex-wrap gap-2 bg-white p-2 rounded-full border" style="box-shadow:0 12px 36px rgb(30 41 59 / .12)">
@@ -31,31 +83,37 @@ const hero = PETS.slice(0, 4);
           <button class="btn-primary text-sm px-6 py-3" type="submit">Buscar</button>
         </form>
         <div class="flex gap-6 mt-6 text-sm">
-          <div><p class="font-display font-extrabold text-2xl" style="color:#1E293B">120+</p><p class="text-xs">Adoptadas</p></div>
-          <div><p class="font-display font-extrabold text-2xl" style="color:#1E293B">15</p><p class="text-xs">Refugios verificados</p></div>
+          <div><p class="font-display font-extrabold text-2xl" style="color:#1E293B">{conDb ? `${totalDisponibles}+` : '120+'}</p><p class="text-xs">Disponibles hoy</p></div>
+          <div><p class="font-display font-extrabold text-2xl" style="color:#1E293B">{conDb ? '✓' : '15'}</p><p class="text-xs">Refugios verificados</p></div>
           <div><p class="font-display font-extrabold text-2xl" style="color:#1E293B">0$</p><p class="text-xs">Costo para adoptar</p></div>
         </div>
       </div>
       <div class="relative min-h-[280px] p-6 grid grid-cols-2 gap-3">
-        {hero.map((p) => (
-          <a href="/explorar" class="soft-card overflow-hidden block">
-            <div class={`pet-photo ${p.grad} w-full h-36`}>
-              <img src={p.foto} alt={p.nombre} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />
-            </div>
-            <div class="p-3 flex items-center justify-between"><b class="text-sm" style="color:#1E293B">{p.nombre}</b><Badge estado={p.estado} /></div>
-          </a>
-        ))}
+        {hero.map((p) => {
+          const foto = p.fotos[0]?.url_foto ?? '';
+          return (
+            <a href={`/mascota/${p.id}`} class="soft-card overflow-hidden block">
+              <div class="pet-photo w-full h-36" style="background:linear-gradient(135deg,#ffe8d6,#ffd1a8)">
+                {foto && <img src={foto} alt={p.nombre} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />}
+              </div>
+              <div class="p-3 flex items-center justify-between"><b class="text-sm" style="color:#1E293B">{p.nombre}</b><Badge estado={estadoLabel(p.estado)} /></div>
+            </a>
+          );
+        })}
       </div>
     </div>
   </header>
 
   <section class="max-w-6xl mx-auto px-4 mt-10">
     <div class="flex items-end justify-between">
-      <div><h2 class="font-display font-extrabold text-2xl" style="color:#1E293B">Mascotas destacadas</h2><p class="text-sm">Disponibles ahora mismo cerca de ti</p></div>
+      <div>
+        <h2 class="font-display font-extrabold text-2xl" style="color:#1E293B">Mascotas destacadas</h2>
+        <p class="text-sm">Disponibles ahora mismo cerca de ti</p>
+      </div>
       <a href="/explorar" class="text-sm font-bold" style="color:#14A098">Ver todas →</a>
     </div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-5">
-      {destacadas.map((p) => <PetCard pet={p} />)}
+      {destacadas.map((p) => <PetCard {...p} />)}
     </div>
   </section>
 

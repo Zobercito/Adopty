@@ -1,0 +1,113 @@
+---
+import { fotoUrl, type FotoRow } from '../lib/mascotas';
+
+interface Props {
+  id_mascota: string;
+  otra_parte: string;
+  nombre_otra: string;
+  mascota: { id: string; nombre: string; fotos?: FotoRow[] };
+  mensajes: { id: string; id_emisor: string; id_receptor: string; contenido: string; leido: boolean; fecha_envio: string }[];
+  currentUserId: string;
+}
+const { id_mascota, otra_parte, nombre_otra, mascota, mensajes, currentUserId } = Astro.props as Props;
+---
+<div class="soft-card flex flex-col h-full" data-chat-id={id_mascota} data-otra={otra_parte} data-mine={currentUserId}>
+  <header class="p-4 border-b flex items-center gap-3">
+    <div class="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shrink-0" style="background:#2EC4B6">
+      {nombre_otra.charAt(0).toUpperCase()}
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="font-bold truncate" style="color:#1E293B">{nombre_otra}</p>
+      <p class="text-xs text-gray-400 truncate">{mascota.nombre}</p>
+    </div>
+    <a href={`/mascota/${id_mascota}`} class="text-xs font-bold" style="color:#14A098">Ver ficha</a>
+  </header>
+
+  <main id="messages" class="flex-1 overflow-y-auto p-4 space-y-3" aria-live="polite" aria-label={`Mensajes con ${nombre_otra}`}>
+    {mensajes.length === 0 ? (
+      <p class="text-sm text-center text-gray-400 mt-8">Sin mensajes aun. Escribe el primero.</p>
+    ) : (
+      mensajes.map((m) => {
+        const yo = m.id_emisor === currentUserId;
+        const fecha = new Date(m.fecha_envio).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' });
+        return (
+          <div class={`flex ${yo ? 'justify-end' : 'justify-start'}`} data-msg-id={m.id}>
+            <div class={`max-w-[75%] ${yo ? 'text-right' : ''}`}>
+              <div class={`inline-block px-4 py-2 rounded-2xl ${yo ? 'rounded-tr-none' : 'rounded-tl-none'}`} style={`background:${yo ? '#FF7A29' : '#F1F5F9'};color:${yo ? '#fff' : '#1E293B'}`}>
+                <p class="text-sm break-words">{m.contenido}</p>
+              </div>
+              <p class="text-xs mt-1 opacity-60 text-right">{fecha}</p>
+            </div>
+          </div>
+        );
+      })
+    )}
+  </main>
+
+  <form id="msgForm" class="p-4 border-t flex gap-2" aria-label={`Enviar mensaje a ${nombre_otra}`}>
+    <input id="msgInput" name="contenido" type="text" required minlength="1" maxlength="2000" placeholder="Escribe un mensaje..." class="flex-1 input-soft text-sm" aria-label="Mensaje" />
+    <button type="submit" class="btn-primary px-5 py-2.5 shrink-0" aria-label="Enviar">Enviar</button>
+  </form>
+</div>
+<script define:vars={{ id_mascota, otra_parte, currentUserId }}>
+  const form = document.getElementById('msgForm');
+  const input = document.getElementById('msgInput');
+  const messages = document.getElementById('messages');
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+  const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+  const { createClient } = await import('@supabase/supabase-js');
+  const sb = createClient(supabaseUrl, supabaseKey);
+  messages.scrollTop = messages.scrollHeight;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const contenido = input.value.trim();
+    if (!contenido) return;
+    input.disabled = true;
+    input.value = '';
+    try {
+      const res = await fetch('/api/mensajes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_mascota, contenido }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Error al enviar');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  });
+  const canal = sb
+    .channel('chat-' + id_mascota + '-' + currentUserId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: 'id_mascota=eq.' + id_mascota }, (payload) => {
+      const m = payload.new;
+      if (m.id_emisor === currentUserId || m.id_receptor !== currentUserId) return;
+      fetch('/api/mensajes/' + m.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leido: true }) }).catch(() => {});
+      appendMessage(m);
+    })
+    .subscribe();
+  function appendMessage(m) {
+    const yo = m.id_emisor === currentUserId;
+    const fecha = new Date(m.fecha_envio).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.dataset.msgId = m.id;
+    div.className = 'flex ' + (yo ? 'justify-end' : 'justify-start');
+    const burbuja = yo ? 'rounded-tr-none' : 'rounded-tl-none';
+    const fondo = yo ? '#FF7A29' : '#F1F5F9';
+    const color = yo ? '#fff' : '#1E293B';
+    const alineado = yo ? 'text-right' : '';
+    div.innerHTML =
+      '<div class="max-w-[75%] ' + alineado + '">' +
+      '<div class="inline-block px-4 py-2 rounded-2xl ' + burbuja + '" style="background:' + fondo + ';color:' + color + '">' +
+      '<p class="text-sm break-words">' + escapeHtml(m.contenido) + '</p></div>' +
+      '<p class="text-xs mt-1 opacity-60 text-right">' + fecha + '</p></div>';
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  window.addEventListener('beforeunload', () => { sb.removeChannel(canal); });
+</script>

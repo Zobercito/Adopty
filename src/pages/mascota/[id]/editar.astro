@@ -1,0 +1,68 @@
+---
+export const prerender = false;
+import Layout from '../../../layouts/Layout.astro';
+import Navbar from '../../../components/Navbar.astro';
+import PetForm from '../../../components/PetForm.astro';
+import { supabaseServer } from '../../../lib/supabase';
+import { fotosOrdenadas, type MascotaRow, type FotoRow } from '../../../lib/mascotas';
+
+const { id } = Astro.params;
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login?next=' + encodeURIComponent(`/mascota/${id}/editar`));
+
+const supabase = supabaseServer(Astro.cookies);
+const { data } = await supabase
+  .from('mascotas')
+  .select('*, fotos_mascota(*)')
+  .eq('id', id ?? '')
+  .is('deleted_at', null)
+  .maybeSingle();
+
+const pet = data ? ({ ...(data as MascotaRow), fotos: fotosOrdenadas((data as { fotos_mascota: FotoRow[] }).fotos_mascota) } as MascotaRow & { fotos: FotoRow[] }) : null;
+const esDueno = pet?.id_publicador === user.id;
+if (!pet || !esDueno) {
+  Astro.response.status = 404;
+}
+---
+<Layout title={pet ? `Adopty — Editar a ${pet.nombre}` : 'Adopty — No encontrada'}>
+  <Navbar active="panel" />
+  <main class="max-w-3xl mx-auto px-4 mt-6 mb-6">
+    {pet && esDueno ? (
+      <div class="soft-card p-6 sm:p-8">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Editar a {pet.nombre}</h1>
+            <p class="text-sm mt-1">Los cambios se reflejan al instante en Explorar.</p>
+          </div>
+          <a href={`/mascota/${pet.id}`} class="text-sm font-bold" style="color:#14A098">Ver ficha →</a>
+        </div>
+        <div class="mt-6">
+          <PetForm mode="edit" pet={pet} />
+        </div>
+        <div class="mt-8 pt-5 border-t border-gray-100">
+          <p class="text-sm font-semibold" style="color:#B45309">Zona de peligro</p>
+          <p class="text-xs mt-1 text-gray-400">Se oculta de Explorar (borrado lógico). Sus solicitudes y mensajes se conservan.</p>
+          <button id="delBtn" class="mt-3 text-sm font-bold px-5 py-2.5 rounded-full border" style="border-color:#FCA5A5;color:#B91C1C" type="button">
+            Eliminar publicación
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div class="soft-card p-10 text-center">
+        <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">404 — No encontrada</h1>
+        <p class="text-sm mt-2">Esta mascota no existe, fue eliminada o no eres su publicador.</p>
+        <a href="/explorar" class="btn-primary text-sm px-6 py-2.5 inline-block mt-5">Explorar mascotas</a>
+      </div>
+    )}
+  </main>
+  {pet && esDueno && (
+    <script define:vars={{ petId: pet.id }}>
+      document.getElementById('delBtn').addEventListener('click', async () => {
+        if (!confirm('¿Seguro que quieres eliminar esta publicación?')) return;
+        const res = await fetch(`/api/mascotas/${petId}`, { method: 'DELETE' });
+        if (res.ok) location.href = '/explorar';
+        else alert('No se pudo eliminar');
+      });
+    </script>
+  )}
+</Layout>

@@ -1,0 +1,220 @@
+{
+  "info": {
+    "name": "Adopty — API (Fase 7)",
+    "description": "Colección QA de la API Adopty. Variables: baseUrl (local http://localhost:4321 o preview Vercel). Flujo sugerido: Auth → Mascotas → Solicitudes → Mensajes → Favoritos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:4321" }],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register persona",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"QA Test\",\"correo\":\"qa@adopty.pa\",\"password\":\"Adopty123!\",\"tipo_usuario\":\"persona\"}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"correo\":\"patitas@adopty.pa\",\"password\":\"Adopty123!\"}"
+            }
+          }
+        },
+        {
+          "name": "Login rate-limit (repetir 11x → 429)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"correo\":\"x@x.pa\",\"password\":\"y\"}" }
+          }
+        },
+        {
+          "name": "Recuperar",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/recuperar",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"correo\":\"patitas@adopty.pa\"}" }
+          }
+        },
+        { "name": "Logout", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/logout" } }
+      ]
+    },
+    {
+      "name": "Mascotas",
+      "item": [
+        {
+          "name": "Buscar (filtros+orden+paginación)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mascotas?especie=gato&tamano=Peque%C3%B1o&q=luna&orden=recientes&page=1"
+          }
+        },
+        {
+          "name": "Detalle",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/mascotas/:id" }
+        },
+        {
+          "name": "Crear (requiere fotos[] de /upload)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/mascotas",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Postman\",\"especie\":\"gato\",\"raza\":\"Criollo\",\"edad_meses\":6,\"sexo\":\"Hembra\",\"tamano\":\"Pequeño\",\"ubicacion\":\"Bethania\",\"descripcion\":\"Creada desde Postman para QA.\",\"estado_salud\":\"Sana\",\"fotos\":[\"<path-de-upload>\"],\"estado\":\"disponible\"}"
+            }
+          }
+        },
+        {
+          "name": "Editar (PATCH parcial)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/mascotas/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"descripcion\":\"Editada desde Postman para QA.\"}" }
+          }
+        },
+        {
+          "name": "Eliminar (soft-delete)",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/mascotas/:id" }
+        }
+      ]
+    },
+    {
+      "name": "Solicitudes",
+      "item": [
+        {
+          "name": "Crear",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/solicitudes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id_mascota\":\"<uuid>\",\"mensaje_inicial\":\"Quisiera adoptar, tengo casa con patio y experiencia.\"}"
+            }
+          }
+        },
+        {
+          "name": "Crear duplicada (→ 409)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/solicitudes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id_mascota\":\"<uuid>\",\"mensaje_inicial\":\"Quisiera adoptar, tengo casa con patio y experiencia.\"}"
+            }
+          }
+        },
+        {
+          "name": "Mis solicitudes",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/solicitudes?rol=adoptante" }
+        },
+        {
+          "name": "Recibidas",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/solicitudes?rol=publicador" }
+        },
+        {
+          "name": "Aprobar (publisher)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/solicitudes/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"accion\":\"aprobar\"}" }
+          }
+        },
+        {
+          "name": "Rechazar (publisher)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/solicitudes/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"accion\":\"rechazar\"}" }
+          }
+        },
+        {
+          "name": "Cancelar (adoptante)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/solicitudes/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"accion\":\"cancelar\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mensajes",
+      "item": [
+        { "name": "Hilos", "request": { "method": "GET", "url": "{{baseUrl}}/api/mensajes" } },
+        {
+          "name": "Enviar (requiere aprobada)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/mensajes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id_mascota\":\"<uuid>\",\"contenido\":\"Hola, ¿cuándo puedo conocerla?\"}"
+            }
+          }
+        },
+        {
+          "name": "Marcar leído (receptor)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/mensajes/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Favoritos y perfil",
+      "item": [
+        {
+          "name": "Mis favoritos",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/favoritos" }
+        },
+        {
+          "name": "Guardar favorito",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/favoritos",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"id_mascota\":\"<uuid>\"}" }
+          }
+        },
+        {
+          "name": "Quitar favorito",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos?id_mascota=<uuid>",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "favoritos"],
+              "query": [{ "key": "id_mascota", "value": "<uuid>" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

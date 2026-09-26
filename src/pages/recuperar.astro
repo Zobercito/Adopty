@@ -1,0 +1,41 @@
+---
+export const prerender = false;
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+<Layout title="Adopty — Recuperar contraseña">
+  <Navbar active="inicio" />
+  <main class="max-w-md mx-auto px-4 mt-10">
+    <div class="soft-card p-8">
+      <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Recuperar contraseña</h1>
+      <p class="text-sm mt-1">Te enviamos un enlace para restablecerla.</p>
+      <p id="err" class="text-sm mt-3 font-semibold hidden" style="color:#B45309" role="alert"></p>
+      <p id="ok" class="text-sm mt-3 font-semibold hidden" style="color:#065F46" role="status"></p>
+      <form id="recForm" class="mt-5 grid gap-3">
+        <div>
+          <label class="text-xs font-bold uppercase tracking-wide" for="correo">Correo</label>
+          <input id="correo" name="correo" type="email" required autocomplete="email" class="input-soft mt-1 text-sm" />
+        </div>
+        <button class="btn-primary py-3 text-sm mt-2" type="submit">Enviar enlace</button>
+      </form>
+      <p class="text-sm mt-4 text-center"><a href="/login" class="hover:underline">Volver a entrar</a></p>
+    </div>
+  </main>
+  <script>
+    document.getElementById('recForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('err'), ok = document.getElementById('ok');
+      err.classList.add('hidden'); ok.classList.add('hidden');
+      const fd = new FormData(e.target);
+      const res = await fetch('/api/auth/recuperar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo: fd.get('correo') }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { err.textContent = data.error ?? 'Error'; err.classList.remove('hidden'); return; }
+      ok.textContent = 'Si el correo existe, recibirás el enlace en unos minutos.';
+      ok.classList.remove('hidden');
+    });
+  </script>
+</Layout>

@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import Analytics from '@vercel/analytics/astro';
 
 interface Props {
   title?: string;
@@ -13,6 +14,13 @@ const { title = 'Adopty — Adopta con amor en Panamá', description = 'Platafor
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_PA" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,8 +32,13 @@ const { title = 'Adopty — Adopta con amor en Panamá', description = 'Platafor
     <footer class="max-w-6xl mx-auto px-4 my-10">
       <div class="soft-card p-6 flex flex-col sm:flex-row justify-between gap-3 text-sm">
         <p><b style="color:#1E293B">Adopty</b> · Ing. Software II · Francisco Gonzalez · Eira Arrocha</p>
-        <p>Astro · Tailwind · Supabase · Vercel</p>
+        <p class="flex gap-4">
+          <a href="/terminos" class="hover:underline">Términos</a>
+          <a href="/privacidad" class="hover:underline">Privacidad</a>
+          <span class="text-gray-400">Astro · Supabase · Vercel</span>
+        </p>
       </div>
     </footer>
+    <Analytics />
   </body>
 </html>

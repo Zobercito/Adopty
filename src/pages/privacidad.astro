@@ -1,0 +1,39 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+<Layout title="Adopty — Aviso de privacidad" description="Cómo usa Adopty tus datos personales (Ley 81 de Panamá).">
+  <Navbar active="inicio" />
+  <main class="max-w-3xl mx-auto px-4 mt-6 mb-6">
+    <div class="soft-card p-6 sm:p-8">
+      <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Aviso de privacidad</h1>
+      <p class="text-xs mt-1 text-gray-400">Conforme a la Ley 81 de 2019 de Protección de Datos Personales de Panamá</p>
+      <div class="grid gap-4 mt-5 text-sm leading-relaxed">
+        <section>
+          <h2 class="font-display font-bold" style="color:#1E293B">1. Qué datos guardamos</h2>
+          <p class="mt-1">Correo y tipo de cuenta; nombre y descripción de perfil; teléfono solo si lo escribes (nunca se muestra en público); ubicación que publicas en cada mascota; fotos; mensajes y solicitudes que intercambias.</p>
+        </section>
+        <section>
+          <h2 class="font-display font-bold" style="color:#1E293B">2. Para qué los usamos</h2>
+          <p class="mt-1">Operar la plataforma: autenticarte, mostrar tus publicaciones, permitir solicitudes y chat entre adoptantes y publicadores. No vendemos datos ni hacemos publicidad con ellos.</p>
+        </section>
+        <section>
+          <h2 class="font-display font-bold" style="color:#1E293B">3. Quién los ve</h2>
+          <p class="mt-1">Tus publicaciones y mensajes solo los ven las partes implicadas (reglas RLS). Tu teléfono y correo <b>nunca</b> se publican: el contacto es por chat interno.</p>
+        </section>
+        <section>
+          <h2 class="font-display font-bold" style="color:#1E293B">4. Tus derechos (ARCO)</h2>
+          <p class="mt-1">Puedes acceder, rectificar, cancelar u oponerte al uso de tus datos editando tu <a href="/perfil" class="font-bold" style="color:#14A098">perfil</a> o escribiendo al equipo del proyecto. Eliminar tu cuenta borra tus datos personales (las mascotas adoptadas conservan registro mínimo histórico).</p>
+        </section>
+        <section>
+          <h2 class="font-display font-bold" style="color:#1E293B">5. Conservación y seguridad</h2>
+          <p class="mt-1">Claves gestionadas por Supabase Auth (hash, nunca en claro), acceso por roles (RLS) y copias de respaldo manuales durante el piloto.</p>
+        </section>
+        <section>
+          <h2 class="font-display font-bold" style="color:#1E293B">6. Consentimiento</h2>
+          <p class="mt-1">Al registrarte aceptas este aviso marcando la casilla correspondiente. Si no estás de acuerdo, no uses la plataforma.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</Layout>

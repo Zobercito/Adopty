@@ -1,0 +1,127 @@
+---
+export const prerender = false;
+import Layout from '../../layouts/Layout.astro';
+import Navbar from '../../components/Navbar.astro';
+import Badge from '../../components/Badge.astro';
+import { supabaseServer } from '../../lib/supabase';
+import { estadoLabel } from '../../lib/mascotas';
+import { fechaCorta } from '../../lib/solicitudes';
+import { getPanelResumen } from '../../lib/panel';
+
+if (!Astro.locals.user) return Astro.redirect('/login?next=/panel');
+const supabase = supabaseServer(Astro.cookies);
+let resumen: Awaited<ReturnType<typeof getPanelResumen>> | null = null;
+let errorMsg = '';
+try {
+  resumen = await getPanelResumen(supabase, Astro.locals.user.id);
+} catch (e) {
+  errorMsg = e instanceof Error ? e.message : 'Error al cargar';
+}
+const stats = resumen
+  ? [
+      { n: resumen.publicadas, label: 'Publicadas' },
+      { n: resumen.pendientes, label: 'Solicitudes pendientes' },
+      { n: resumen.noLeidos, label: 'Mensajes no leídos' },
+      { n: resumen.interesados, label: 'Interesados' },
+    ]
+  : [];
+---
+<Layout title="Adopty — Mi panel de publicador">
+  <Navbar active="panel" />
+  <main class="max-w-6xl mx-auto px-4 mt-6 mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Mi panel</h1>
+        <p class="text-sm mt-1">Gestiona tus publicaciones, solicitudes y mensajes.</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/panel/solicitudes" class="btn-ghost text-sm px-5 py-2.5">Solicitudes</a>
+        <a href="/mascota/nueva" class="btn-primary text-sm px-5 py-2.5">+ Publicar</a>
+      </div>
+    </div>
+
+    {errorMsg && <p class="text-sm mt-4 font-semibold" style="color:#B45309" role="alert">{errorMsg}</p>}
+
+    {resumen && (
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5" role="status" aria-label="Resumen">
+        {stats.map((s) => (
+          <div class="soft-card p-5 text-center">
+            <p class="font-display font-extrabold text-3xl" style="color:#1E293B">{s.n}</p>
+            <p class="text-xs mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {resumen && resumen.mascotas.length === 0 && !errorMsg ? (
+      <div class="soft-card p-10 mt-5 text-center">
+        <p class="text-5xl" aria-hidden="true">🐾</p>
+        <h2 class="font-display font-extrabold text-xl mt-3" style="color:#1E293B">Publica tu primera mascota</h2>
+        <p class="text-sm mt-2">Cuéntanos quién busca hogar y empieza a recibir solicitudes hoy mismo.</p>
+        <a href="/mascota/nueva" class="btn-primary text-sm px-6 py-2.5 inline-block mt-5">Publicar mascota</a>
+      </div>
+    ) : (
+      <div class="grid gap-4 mt-5">
+        {(resumen?.mascotas ?? []).map((p) => (
+          <article class="soft-card p-5 flex flex-col sm:flex-row gap-4">
+            <a href={`/mascota/${p.id}`} class="shrink-0 w-full sm:w-28 h-40 sm:h-28 rounded-xl overflow-hidden bg-gray-100 relative block" aria-label={`Ver ${p.nombre}`}>
+              {p.foto && <img src={p.foto} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />}
+            </a>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href={`/mascota/${p.id}`} class="font-display font-bold text-lg" style="color:#1E293B">{p.nombre}</a>
+                <Badge estado={estadoLabel(p.estado)} />
+                <span class="text-xs text-gray-400 ml-auto">{fechaCorta(p.fecha_publicacion)}</span>
+              </div>
+              <p class="text-xs mt-1 text-gray-400">{p.raza}</p>
+              <p class="text-sm mt-2">
+                <a href="/panel/solicitudes" class="font-bold" style="color:#14A098">Solicitudes ({p.solicitudes})</a>
+                <span class="text-gray-400"> · {p.pendientes} pendientes · {p.noLeidos} no leídos · {p.interesados} interesados</span>
+              </p>
+              <div class="flex flex-wrap items-center gap-2 mt-3">
+                <a href={`/mascota/${p.id}/editar`} class="btn-ghost text-xs px-4 py-2">Editar</a>
+                <label class="text-xs font-bold uppercase tracking-wide text-gray-400" for={`estado-${p.id}`}>Estado</label>
+                <select id={`estado-${p.id}`} data-estado={p.id} class="input-soft text-xs py-2 w-auto">
+                  <option value="disponible" selected={p.estado === 'disponible'}>Disponible</option>
+                  <option value="en_proceso" selected={p.estado === 'en_proceso'}>En proceso</option>
+                  <option value="adoptada" selected={p.estado === 'adoptada'}>Adoptada</option>
+                </select>
+                <button type="button" data-eliminar={p.id} data-nombre={p.nombre} class="text-xs font-bold hover:underline ml-auto" style="color:#B91C1C">Eliminar</button>
+              </div>
+              <p data-err={p.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert"></p>
+            </div>
+          </article>
+        ))}
+      </div>
+    )}
+  </main>
+  <script>
+    document.querySelectorAll('[data-estado]').forEach((sel) =>
+      sel.addEventListener('change', async () => {
+        const id = sel.getAttribute('data-estado');
+        const err = document.querySelector(`[data-err="${id}"]`);
+        err.classList.add('hidden');
+        const res = await fetch(`/api/mascotas/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado: sel.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          err.textContent = data.error || 'No se pudo cambiar el estado';
+          err.classList.remove('hidden');
+          return;
+        }
+        location.reload();
+      })
+    );
+    document.querySelectorAll('[data-eliminar]').forEach((btn) =>
+      btn.addEventListener('click', async () => {
+        if (!confirm(`¿Eliminar la publicación de ${btn.getAttribute('data-nombre')}? Se oculta de Explorar.`)) return;
+        const res = await fetch(`/api/mascotas/${btn.getAttribute('data-eliminar')}`, { method: 'DELETE' });
+        if (res.ok) location.reload();
+        else alert('No se pudo eliminar');
+      })
+    );
+  </script>
+</Layout>

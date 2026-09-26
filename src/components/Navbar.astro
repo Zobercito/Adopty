@@ -1,6 +1,8 @@
 ---
 interface Props { active?: 'inicio' | 'explorar' | 'panel' | 'mensajes'; }
 const { active = 'inicio' } = Astro.props as Props;
+const user = Astro.locals.user ?? null;
+const initial = (user?.email?.charAt(0) ?? 'A').toUpperCase();
 const link = (key: string, href: string, label: string) =>
   active === key
     ? `<a href="${href}" style="color:#FF7A29">${label}</a>`
@@ -15,11 +17,30 @@ const link = (key: string, href: string, label: string) =>
     <div class="hidden md:flex items-center gap-7 text-sm font-semibold" style="color:#475569">
       <Fragment set:html={link('inicio', '/', 'Inicio')} />
       <Fragment set:html={link('explorar', '/explorar', 'Explorar')} />
-      <span class="opacity-50" title="Fase 1+">Panel</span>
-      <span class="opacity-50" title="Fase 1+">Mensajes</span>
+{user ? (
+        <Fragment set:html={link('explorar', '/favoritos', 'Favoritos')} />
+      ) : (
+        <span class="opacity-50" title="Entra para ver tus favoritos">Favoritos</span>
+      )}
+      {user ? (
+        <Fragment set:html={link('mensajes', '/mensajes', 'Mensajes')} />
+      ) : (
+        <span class="opacity-50" title="Entra para ver tus mensajes">Mensajes</span>
+      )}
+      {user && <a href="/mascota/nueva" class="hover:opacity-70">Publicar</a>}
+      {user && <a href="/mis-solicitudes" class="hover:opacity-70">Solicitudes</a>}
+      {user ? (
+        <Fragment set:html={link('panel', '/panel', 'Panel')} />
+      ) : (
+        <span class="opacity-50" title="Entra para gestionar tus publicaciones">Panel</span>
+      )}
     </div>
     <div class="flex items-center gap-3">
-      <span class="text-xs font-semibold px-3 py-1.5 rounded-full" style="background:#FFF1E6;color:#F2670C">Fase 0 · mock</span>
+      {user ? (
+        <a href="/perfil" aria-label="Mi perfil" class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white" style="background:#2EC4B6">{initial}</a>
+      ) : (
+        <a href="/login" class="btn-ghost text-sm px-5 py-2">Entrar</a>
+      )}
       <a href="/explorar" class="btn-primary text-sm px-5 py-2.5 hidden sm:inline-block">Adoptar</a>
     </div>
   </nav>

@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+---
+<Layout title="Adopty — Error interno" description="Ocurrió un error inesperado en Adopty.">
+  <Navbar active="inicio" />
+  <main class="max-w-md mx-auto px-4 mt-16 text-center">
+    <div class="soft-card p-10">
+      <p class="text-6xl" aria-hidden="true">🛠️</p>
+      <h1 class="font-display font-extrabold text-3xl mt-4" style="color:#1E293B">500 — Algo falló</h1>
+      <p class="text-sm mt-2">Ocurrió un error inesperado. Intenta de nuevo en unos minutos.</p>
+      <div class="flex gap-2 justify-center mt-6">
+        <a href="/" class="btn-ghost text-sm px-5 py-2.5">Inicio</a>
+        <a href="/explorar" class="btn-primary text-sm px-5 py-2.5">Explorar</a>
+      </div>
+    </div>
+  </main>
+</Layout>

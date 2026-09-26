@@ -1,0 +1,304 @@
+---
+export const prerender = false;
+import Layout from '../../layouts/Layout.astro';
+import Navbar from '../../components/Navbar.astro';
+import Badge from '../../components/Badge.astro';
+import FavButton from '../../components/FavButton.astro';
+import { supabaseServer } from '../../lib/supabase';
+import { estadoLabel, edadLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow, type MascotaRow } from '../../lib/mascotas';
+
+const { id } = Astro.params;
+const supabase = supabaseServer(Astro.cookies);
+const user = Astro.locals.user;
+
+const { data } = await supabase
+  .from('mascotas')
+  .select('*, fotos_mascota(*)')
+  .eq('id', id ?? '')
+  .is('deleted_at', null)
+  .maybeSingle();
+
+const pet = (data ?? null) as (MascotaRow & { fotos_mascota: FotoRow[] }) | null;
+const esDueno = !!(pet && user && user.id === pet.id_publicador);
+let noExiste = !pet;
+// Mi última solicitud sobre esta mascota (para pintar solicitar / pendiente / aprobada)
+let miSolicitud: { id: string; estado: string } | null = null;
+if (pet && user && !esDueno) {
+  const { data: s } = await supabase
+    .from('solicitudes')
+    .select('id,estado')
+    .eq('id_mascota', pet.id)
+    .eq('id_adoptante', user.id)
+    .order('fecha_solicitud', { ascending: false })
+    .limit(1);
+  miSolicitud = ((s?.[0] ?? null) as { id: string; estado: string } | null);
+}
+if (pet) {
+  if (pet.estado !== 'disponible' && !esDueno) {
+    // El adoptante aprobado puede seguir viendo la ficha para coordinar la entrega
+    if (!(miSolicitud && miSolicitud.estado === 'aprobada')) noExiste = true;
+  }
+}
+if (noExiste) Astro.response.status = 404;
+
+const fotos = pet ? fotosOrdenadas(pet.fotos_mascota) : [];
+const grad = pet ? gradFor(pet.id) : 'pet-grad-1';
+
+let publicador = 'Publicador';
+let verificada = false;
+const publicadorId = pet?.id_publicador ?? '';
+// Solicitud aprobada de esta mascota (para el chat del publicador)
+let solicitudAprobada: { id: string; id_adoptante: string } | null = null;
+if (pet && user && esDueno) {
+  const { data: ap } = await supabase
+    .from('solicitudes')
+    .select('id,id_adoptante')
+    .eq('id_mascota', pet.id)
+    .eq('estado', 'aprobada')
+    .order('fecha_solicitud', { ascending: false })
+    .limit(1);
+  solicitudAprobada = ((ap?.[0] ?? null) as { id: string; id_adoptante: string } | null);
+}
+if (pet) {
+  const [{ data: persona }, { data: org }] = await Promise.all([
+    supabase.from('personas').select('nombre').eq('id', pet.id_publicador).maybeSingle(),
+    supabase.from('organizaciones').select('nombre_oficial, verificada').eq('id', pet.id_publicador).maybeSingle(),
+  ]);
+  publicador = persona?.nombre ?? org?.nombre_oficial ?? 'Publicador';
+  verificada = Boolean(org?.verificada);
+}
+const fecha = pet
+  ? new Date(pet.fecha_publicacion).toLocaleDateString('es-PA', { day: 'numeric', month: 'short', year: 'numeric' })
+  : '';
+const fila = (etiqueta: string, valor: string) => ({ etiqueta, valor });
+const datos = pet
+  ? [
+      fila('Especie', pet.especie === 'otro' ? 'Otro' : pet.especie.charAt(0).toUpperCase() + pet.especie.slice(1)),
+      fila('Raza', pet.raza),
+      fila('Edad', edadLabel(pet.edad_meses)),
+      fila('Sexo', pet.sexo),
+      fila('Tamaño', pet.tamano),
+      fila('Ubicación', pet.ubicacion),
+      fila('Publicado', fecha),
+    ]
+  : [];
+---
+<Layout
+  title={pet ? `Adopty — ${pet.nombre}, ${pet.raza} en adopción` : 'Adopty — No encontrada'}
+  description={pet ? `${pet.nombre}: ${pet.descripcion.slice(0, 150)}` : undefined}
+>
+  <Navbar active="explorar" />
+  <main class="max-w-6xl mx-auto px-4 mt-6 mb-4">
+    {noExiste || !pet ? (
+      <div class="soft-card p-10 text-center">
+        <p class="text-6xl" aria-hidden="true">🐾</p>
+        <h1 class="font-display font-extrabold text-3xl mt-4" style="color:#1E293B">404 — No encontrada</h1>
+        <p class="text-sm mt-2">Esta mascota no existe, ya fue adoptada y oculta, o fue eliminada.</p>
+        <a href="/explorar" class="btn-primary text-sm px-6 py-2.5 inline-block mt-6">Seguir explorando</a>
+      </div>
+    ) : (
+      <div class="grid lg:grid-cols-[1.15fr_1fr] gap-5">
+        <!-- Carrusel de fotos (accesible: teclado + aria-live) -->
+        <section class="soft-card overflow-hidden" aria-label={`Fotos de ${pet.nombre}`}>
+          <div
+            id="carousel"
+            tabindex="0"
+            role="region"
+            aria-roledescription="carrusel"
+            aria-label={`Fotos de ${pet.nombre} — usa las flechas del teclado`}
+            class={`relative pet-photo ${grad} h-72 sm:h-96`}
+          >
+            {fotos.length === 0 && <span class="text-5xl" aria-hidden="true">🐾</span>}
+            {fotos.map((f, i) => (
+              <img
+                data-slide={i}
+                src={fotoUrl(f.url_foto)}
+                alt={`${pet.nombre} — foto ${i + 1} de ${fotos.length}`}
+                loading={i === 0 ? 'eager' : 'lazy'}
+                class="absolute inset-0 w-full h-full object-cover slide"
+                style={`display:${i === 0 ? 'block' : 'none'}`}
+                onerror="this.remove()"
+              />
+            ))}
+            {fotos.length > 1 && (
+              <>
+                <button id="prev" class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow font-bold" aria-label="Foto anterior" type="button">‹</button>
+                <button id="next" class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow font-bold" aria-label="Foto siguiente" type="button">›</button>
+                <div id="dots" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                  {fotos.map((_, i) => (
+                    <button
+                      type="button"
+                      data-dot={i}
+                      aria-label={`Ir a foto ${i + 1}`}
+                      class="w-2.5 h-2.5 rounded-full"
+                      style={`background:${i === 0 ? '#FF7A29' : 'rgba(255,255,255,.75)'}`}
+                    ></button>
+                  ))}
+                </div>
+                <p id="counter" class="absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full bg-white/90" aria-live="polite">Foto 1 / {fotos.length}</p>
+              </>
+            )}
+          </div>
+        </section>
+
+        <!-- Ficha -->
+        <section class="soft-card p-6">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-3">
+                <h1 class="font-display font-extrabold text-3xl" style="color:#1E293B">{pet.nombre}</h1>
+                <Badge estado={estadoLabel(pet.estado)} />
+              </div>
+              <p class="text-sm mt-1">{pet.raza}</p>
+            </div>
+            <FavButton id={pet.id} nombre={pet.nombre} />
+          </div>
+
+          <p class="text-sm mt-4 leading-relaxed">{pet.descripcion}</p>
+
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-2 mt-5 text-sm">
+            {datos.map((d) => (
+              <div>
+                <dt class="text-xs font-bold uppercase tracking-wide text-gray-400">{d.etiqueta}</dt>
+                <dd style="color:#1E293B">{d.valor}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {pet.estado_salud && (
+            <div class="mt-4">
+              <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Salud</p>
+              <p class="text-sm" style="color:#1E293B">{pet.estado_salud}</p>
+            </div>
+          )}
+
+          <!-- Publicador -->
+          <div class="mt-5 p-4 rounded-2xl flex items-center gap-3" style="background:#F8FAFC">
+            <span class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-white" style="background:#2EC4B6">
+              {publicador.charAt(0).toUpperCase()}
+            </span>
+            <div class="flex-1">
+              <p class="text-sm font-bold" style="color:#1E293B">{publicador}</p>
+              <p class="text-xs">
+                {verificada ? '✓ Organización verificada' : 'Publicador particular'}
+                {verificada && <span class="dot ml-1" style="background:#10B981"></span>}
+              </p>
+            </div>
+            {esDueno && <a href={`/mascota/${pet.id}/editar`} class="btn-ghost text-xs px-4 py-2">Editar</a>}
+          </div>
+          <p class="text-xs mt-2 text-gray-400">El chat interno (Fase 5) nunca muestra teléfonos personales.</p>
+
+          <!-- Solicitud de adopción (Fase 4) -->
+          <div class="mt-5">
+            {esDueno ? (
+              <div class="p-4 rounded-2xl text-sm" style="background:#E6FAF7">
+                <p><b>Es tu publicación.</b> Gestiona quién la solicita.</p>
+                <a href="/panel/solicitudes" class="btn-primary text-sm px-5 py-2.5 inline-block mt-3">Ver solicitudes</a>
+              </div>
+            ) : !user ? (
+              <a href={`/login?next=${encodeURIComponent(`/mascota/${pet.id}`)}`} class="btn-primary py-3 text-sm block text-center">Entrar para solicitar</a>
+            ) : !miSolicitud || miSolicitud.estado === 'rechazada' || miSolicitud.estado === 'cancelada' ? (
+              <form id="solForm" class="grid gap-2">
+                {miSolicitud && (
+                  <p class="text-xs font-semibold" style="color:#92400E">
+                    Tu solicitud anterior fue {miSolicitud.estado === 'rechazada' ? 'rechazada' : 'cancelada'}. Puedes intentarlo de nuevo.
+                  </p>
+                )}
+                <label class="text-xs font-bold uppercase tracking-wide" for="mensaje">¿Por qué quieres adoptar a {pet.nombre}?</label>
+                <textarea id="mensaje" name="mensaje" required minlength="10" maxlength="1000" rows="3" class="input-soft text-sm" placeholder="Cuéntale al publicador sobre tu hogar, experiencia, tiempo..."></textarea>
+                <p id="solErr" class="text-xs font-semibold hidden" style="color:#B45309" role="alert"></p>
+                <button id="solBtn" class="btn-primary py-3 text-sm" type="submit">Solicitar adopción</button>
+              </form>
+            ) : miSolicitud.estado === 'pendiente' ? (
+              <div class="p-4 rounded-2xl text-sm" style="background:#FEF3C7">
+                <p><b>Solicitud pendiente.</b> El publicador la está revisando. Te avisamos aquí cuando cambie.</p>
+                <button id="solCancel" type="button" class="text-xs font-bold mt-2 hover:underline" style="color:#B45309">Cancelar solicitud</button>
+              </div>
+            ) : (
+              <div class="p-4 rounded-2xl text-sm" style="background:#D1FAE5">
+                <p><b>¡Solicitud aprobada!</b> {pet.nombre} pasó a En proceso. Coordina la entrega con {publicador}.</p>
+                <p class="text-xs mt-1">Usa el chat para acordar la entrega.</p>
+              </div>
+            )}
+          </div>
+          <div class="mt-3">
+            {miSolicitud?.estado === 'aprobada' ? (
+              <a href={`/mensajes?mascota=${pet.id}&con=${publicadorId}`} class="btn-primary py-3 text-sm block text-center">Abrir chat</a>
+            ) : esDueno && solicitudAprobada ? (
+              <a href={`/mensajes?mascota=${pet.id}&con=${solicitudAprobada.id_adoptante}`} class="btn-primary py-3 text-sm block text-center">Abrir chat con adoptante</a>
+            ) : (
+              <span class="btn-ghost py-3 text-sm block text-center opacity-60 cursor-not-allowed" title="Requiere solicitud aprobada" aria-disabled="true">Enviar mensaje</span>
+            )}
+          </div>
+
+          <!-- Disclaimer legal (Ley 81 / alcance §2.2) -->
+          <p class="text-xs mt-4 p-3 rounded-xl" style="background:#FFF8F1;color:#9A3412">
+            <b>Nota legal:</b> el acuerdo final de adopción se realiza <b>fuera de la plataforma</b>.
+            Adopty es un canal de contacto, no gestiona contratos, entregas ni pagos.
+          </p>
+        </section>
+      </div>
+    )}
+  </main>
+  <script define:vars={{ petId: pet?.id ?? '', solId: miSolicitud?.id ?? '' }}>
+    const solForm = document.getElementById('solForm');
+    if (solForm) solForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('solErr');
+      const btn = document.getElementById('solBtn');
+      err.classList.add('hidden');
+      if (!solForm.reportValidity()) return;
+      const mensaje = new FormData(solForm).get('mensaje');
+      btn.disabled = true;
+      btn.textContent = 'Enviando…';
+      const res = await fetch('/api/solicitudes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_mascota: petId, mensaje_inicial: mensaje }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) { location.href = `/login?next=${encodeURIComponent(`/mascota/${petId}`)}`; return; }
+      if (!res.ok) {
+        err.textContent = data.error || 'Error al solicitar';
+        err.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Solicitar adopción';
+        return;
+      }
+      location.reload();
+    });
+    const solCancel = document.getElementById('solCancel');
+    if (solCancel) solCancel.addEventListener('click', async () => {
+      if (!confirm('¿Cancelar tu solicitud?')) return;
+      const res = await fetch(`/api/solicitudes/${solId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'cancelar' }),
+      });
+      if (res.ok) location.reload();
+      else alert('No se pudo cancelar');
+    });
+  </script>
+  <script>
+    const carousel = document.getElementById('carousel');
+    if (carousel) {
+      const slides = [...carousel.querySelectorAll('.slide')];
+      const dots = [...carousel.querySelectorAll('[data-dot]')];
+      const counter = document.getElementById('counter');
+      let actual = 0;
+      const mostrar = (n) => {
+        actual = (n + slides.length) % slides.length;
+        slides.forEach((s, i) => (s.style.display = i === actual ? 'block' : 'none'));
+        dots.forEach((d, i) => (d.style.background = i === actual ? '#FF7A29' : 'rgba(255,255,255,.75)'));
+        if (counter) counter.textContent = `Foto ${actual + 1} / ${slides.length}`;
+      };
+      document.getElementById('prev')?.addEventListener('click', () => mostrar(actual - 1));
+      document.getElementById('next')?.addEventListener('click', () => mostrar(actual + 1));
+      dots.forEach((d) => d.addEventListener('click', () => mostrar(Number(d.dataset.dot))));
+      carousel.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); mostrar(actual - 1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); mostrar(actual + 1); }
+      });
+    }
+  </script>
+</Layout>

@@ -1,0 +1,87 @@
+---
+export const prerender = false;
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+import { supabaseServer } from '../lib/supabase';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login?next=/perfil');
+
+const supabase = supabaseServer(Astro.cookies);
+const { data: perfil } = await supabase.from('usuarios').select('tipo_usuario, correo').eq('id', user.id).single();
+const tipo = perfil?.tipo_usuario ?? 'persona';
+
+let detalle: Record<string, string | boolean | null> = {};
+let verificada = false;
+if (tipo === 'persona') {
+  const { data } = await supabase.from('personas').select('nombre, telefono, descripcion').eq('id', user.id).single();
+  detalle = data ?? {};
+} else {
+  const { data } = await supabase.from('organizaciones').select('nombre_oficial, direccion, descripcion, sitio_web, verificada').eq('id', user.id).single();
+  detalle = data ?? {};
+  verificada = Boolean((data as { verificada?: boolean } | null)?.verificada);
+}
+const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) ?? user.email?.split('@')[0] ?? 'Usuario';
+---
+<Layout title="Adopty — Mi perfil">
+  <Navbar active="inicio" />
+  <main class="max-w-xl mx-auto px-4 mt-10">
+    <div class="soft-card p-8">
+      <div class="flex items-center gap-4">
+        <span class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-xl" style="background:#2EC4B6">{nombre.charAt(0).toUpperCase()}</span>
+        <div>
+          <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">{nombre}</h1>
+          <p class="text-sm">{perfil?.correo} · {tipo === 'persona' ? 'Persona' : 'Organización'}
+            {tipo === 'organizacion' && (verificada ? ' · ✓ Verificada' : ' · pendiente de verificación')}</p>
+        </div>
+      </div>
+      <p id="err" class="text-sm mt-3 font-semibold hidden" style="color:#B45309" role="alert"></p>
+      <p id="ok" class="text-sm mt-3 font-semibold hidden" style="color:#065F46" role="status"></p>
+      {tipo === 'persona' ? (
+        <form id="perfForm" class="mt-5 grid gap-3">
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" required minlength="2" maxlength="80" value={detalle.nombre as string ?? ''} class="input-soft mt-1 text-sm" /></div>
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="telefono">Teléfono (opcional, no se muestra en público)</label>
+          <input id="telefono" name="telefono" maxlength="20" value={detalle.telefono as string ?? ''} class="input-soft mt-1 text-sm" /></div>
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="descripcion">Descripción</label>
+          <textarea id="descripcion" name="descripcion" maxlength="500" rows="3" class="input-soft mt-1 text-sm">{detalle.descripcion as string ?? ''}</textarea></div>
+          <button class="btn-primary py-3 text-sm mt-2" type="submit">Guardar</button>
+        </form>
+      ) : (
+        <form id="perfForm" class="mt-5 grid gap-3" data-org="1">
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="nombre_oficial">Nombre oficial</label>
+          <input id="nombre_oficial" name="nombre_oficial" required minlength="2" maxlength="120" value={detalle.nombre_oficial as string ?? ''} class="input-soft mt-1 text-sm" /></div>
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="direccion">Dirección</label>
+          <input id="direccion" name="direccion" required maxlength="200" value={detalle.direccion as string ?? ''} class="input-soft mt-1 text-sm" /></div>
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="sitio_web">Sitio web (opcional)</label>
+          <input id="sitio_web" name="sitio_web" type="url" maxlength="200" value={detalle.sitio_web as string ?? ''} class="input-soft mt-1 text-sm" /></div>
+          <div><label class="text-xs font-bold uppercase tracking-wide" for="descripcion">Descripción</label>
+          <textarea id="descripcion" name="descripcion" maxlength="1000" rows="3" class="input-soft mt-1 text-sm">{detalle.descripcion as string ?? ''}</textarea></div>
+          <button class="btn-primary py-3 text-sm mt-2" type="submit">Guardar</button>
+        </form>
+      )}
+      {!verificada && tipo === 'organizacion' && (
+        <p class="text-xs mt-4 text-gray-400">Para el badge "verificada": escríbenos con evidencia (redes/documento) — proceso manual v1.</p>
+      )}
+      <form action="/api/auth/logout" method="post" class="mt-4">
+        <button class="btn-ghost w-full py-2.5 text-sm" type="submit">Cerrar sesión</button>
+      </form>
+    </div>
+  </main>
+  <script>
+    document.getElementById('perfForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('err'), ok = document.getElementById('ok');
+      err.classList.add('hidden'); ok.classList.add('hidden');
+      const fd = new FormData(e.target);
+      const isOrg = e.target.hasAttribute('data-org');
+      const payload = isOrg
+        ? { nombre_oficial: fd.get('nombre_oficial'), direccion: fd.get('direccion'), sitio_web: fd.get('sitio_web'), descripcion: fd.get('descripcion') }
+        : { nombre: fd.get('nombre'), telefono: fd.get('telefono'), descripcion: fd.get('descripcion') };
+      const res = await fetch('/api/perfil', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { err.textContent = data.error ?? 'Error al guardar'; err.classList.remove('hidden'); return; }
+      ok.textContent = 'Perfil actualizado.'; ok.classList.remove('hidden');
+    });
+  </script>
+</Layout>

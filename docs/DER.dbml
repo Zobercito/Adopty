@@ -1,0 +1,93 @@
+// Adopty — DER (dbdiagram.io). Fuente: supabase/migrations/001_schema.sql
+// Enums Postgres: tipo_usuario, especie, sexo_mascota, tamano_mascota, estado_mascota, estado_solicitud
+
+Table usuarios {
+  id uuid [pk, note: 'espejo de auth.users, trigger trg_new_user']
+  correo text [unique, not null]
+  tipo_usuario tipo_usuario [not null, default: 'persona']
+  fecha_registro timestamptz [not null, default: `now()`]
+  activo bool [not null, default: true]
+}
+
+Table personas {
+  id uuid [pk, ref: > usuarios.id, note: 'PK/FK']
+  nombre text [not null, note: '2-80']
+  telefono text [note: 'opcional, nunca público']
+  foto_perfil text
+  descripcion text [note: 'máx 500']
+}
+
+Table organizaciones {
+  id uuid [pk, ref: > usuarios.id, note: 'PK/FK']
+  nombre_oficial text [not null, note: '2-120']
+  direccion text [not null]
+  descripcion text [note: 'máx 1000']
+  verificada bool [not null, default: false, note: 'badge, manual v1']
+  sitio_web text
+}
+
+Table mascotas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_publicador uuid [not null, ref: > usuarios.id]
+  nombre text [not null, note: '2-60']
+  especie especie [not null]
+  raza text [not null]
+  edad_meses int [not null, note: '0-360']
+  sexo sexo_mascota [not null]
+  tamano tamano_mascota [not null]
+  descripcion text [not null, note: '10-2000']
+  estado_salud text [not null, default: '']
+  ubicacion text [not null, index]
+  estado estado_mascota [not null, default: 'disponible']
+  fecha_publicacion timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz [note: 'soft-delete']
+
+  indexes {
+    (estado, fecha_publicacion) [name: 'idx_mascotas_estado_fecha']
+    (especie, tamano) [name: 'idx_mascotas_especie_tamano']
+    raza [type: gin, name: 'idx_mascotas_raza_trgm']
+    ubicacion [type: gin, name: 'idx_mascotas_ubicacion_trgm']
+  }
+}
+
+Table fotos_mascota {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_mascota uuid [not null, ref: > mascotas.id, delete: cascade]
+  url_foto text [not null, note: 'ruta storage o /assets']
+  es_principal bool [not null, default: false]
+  orden int [not null, default: 0, note: '0-4, trigger máx 5 fotos']
+}
+
+Table solicitudes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_mascota uuid [not null, ref: > mascotas.id, delete: cascade]
+  id_adoptante uuid [not null, ref: > usuarios.id, delete: cascade]
+  estado estado_solicitud [not null, default: 'pendiente']
+  mensaje_inicial text [not null, note: '10-1000']
+  fecha_solicitud timestamptz [not null, default: `now()`]
+
+  indexes {
+    (id_mascota, id_adoptante) [unique, name: 'uq_solicitud_pendiente', note: 'parcial: solo pendiente']
+  }
+}
+
+Table mensajes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_emisor uuid [not null, ref: > usuarios.id, delete: cascade]
+  id_receptor uuid [not null, ref: > usuarios.id, delete: cascade]
+  id_mascota uuid [not null, ref: > mascotas.id, delete: cascade]
+  contenido text [not null, note: '1-2000']
+  leido bool [not null, default: false]
+  fecha_envio timestamptz [not null, default: `now()`]
+}
+
+Table favoritos {
+  id_usuario uuid [not null, ref: > usuarios.id, delete: cascade]
+  id_mascota uuid [not null, ref: > mascotas.id, delete: cascade]
+  fecha timestamptz [not null, default: `now()`]
+
+  indexes {
+    (id_usuario, id_mascota) [pk]
+  }
+}

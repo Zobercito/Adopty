@@ -1,0 +1,24 @@
+---
+export const prerender = false;
+import Layout from '../../layouts/Layout.astro';
+import Navbar from '../../components/Navbar.astro';
+import PetForm from '../../components/PetForm.astro';
+
+if (!Astro.locals.user) return Astro.redirect('/login?next=/mascota/nueva');
+---
+<Layout title="Adopty — Publicar mascota" description="Publica una mascota en adopción en Adopty.">
+  <Navbar active="panel" />
+  <main class="max-w-3xl mx-auto px-4 mt-6 mb-4">
+    <div class="soft-card p-6 sm:p-8">
+      <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Publicar mascota</h1>
+      <p class="text-sm mt-1">1–5 fotos, datos reales. Aparecerá como <b>Disponible</b> en Explorar.</p>
+      <div class="mt-6">
+        <PetForm mode="create" />
+      </div>
+      <p class="text-xs mt-5 text-gray-400">
+        Al publicar aceptas que el acuerdo final de adopción se realiza <b>fuera de la plataforma</b>.
+        Adopty no gestiona contratos ni pagos.
+      </p>
+    </div>
+  </main>
+</Layout>
