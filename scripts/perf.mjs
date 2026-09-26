@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
- /**
+/**
  * Perf smoke (Fase 7) — mide p50/p95 de la búsqueda contra el dev server local.
  * Uso: `npm run dev` en otra terminal y luego `node scripts/perf.mjs [base]`.
  * Criterio del plan: búsqueda p95 < 1s.
