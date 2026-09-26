@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
+import { ipCliente, rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
 import { supabaseServer } from '../../../lib/supabase';
 import { z } from 'zod';
 
 export const prerender = false;
 
-/** POST /api/auth/recuperar — envía email de recuperación (link vuelve al callback). */
+/** POST /api/auth/recuperar — envía email de recuperación (link vuelve al callback). Rate-limit 5/min por IP. */
 export const POST: APIRoute = async ({ request, cookies, url }) => {
+  const rl = rateLimit(`recuperar:${ipCliente(request)}`, 5, 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
   const parsed = z
     .object({ correo: z.string().email() })
     .safeParse(await request.json().catch(() => null));

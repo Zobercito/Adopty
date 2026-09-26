@@ -1,0 +1,27 @@
+name: CI — Adopty (Fase 7)
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    env:
+      # Valores falsos solo para que el build/SSR compile sin secretos reales.
+      # Los previews de Vercel usan las env vars del proyecto.
+      PUBLIC_SUPABASE_URL: https://example.supabase.co
+      PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiJ9.e30.fake-key-para-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build

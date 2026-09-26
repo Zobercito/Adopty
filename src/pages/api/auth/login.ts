@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
+import { ipCliente, rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
 import { supabaseServer } from '../../../lib/supabase';
 import { loginSchema } from '../../../lib/validation/user';
 
 export const prerender = false;
 
-/** POST /api/auth/login — signIn con cookies SSR + retorno a ?next=. */
+/** POST /api/auth/login — signIn con cookies SSR + retorno a ?next=. Rate-limit 10/min por IP. */
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+  const rl = rateLimit(`login:${ipCliente(request)}`, 10, 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
   let body: unknown;
   try {
     body = await request.json();

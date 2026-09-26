@@ -6,6 +6,9 @@ dist/
 # vercel
 .vercel/
 
+# local backups (contienen datos personales de prueba)
+backups/
+
 # dependencies
 node_modules/
 

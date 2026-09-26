@@ -1,4 +1,4 @@
-# Adopty — Fase 0–6 (base + Auth + CRUD + búsqueda + solicitudes + mensajería + panel)
+# Adopty — Fase 0–7 (base + Auth + CRUD + búsqueda + solicitudes + mensajería + panel + QA)
 
 Plataforma web centralizada de adopción de mascotas en Panamá. Plan completo en `../PLAN_DESARROLLO_ADOPTY.md`.
 
@@ -18,6 +18,7 @@ npm run dev        # http://localhost:4321
 npm run build      # verde = criterio Fase 0
 npm run lint       # ESLint plano sin plugins (Fase 0)
 npm run format:check
+npm test           # vitest: Zod + transiciones + helpers (Fase 7, 36 tests)
 ```
 
 Supabase local:

@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
+import { ipCliente, rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
 import { supabaseServer } from '../../../lib/supabase';
 import { registerSchema } from '../../../lib/validation/user';
 
 export const prerender = false;
 
-/** POST /api/auth/register — validación Zod en servidor + signUp con metadata. */
+/** POST /api/auth/register — validación Zod en servidor + signUp con metadata. Rate-limit 10/min por IP. */
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+  const rl = rateLimit(`register:${ipCliente(request)}`, 10, 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
   let body: unknown;
   try {
     body = await request.json();
