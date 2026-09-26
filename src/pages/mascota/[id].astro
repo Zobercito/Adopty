@@ -46,6 +46,19 @@ const grad = pet ? gradFor(pet.id) : 'pet-grad-1';
 
 let publicador = 'Publicador';
 let verificada = false;
+const publicadorId = pet?.id_publicador ?? '';
+// Solicitud aprobada de esta mascota (para el chat del publicador)
+let solicitudAprobada: { id: string; id_adoptante: string } | null = null;
+if (pet && user && esDueno) {
+  const { data: ap } = await supabase
+    .from('solicitudes')
+    .select('id,id_adoptante')
+    .eq('id_mascota', pet.id)
+    .eq('estado', 'aprobada')
+    .order('fecha_solicitud', { ascending: false })
+    .limit(1);
+  solicitudAprobada = ((ap?.[0] ?? null) as { id: string; id_adoptante: string } | null);
+}
 if (pet) {
   const [{ data: persona }, { data: org }] = await Promise.all([
     supabase.from('personas').select('nombre').eq('id', pet.id_publicador).maybeSingle(),
@@ -204,12 +217,18 @@ const datos = pet
             ) : (
               <div class="p-4 rounded-2xl text-sm" style="background:#D1FAE5">
                 <p><b>¡Solicitud aprobada!</b> {pet.nombre} pasó a En proceso. Coordina la entrega con {publicador}.</p>
-                <p class="text-xs mt-1">El chat interno llega en Fase 5.</p>
+                <p class="text-xs mt-1">Usa el chat para acordar la entrega.</p>
               </div>
             )}
           </div>
           <div class="mt-3">
-            <span class="btn-ghost py-3 text-sm block text-center opacity-60 cursor-not-allowed" title="Disponible en Fase 5" aria-disabled="true">Enviar mensaje</span>
+            {miSolicitud?.estado === 'aprobada' ? (
+              <a href={`/mensajes?mascota=${pet.id}&con=${publicadorId}`} class="btn-primary py-3 text-sm block text-center">Abrir chat</a>
+            ) : esDueno && solicitudAprobada ? (
+              <a href={`/mensajes?mascota=${pet.id}&con=${solicitudAprobada.id_adoptante}`} class="btn-primary py-3 text-sm block text-center">Abrir chat con adoptante</a>
+            ) : (
+              <span class="btn-ghost py-3 text-sm block text-center opacity-60 cursor-not-allowed" title="Requiere solicitud aprobada" aria-disabled="true">Enviar mensaje</span>
+            )}
           </div>
 
           <!-- Disclaimer legal (Ley 81 / alcance §2.2) -->

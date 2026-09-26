@@ -1,0 +1,137 @@
+---
+export const prerender = false;
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.astro';
+import MessageThread from '../components/MessageThread.astro';
+import ChatView from '../components/ChatView.astro';
+import { supabaseServer } from '../lib/supabase';
+import { fotosOrdenadas, type FotoRow } from '../lib/mascotas';
+import { getMisSolicitudes } from '../lib/solicitudes';
+
+if (!Astro.locals.user) return Astro.redirect('/login?next=/mensajes');
+
+const supabase = supabaseServer(Astro.cookies);
+const currentUserId = Astro.locals.user.id;
+const mascotaId = Astro.url.searchParams.get('mascota');
+const con = Astro.url.searchParams.get('con');
+
+let hilos: { key: string; id_mascota: string; otra_parte: string; nombre_otra: string; ultima: string; no_leidos: number; mascota: any }[] = [];
+let chatActivo: { id_mascota: string; otra_parte: string; nombre_otra: string; mascota: any; mensajes: any[] } | null = null;
+
+try {
+  // Obtener hilos
+  const { data, error } = await supabase
+    .from('mensajes')
+    .select('id, id_emisor, id_receptor, id_mascota, contenido, leido, fecha_envio, mascotas!inner(id, nombre, estado, fotos_mascota(url_foto, es_principal, orden))')
+    .or(`id_emisor.eq.${currentUserId},id_receptor.eq.${currentUserId}`)
+    .order('fecha_envio', { ascending: false });
+  if (error) throw new Error(error.message);
+
+  // Agrupar por hilo
+  const hilosMap = new Map<string, { id_mascota: string; otra_parte: string; ultimo: string; no_leidos: number; mascota: any }>();
+  for (const m of data ?? []) {
+    const otra = m.id_emisor === currentUserId ? m.id_receptor : m.id_emisor;
+    const key = `${m.id_mascota}:${otra}`;
+    const no_leido_extra = !m.leido && m.id_receptor === currentUserId ? 1 : 0;
+    const h = hilosMap.get(key);
+    if (!h) {
+      hilosMap.set(key, {
+        id_mascota: m.id_mascota,
+        otra_parte: otra,
+        ultimo: m.fecha_envio,
+        no_leidos: no_leido_extra,
+        mascota: m.mascotas,
+      });
+    } else {
+      h.no_leidos += no_leido_extra;
+      if (m.fecha_envio > h.ultimo) h.ultimo = m.fecha_envio;
+    }
+  }
+
+  // Nombres
+  const otrasIds = [...hilosMap.values()].map((h) => h.otra_parte);
+  const [personas, orgs] = await Promise.all([
+    supabase.from('personas').select('id,nombre').in('id', otrasIds.length ? otrasIds : ['00000000-0000-0000-0000-000000000000']),
+    supabase.from('organizaciones').select('id,nombre_oficial').in('id', otrasIds.length ? otrasIds : ['00000000-0000-0000-0000-000000000000']),
+  ]);
+  const nombres = new Map<string, string>();
+  for (const p of (personas.data ?? []) as { id: string; nombre: string }[]) nombres.set(p.id, p.nombre);
+  for (const o of (orgs.data ?? []) as { id: string; nombre_oficial: string }[]) nombres.set(o.id, o.nombre_oficial);
+
+  hilos = [...hilosMap.entries()].map(([key, h]) => ({
+    key,
+    id_mascota: h.id_mascota,
+    otra_parte: h.otra_parte,
+    nombre_otra: nombres.get(h.otra_parte) ?? 'Usuario',
+    ultima: h.ultimo,
+    no_leidos: h.no_leidos,
+    mascota: h.mascota,
+    solicitud: undefined as string | undefined,
+  })).sort((a, b) => b.ultima.localeCompare(a.ultima));
+
+  // Estado de MI solicitud por mascota → badge "Solicitud: pendiente" en la bandeja
+  try {
+    const mias = await getMisSolicitudes(supabase, currentUserId);
+    const mapa = new Map(mias.map((s) => [s.mascota.id, s.estado] as const));
+    hilos = hilos.map((h) => ({ ...h, solicitud: mapa.get(h.id_mascota) }));
+  } catch { /* bandeja funciona igual sin badge */ }
+
+  // Chat activo (si hay mascotaId+con en URL)
+  if (mascotaId && con) {
+    const h = hilos.find((h) => h.id_mascota === mascotaId && h.otra_parte === con);
+    if (h) {
+      const { data: msgs } = await supabase
+        .from('mensajes')
+        .select('id, id_emisor, id_receptor, contenido, leido, fecha_envio')
+        .eq('id_mascota', mascotaId)
+        .or(`id_emisor.eq.${currentUserId},id_receptor.eq.${currentUserId}`)
+        .order('fecha_envio', { ascending: true })
+        .limit(100);
+      const { data: p } = await supabase.from('personas').select('nombre').eq('id', con).maybeSingle();
+      const { data: o } = await supabase.from('organizaciones').select('nombre_oficial').eq('id', con).maybeSingle();
+      const nombre_otra = p?.nombre ?? o?.nombre_oficial ?? 'Usuario';
+      const { data: mascotaRow } = await supabase.from('mascotas').select('id, nombre, fotos_mascota(url_foto, es_principal, orden)').eq('id', mascotaId).maybeSingle();
+      const mascota = mascotaRow
+        ? { id: mascotaRow.id, nombre: mascotaRow.nombre, fotos: fotosOrdenadas((mascotaRow as unknown as { fotos_mascota: FotoRow[] }).fotos_mascota) }
+        : null;
+      chatActivo = { id_mascota: mascotaId, otra_parte: con, nombre_otra: nombres.get(con) ?? nombre_otra, mascota, mensajes: msgs ?? [] };
+    }
+  }
+} catch (e) {
+  console.error(e);
+}
+---
+<Layout title="Adopty — Mis mensajes">
+  <Navbar active="mensajes" />
+  <main class="max-w-6xl mx-auto px-4 mt-6 h-[calc(100vh-8rem)] flex">
+    <aside class="w-72 lg:w-80 shrink-0 soft-card flex flex-col hidden lg:flex">
+      <div class="p-4 border-b"><h2 class="font-display font-extrabold text-lg" style="color:#1E293B">Mensajes</h2></div>
+      <div class="flex-1 overflow-y-auto">
+        {hilos.length === 0 ? (
+          <div class="p-4 text-center text-sm text-gray-400">No hay conversaciones aún.</div>
+        ) : (
+          <div class="divide-y">
+            {hilos.map((h) => <MessageThread {...h} />)}
+          </div>
+        )}
+      </div>
+    </aside>
+
+    <div class="flex-1 lg:w-0 flex flex-col min-w-0">
+      {chatActivo ? (
+        <ChatView
+          id_mascota={chatActivo.id_mascota}
+          otra_parte={chatActivo.otra_parte}
+          nombre_otra={chatActivo.nombre_otra}
+          mascota={chatActivo.mascota}
+          mensajes={chatActivo.mensajes}
+          currentUserId={currentUserId}
+        />
+      ) : (
+        <div class="flex-1 soft-card flex items-center justify-center text-center">
+          <p class="text-sm text-gray-400">Selecciona una conversación o empieza una desde una ficha de mascota.</p>
+        </div>
+      )}
+    </div>
+  </main>
+</Layout>

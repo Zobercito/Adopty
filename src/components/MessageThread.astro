@@ -1,0 +1,31 @@
+---
+import { fotoUrl, fotosOrdenadas } from '../lib/mascotas';
+
+interface Props {
+  key: string;
+  id_mascota: string;
+  otra_parte: string;
+  nombre_otra: string;
+  ultima: string;
+  no_leidos: number;
+  mascota: any;
+  solicitud?: string;
+}
+const { key, id_mascota, otra_parte, nombre_otra, ultima, no_leidos, mascota, solicitud } = Astro.props as Props;
+const fotos = fotosOrdenadas(mascota?.fotos_mascota ?? []);
+const foto = fotoUrl(fotos[0]?.url_foto);
+const fecha = new Date(ultima).toLocaleDateString('es-PA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+---
+<a href={`/mensajes?mascota=${id_mascota}&con=${otra_parte}`} class="soft-card p-4 flex gap-3 group hover:shadow-md transition-shadow" aria-label={`Chat con ${nombre_otra} sobre ${mascota?.nombre}`}>
+  <div class={`pet-photo w-14 h-14 rounded-xl shrink-0 ${mascota ? '' : 'pet-grad-1'}`} style={foto ? `background-image:url('${foto}');background-size:cover;background-position:center` : ''}>
+    {foto && <img src={foto} alt="" class="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity" onerror="this.remove()" />}
+  </div>
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center justify-between gap-2">
+      <p class="font-bold truncate" style="color:#1E293B">{nombre_otra}</p>
+      <time class="text-xs text-gray-400 shrink-0" dateTime={ultima}>{fecha}</time>
+    </div>
+    <p class="text-sm text-gray-500 truncate mt-1" style="color:#475569">{mascota?.nombre ? `Sobre ${mascota.nombre}` : 'Sin mascota asociada'}{solicitud ? ` · Solicitud: ${solicitud}` : ''}</p>
+  </div>
+  {no_leidos > 0 && <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style="background:#FF7A29">{no_leidos > 9 ? '9+' : no_leidos}</span>}
+</a>

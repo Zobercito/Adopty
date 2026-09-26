@@ -5,3 +5,8 @@ supabase/.temp/
 dist/
 .astro/
 .vercel/
+.codegraph/
+.agents/
+.continue/
+.kiro/
+skills-lock.json
