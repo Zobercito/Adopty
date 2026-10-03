@@ -14,20 +14,20 @@
 
 ## Aceptación global §13
 
-| Criterio                       | Estado                                                 |
-| ------------------------------ | ------------------------------------------------------ |
-| CU-01…CU-08 e2e en prod        | ⏳ verificar en prod (verificados en dev + preview)    |
+| Criterio                       | Estado                                                        |
+| ------------------------------ | ------------------------------------------------------------- |
+| CU-01…CU-08 e2e en prod        | ⏳ verificar en prod (verificados en dev + preview)           |
 | Preview deploy verificado      | ✅ 2026-09-26: páginas/API/DB/login/guards/sitemap en preview |
-| Redirects preview en Supabase  | ✅ signup con `emailRedirectTo` al preview aceptado    |
-| Register con `emailRedirectTo` | ✅ fix deployado; E2E completo pendiente de cuota email/hora |
-| Búsqueda p95 < 1 s (1k)        | ✅ local 28 filas; ⏳ repetir en prod                  |
-| Imágenes ≤ 500 KB WebP         | ✅ enforced                                            |
-| RLS tests 100%                 | ✅ E2E por rol (turnos F1/F4/F5)                       |
-| Sin secretos en git            | ✅ verificado                                          |
-| Validación server total        | ✅ Zod en todas las mutaciones                         |
-| axe 0 críticos / teclado / AA  | ⏳ manual en prod                                      |
-| Piloto ≥5 / ≥3 / ≥1 + feedback | ⏳ `PILOTO.md` + `ACTA_ENTREGA.md`                     |
-| Google OAuth                   | ⏳ pendiente decidido (F8)                             |
+| Redirects preview en Supabase  | ✅ signup con `emailRedirectTo` al preview aceptado           |
+| Register con `emailRedirectTo` | ✅ fix deployado; E2E completo pendiente de cuota email/hora  |
+| Búsqueda p95 < 1 s (1k)        | ✅ local 28 filas; ⏳ repetir en prod                         |
+| Imágenes ≤ 500 KB WebP         | ✅ enforced                                                   |
+| RLS tests 100%                 | ✅ E2E por rol (turnos F1/F4/F5)                              |
+| Sin secretos en git            | ✅ verificado                                                 |
+| Validación server total        | ✅ Zod en todas las mutaciones                                |
+| axe 0 críticos / teclado / AA  | ⏳ manual en prod                                             |
+| Piloto ≥5 / ≥3 / ≥1 + feedback | ⏳ `PILOTO.md` + `ACTA_ENTREGA.md`                            |
+| Google OAuth                   | ⏳ pendiente decidido (F8)                                    |
 
 > Nota registro en cloud: con "Confirm email" ON, el alta depende del email de
 > Supabase (cuota horaria del free tier). Para el piloto se recomienda OFF

@@ -5,8 +5,9 @@ import Analytics from '@vercel/analytics/astro';
 interface Props {
   title?: string;
   description?: string;
+  ogImage?: string;
 }
-const { title = 'Adopty — Adopta con amor en Panamá', description = 'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatea y solicita sin exponer tu número.' } = Astro.props as Props;
+const { title = 'Adopty — Adopta con amor en Panamá', description = 'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatea y solicita sin exponer tu número.', ogImage } = Astro.props as Props;
 ---
 <!DOCTYPE html>
 <html lang="es">
@@ -18,10 +19,14 @@ const { title = 'Adopty — Adopta con amor en Panamá', description = 'Platafor
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_PA" />
-    <meta name="twitter:card" content="summary" />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#FF7A29" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -40,5 +45,13 @@ const { title = 'Adopty — Adopta con amor en Panamá', description = 'Platafor
       </div>
     </footer>
     <Analytics />
+    <script>
+      import { trackEvento } from '../lib/analytics';
+      // Expone el tracker para los scripts inline (define:vars) que no pueden importar.
+      window.adoptyTrack = trackEvento;
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+      }
+    </script>
   </body>
 </html>

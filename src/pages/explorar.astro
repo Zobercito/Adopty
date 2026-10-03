@@ -137,8 +137,9 @@ const spec: { val: string; label: string }[] = [
     const card = (p) => {
       const principal = [...(p.fotos || [])].sort((a, b) => (a.es_principal === b.es_principal ? a.orden - b.orden : a.es_principal ? -1 : 1))[0];
       const foto = fotoUrl(principal?.url_foto);
+      const url = p.slug ? `/mascota/${esc(p.slug)}` : `/mascota/${esc(p.id)}`;
       return `<article class="soft-card overflow-hidden">
-        <a href="/mascota/${esc(p.id)}" aria-label="Ver perfil de ${esc(p.nombre)}">
+        <a href="${url}" aria-label="Ver perfil de ${esc(p.nombre)}">
           <div class="pet-photo ${gradFor(p.id)} w-full h-52">${foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)} - ${esc(p.raza)}" loading="lazy" class="absolute inset-0 w-full h-full object-cover" style="object-position:center" onerror="this.remove()">` : ''}</div>
         </a>
         <div class="p-5">
@@ -146,7 +147,7 @@ const spec: { val: string; label: string }[] = [
             <button type="button" data-fav-btn="${esc(p.id)}" aria-label="Guardar ${esc(p.nombre)} en favoritos" aria-pressed="false" title="Guardar en favoritos" class="text-gray-300 text-xl hover:scale-110 transition-transform">♥</button></div>
           <h3 class="font-display font-bold text-lg mt-2" style="color:#1E293B">${esc(p.nombre)} <span class="text-sm font-medium text-gray-400">· ${esc(p.raza)}</span></h3>
           <p class="text-sm mt-1">${esc(edadLabel(p.edad_meses))} · ${esc(p.sexo)} · ${esc(p.ubicacion)}</p>
-          <div class="flex gap-2 mt-4"><a href="/mascota/${esc(p.id)}" class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a></div>
+          <div class="flex gap-2 mt-4"><a href="${url}" class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a></div>
         </div>
       </article>`;
     };
@@ -187,6 +188,8 @@ const spec: { val: string; label: string }[] = [
         grid.innerHTML = d.items.map(card).join('');
         grid.querySelectorAll('[data-fav-btn]').forEach((b) => window.adoptyFavInit?.(b));
         count.textContent = `${d.total} mascotas encontradas${d.totalPages > 1 ? ` · página ${d.page} de ${d.totalPages}` : ''}`;
+        // Analytics de embudo: búsqueda
+        window.adoptyTrack?.('busqueda', { q: sp.get('q') || '', resultados: d.total });
         if (d.items.length === 0) {
           emptyMsg.textContent = 'Sin resultados con esos filtros. Prueba limpiar o probar otra combinación.';
           empty.classList.remove('hidden');

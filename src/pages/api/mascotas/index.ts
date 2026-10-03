@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { buscarMascotas, paramsFrom } from '../../../lib/mascotas';
 import { petSchema } from '../../../lib/validation/pet';
+import { registrarAuditoria } from '../../../lib/auditoria';
+import { ipCliente } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -57,5 +59,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     await supabase.from('mascotas').delete().eq('id', creada.id);
     return Response.json({ error: errFotos.message }, { status: 400 });
   }
+  await registrarAuditoria(supabase, {
+    id_usuario: user.id,
+    accion: 'mascota_crear',
+    tabla: 'mascotas',
+    id_registro: creada.id,
+    datos_nuevos: { nombre: mascota.nombre, especie: mascota.especie },
+    ip: ipCliente(request),
+  });
   return Response.json({ id: creada.id }, { status: 201 });
 };

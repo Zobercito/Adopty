@@ -6,6 +6,7 @@ export type Tamano = 'Pequeño' | 'Mediano' | 'Grande';
 
 export interface MascotaRow {
   id: string;
+  slug: string;
   id_publicador: string;
   nombre: string;
   especie: Especie;
@@ -133,6 +134,7 @@ export async function buscarMascotas(
   if (b.tamano) q = q.eq('tamano', b.tamano);
   if (b.sexo) q = q.eq('sexo', b.sexo);
   if (b.q) q = q.or(`nombre.ilike.%${b.q}%,raza.ilike.%${b.q}%,ubicacion.ilike.%${b.q}%`);
+  // Nota: pg_trgm (similarity) se usa en /api/mascotas/busqueda-avanzada para resultados más relevantes
   const from = (page - 1) * pageSize;
   const { data, error, count } = await q
     .order('fecha_publicacion', { ascending: b.orden === 'antiguos' })

@@ -61,7 +61,12 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         </form>
       )}
       {!verificada && tipo === 'organizacion' && (
-        <p class="text-xs mt-4 text-gray-400">Para el badge "verificada": escríbenos con evidencia (redes/documento) — proceso manual v1.</p>
+        <div class="mt-4 p-4 rounded-xl" style="background:#F0F9FF">
+          <p class="text-xs font-bold" style="color:#0369A1">¿Quieres el badge "verificada"?</p>
+          <p class="text-xs mt-1 text-gray-500">Envíanos evidencia de tu organización (redes sociales, documento o sitio web).</p>
+          <button id="verifBtn" type="button" class="btn-primary text-xs px-4 py-2 mt-2">Solicitar verificación</button>
+          <p id="verifMsg" class="text-xs mt-2 hidden" style="color:#065F46" role="status"></p>
+        </div>
       )}
       <form action="/api/auth/logout" method="post" class="mt-4">
         <button class="btn-ghost w-full py-2.5 text-sm" type="submit">Cerrar sesión</button>
@@ -83,5 +88,42 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       if (!res.ok) { err.textContent = data.error ?? 'Error al guardar'; err.classList.remove('hidden'); return; }
       ok.textContent = 'Perfil actualizado.'; ok.classList.remove('hidden');
     });
+
+    // Botón solicitar verificación
+    const verifBtn = document.getElementById('verifBtn');
+    if (verifBtn) {
+      verifBtn.addEventListener('click', async () => {
+        const tipo = prompt('Tipo de evidencia (redes_sociales, documento, sitio_web, otro):');
+        if (!tipo || !['redes_sociales', 'documento', 'sitio_web', 'otro'].includes(tipo)) {
+          alert('Tipo inválido. Usa: redes_sociales, documento, sitio_web u otro');
+          return;
+        }
+        const url = prompt('URL de la evidencia:');
+        if (!url || !url.startsWith('http')) {
+          alert('Ingresa una URL válida (debe comenzar con http)');
+          return;
+        }
+        const descripcion = prompt('Descripción (opcional):') || '';
+        verifBtn.disabled = true;
+        try {
+          const res = await fetch('/api/verificacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo_evidencia: tipo, url_evidencia: url, descripcion }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Error al enviar');
+          const msg = document.getElementById('verifMsg');
+          if (msg) {
+            msg.textContent = 'Solicitud enviada. Te notificaremos cuando sea revisada.';
+            msg.classList.remove('hidden');
+          }
+          verifBtn.textContent = '✓ Solicitud enviada';
+        } catch (e) {
+          alert(e.message);
+          verifBtn.disabled = false;
+        }
+      });
+    }
   </script>
 </Layout>

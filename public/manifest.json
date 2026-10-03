@@ -1,0 +1,16 @@
+{
+  "name": "Adopty",
+  "short_name": "Adopty",
+  "description": "Plataforma centralizada de adopción de mascotas en Panamá",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8ebf0",
+  "theme_color": "#FF7A29",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

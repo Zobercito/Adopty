@@ -5,6 +5,7 @@ import { estadoLabel, fotoUrl, gradFor, type FotoRow } from '../lib/mascotas';
 
 interface Props {
   id: string;
+  slug?: string;
   nombre: string;
   raza: string;
   sexo: string;
@@ -14,13 +15,14 @@ interface Props {
   edadLabel: string;
   fotos?: FotoRow[];
 }
-const { id, nombre, raza, sexo, tamano, ubicacion, estado, edadLabel, fotos } = Astro.props as Props;
+const { id, slug, nombre, raza, sexo, tamano, ubicacion, estado, edadLabel, fotos } = Astro.props as Props;
+const url = slug ? `/mascota/${slug}` : `/mascota/${id}`;
 const principal = [...(fotos ?? [])].sort((a, b) => (a.es_principal === b.es_principal ? a.orden - b.orden : a.es_principal ? -1 : 1))[0];
 const foto = fotoUrl(principal?.url_foto);
 const grad = gradFor(id);
 ---
 <article class="soft-card overflow-hidden">
-  <a href={`/mascota/${id}`} aria-label={`Ver perfil de ${nombre}`}>
+  <a href={url} aria-label={`Ver perfil de ${nombre}`}>
     <div class={`pet-photo ${grad} w-full h-52`}>
       {foto && (
         <img
@@ -44,7 +46,7 @@ const grad = gradFor(id);
     </h3>
     <p class="text-sm mt-1">{edadLabel} · {sexo} · {ubicacion}</p>
     <div class="flex gap-2 mt-4">
-      <a href={`/mascota/${id}`} class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a>
+      <a href={url} class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a>
     </div>
   </div>
 </article>

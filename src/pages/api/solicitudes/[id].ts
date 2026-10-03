@@ -6,6 +6,8 @@ import {
   type RolSolicitud,
 } from '../../../lib/transiciones';
 import { solicitudAccionSchema } from '../../../lib/validation/request';
+import { registrarAuditoria } from '../../../lib/auditoria';
+import { ipCliente } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -47,9 +49,27 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     // transacción RPC: aprobada + mascota en_proceso + auto-rechaza resto
     const { error } = await supabase.rpc('aprobar_solicitud', { p_solicitud_id: id });
     if (error) return Response.json({ error: error.message }, { status: 400 });
+    await registrarAuditoria(supabase, {
+      id_usuario: user.id,
+      accion: 'solicitud_aprobar',
+      tabla: 'solicitudes',
+      id_registro: id,
+      datos_anteriores: { estado: sol.estado },
+      datos_nuevos: { estado: 'aprobada' },
+      ip: ipCliente(request),
+    });
     return Response.json({ ok: true });
   }
   const { error } = await supabase.from('solicitudes').update({ estado: t.siguiente }).eq('id', id);
   if (error) return Response.json({ error: error.message }, { status: 400 });
+  await registrarAuditoria(supabase, {
+    id_usuario: user.id,
+    accion: `solicitud_${accion}`,
+    tabla: 'solicitudes',
+    id_registro: id,
+    datos_anteriores: { estado: sol.estado },
+    datos_nuevos: { estado: t.siguiente },
+    ip: ipCliente(request),
+  });
   return Response.json({ ok: true });
 };

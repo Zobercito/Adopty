@@ -3,6 +3,8 @@ import { supabaseServer } from '../../../lib/supabase';
 import { fotosOrdenadas, type FotoRow, type MascotaRow } from '../../../lib/mascotas';
 import { petUpdateSchema } from '../../../lib/validation/pet';
 import { borrarFotosStorage } from '../../../lib/storage';
+import { registrarAuditoria } from '../../../lib/auditoria';
+import { ipCliente } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -109,7 +111,7 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 };
 
 /** DELETE /api/mascotas/:id — soft-delete (deleted_at = now). Solo dueño. */
-export const DELETE: APIRoute = async ({ params, cookies }) => {
+export const DELETE: APIRoute = async ({ params, request, cookies }) => {
   const supabase = supabaseServer(cookies);
   const id = params.id ?? '';
   const {
@@ -129,5 +131,12 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return Response.json({ error: error.message }, { status: 400 });
+  await registrarAuditoria(supabase, {
+    id_usuario: user.id,
+    accion: 'mascota_eliminar',
+    tabla: 'mascotas',
+    id_registro: id,
+    ip: ipCliente(request),
+  });
   return Response.json({ ok: true });
 };

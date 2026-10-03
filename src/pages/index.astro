@@ -10,6 +10,7 @@ import { PETS } from '../data/mockPets';
 
 type Card = {
   id: string;
+  slug?: string;
   nombre: string;
   raza: string;
   sexo: string;
@@ -22,6 +23,7 @@ type Card = {
 
 const deMock = (p: (typeof PETS)[number]): Card => ({
   id: p.id,
+  slug: undefined,
   nombre: p.nombre,
   raza: p.raza,
   sexo: p.sexo,
@@ -40,6 +42,7 @@ try {
   const r = await buscarMascotas(supabaseServer(Astro.cookies), { estado: 'disponible', pageSize: 6 });
   destacadas = r.items.map((p: MascotaRow & { fotos: FotoRow[] }) => ({
     id: p.id,
+    slug: p.slug,
     nombre: p.nombre,
     raza: p.raza,
     sexo: p.sexo,
@@ -92,7 +95,7 @@ const totalDisponibles = conDb ? destacadas.length : destacadas.length;
         {hero.map((p) => {
           const foto = p.fotos[0]?.url_foto ?? '';
           return (
-            <a href={`/mascota/${p.id}`} class="soft-card overflow-hidden block">
+            <a href={p.slug ? `/mascota/${p.slug}` : `/mascota/${p.id}`} class="soft-card overflow-hidden block">
               <div class="pet-photo w-full h-36" style="background:linear-gradient(135deg,#ffe8d6,#ffd1a8)">
                 {foto && <img src={foto} alt={p.nombre} loading="lazy" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()" />}
               </div>
