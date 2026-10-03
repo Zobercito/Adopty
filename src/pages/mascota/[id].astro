@@ -49,6 +49,13 @@ if (noExiste) Astro.response.status = 404;
 
 const fotos = pet ? fotosOrdenadas(pet.fotos_mascota) : [];
 const grad = pet ? gradFor(pet.id) : 'pet-grad-1';
+// OG image absoluta (los assets del seed son rutas relativas /assets/…)
+const ogRel = fotos[0] ? fotoUrl(fotos[0].url_foto) : '';
+const ogImage = ogRel
+  ? ogRel.startsWith('http')
+    ? ogRel
+    : new URL(ogRel, Astro.site ?? Astro.url.origin).toString()
+  : undefined;
 
 let publicador = 'Publicador';
 let verificada = false;
@@ -92,7 +99,7 @@ const datos = pet
 <Layout
   title={pet ? `Adopty — ${pet.nombre}, ${pet.raza} en adopción` : 'Adopty — No encontrada'}
   description={pet ? `${pet.nombre}: ${pet.descripcion.slice(0, 150)}` : undefined}
-  ogImage={pet ? fotoUrl(fotos[0]?.url_foto) : undefined}
+  ogImage={ogImage}
 >
   <Navbar active="explorar" />
   <main class="max-w-6xl mx-auto px-4 mt-6 mb-4">
