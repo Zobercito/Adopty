@@ -1,7 +1,10 @@
 ---
-interface Props { active?: 'inicio' | 'explorar' | 'panel' | 'mensajes'; }
+interface Props {
+  active?: 'inicio' | 'explorar' | 'panel' | 'mensajes' | 'admin';
+}
 const { active = 'inicio' } = Astro.props as Props;
 const user = Astro.locals.user ?? null;
+const isAdmin = Astro.locals.isAdmin === true;
 const initial = (user?.email?.charAt(0) ?? 'A').toUpperCase();
 const link = (key: string, href: string, label: string) =>
   active === key
@@ -34,6 +37,14 @@ const link = (key: string, href: string, label: string) =>
       ) : (
         <span class="opacity-50" title="Entra para gestionar tus publicaciones">Panel</span>
       )}
+      {
+        isAdmin && (
+          <>
+            <span class="text-gray-300" aria-hidden="true">·</span>
+            <Fragment set:html={link('admin', '/admin', 'Admin')} />
+          </>
+        )
+      }
     </div>
     <div class="flex items-center gap-3">
       {user ? (
