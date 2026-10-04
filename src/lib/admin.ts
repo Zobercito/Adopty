@@ -21,6 +21,8 @@ export interface ReporteAdmin {
     slug: string | null;
     estado: string;
     ubicacion: string;
+    /** Si tiene fecha, la publicación está oculta y se puede restaurar. */
+    deleted_at: string | null;
   };
 }
 
@@ -68,6 +70,9 @@ async function nombresDe(
   return out;
 }
 
+/** Cuántos registros trae cada listado del panel (evita pintar 500 tarjetas). */
+export const LIMITE_PANEL = 50;
+
 /** Reportes con datos de la mascota y nombre del reportador (solo para admins). */
 export async function listarReportes(
   supabase: SupabaseClient,
@@ -77,10 +82,11 @@ export async function listarReportes(
     .from('reportes')
     .select(
       'id,id_reportador,motivo,estado,notas_admin,fecha_reporte,fecha_resolucion,' +
-        'mascotas(id,nombre,slug,estado,ubicacion)',
+        'mascotas(id,nombre,slug,estado,ubicacion,deleted_at)',
     )
     .eq('estado', estado)
-    .order('fecha_reporte', { ascending: false });
+    .order('fecha_reporte', { ascending: false })
+    .limit(LIMITE_PANEL);
   if (error) throw new Error(error.message);
 
   const filas = (data ?? []) as unknown as {
@@ -128,7 +134,8 @@ export async function listarVerificaciones(
         'organizaciones!inner(id,nombre_oficial,verificada)',
     )
     .eq('estado', estado)
-    .order('fecha_solicitud', { ascending: false });
+    .order('fecha_solicitud', { ascending: false })
+    .limit(LIMITE_PANEL);
   if (error) throw new Error(error.message);
   const filas = (data ?? []) as unknown as {
     id: string;

@@ -36,10 +36,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const { id_mascota, motivo } = parsed.data;
 
-  // Verificar que la mascota existe
+  // Verificar que la mascota existe. Hace falta id_publicador para frenar
+  // el auto-reporte: comparar el id de la mascota con el del usuario no sirve
+  // (son tablas distintas y nunca coinciden).
   const { data: mascota } = await supabase
     .from('mascotas')
-    .select('id')
+    .select('id,id_publicador')
     .eq('id', id_mascota)
     .is('deleted_at', null)
     .maybeSingle();
@@ -48,8 +50,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return Response.json({ error: 'Mascota no encontrada' }, { status: 404 });
   }
 
-  // No reportar tu propia mascota
-  if (mascota.id === user.id) {
+  // No reportar tu propia publicación.
+  if (mascota.id_publicador === user.id) {
     return Response.json({ error: 'No puedes reportar tu propia publicación' }, { status: 403 });
   }
 
@@ -60,8 +62,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   });
 
   if (error) {
+    // 23505: ya existe el par (mascota, reportador) → índice único.
     if (error.code === '23505') {
       return Response.json({ error: 'Ya reportaste esta publicación' }, { status: 409 });
+    }
+    // 23514: el trigger de auto-reporte se adelantó a la comprobación de arriba.
+    if (error.code === '23514') {
+      return Response.json(
+        { error: 'No puedes reportar tu propia publicación' },
+        { status: 403 },
+      );
     }
     return Response.json({ error: error.message }, { status: 400 });
   }

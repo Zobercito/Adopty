@@ -25,6 +25,7 @@ function clienteFalso(tablas: Record<string, Record<string, unknown>[]>, admin =
         return q;
       },
       order: () => q,
+      limit: () => q,
       then: (resolver: (v: unknown) => unknown) => {
         let salida = [...filas];
         for (const [c, v] of eq) salida = salida.filter((r) => r[c] === v);
@@ -91,6 +92,7 @@ describe('listarReportes', () => {
           slug: 'toby-99a8939b',
           estado: 'disponible',
           ubicacion: 'Ciudad de Panamá',
+          deleted_at: null,
         },
       },
     ],
@@ -105,6 +107,8 @@ describe('listarReportes', () => {
     expect(r[0].tipo_reportador).toBe('organizacion');
     expect(r[0].mascota.slug).toBe('toby-99a8939b');
     expect(JSON.stringify(r[0])).not.toContain('@');
+    // El panel necesita saber si la publicación está oculta para ofrecer restaurarla.
+    expect(r[0].mascota.deleted_at).toBeNull();
   });
 
   it('descarta reportes cuya mascota ya no existe', async () => {

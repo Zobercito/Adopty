@@ -9,6 +9,9 @@ import {
   reporteBadge,
   verifBadge,
   fechaCorta,
+  LIMITE_PANEL,
+  type EstadoReporte,
+  type EstadoVerificacion,
   type ReporteAdmin,
   type VerificacionAdmin,
 } from '../../lib/admin';
@@ -25,16 +28,50 @@ if (!(await esAdmin(supabase))) {
 }
 
 const esAdminUser = Astro.response.status !== 404;
+
+// Pestañas por URL: el panel sigue funcionando sin JavaScript.
+const ESTADOS_REPORTE: EstadoReporte[] = ['pendiente', 'resuelto', 'descartado'];
+const ESTADOS_VERIF: EstadoVerificacion[] = ['pendiente', 'aprobada', 'rechazada'];
+const ETIQUETA_REPORTE: Record<EstadoReporte, string> = {
+  pendiente: 'Pendientes',
+  resuelto: 'Ocultadas',
+  descartado: 'Descartados',
+};
+const ETIQUETA_VERIF: Record<EstadoVerificacion, string> = {
+  pendiente: 'Pendientes',
+  aprobada: 'Aprobadas',
+  rechazada: 'Rechazadas',
+};
+
+const reRaw = Astro.url.searchParams.get('re') ?? 'pendiente';
+const veRaw = Astro.url.searchParams.get('ve') ?? 'pendiente';
+const re: EstadoReporte = ESTADOS_REPORTE.includes(reRaw as EstadoReporte)
+  ? (reRaw as EstadoReporte)
+  : 'pendiente';
+const ve: EstadoVerificacion = ESTADOS_VERIF.includes(veRaw as EstadoVerificacion)
+  ? (veRaw as EstadoVerificacion)
+  : 'pendiente';
+
 let reportes: ReporteAdmin[] = [];
 let verificaciones: VerificacionAdmin[] = [];
+let pendientesReportes = 0;
+let pendientesVerif = 0;
 let errorMsg = '';
 
 if (esAdminUser) {
   try {
-    [reportes, verificaciones] = await Promise.all([
-      listarReportes(supabase, 'pendiente'),
-      listarVerificaciones(supabase, 'pendiente'),
+    // Los contadores del resumen siempre miran los pendientes;
+    // la lista grande muestra la pestaña activa.
+    const [listaRe, listaVe, pendRe, pendVe] = await Promise.all([
+      listarReportes(supabase, re),
+      listarVerificaciones(supabase, ve),
+      re === 'pendiente' ? Promise.resolve(null) : listarReportes(supabase, 'pendiente'),
+      ve === 'pendiente' ? Promise.resolve(null) : listarVerificaciones(supabase, 'pendiente'),
     ]);
+    reportes = listaRe;
+    verificaciones = listaVe;
+    pendientesReportes = re === 'pendiente' ? listaRe.length : (pendRe?.length ?? 0);
+    pendientesVerif = ve === 'pendiente' ? listaVe.length : (pendVe?.length ?? 0);
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : 'Error al cargar el panel';
   }
@@ -46,105 +83,194 @@ const TIPO_EVIDENCIA: Record<string, string> = {
   sitio_web: 'Sitio web',
   otro: 'Otro',
 };
+
+const tabRe = (estado: EstadoReporte) => ({ href: `/admin?re=${estado}&ve=${ve}`, activo: re === estado });
+const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${estado}`, activo: ve === estado });
 ---
 
 <Layout title={esAdminUser ? 'Adopty — Panel de administración' : 'Adopty — No encontrado'}>
-  <Navbar active="admin" />
+  <Navbar />
   <main class="max-w-5xl mx-auto px-4 mt-6 mb-8">
     {
       !esAdminUser ? (
         <div class="soft-card p-10 text-center">
           <p class="text-5xl" aria-hidden="true">🚫</p>
-          <h1 class="font-display font-extrabold text-2xl mt-4" style="color:#1E293B">No encontrado</h1>
-          <p class="text-sm mt-2">Esta página no existe o no tienes acceso.</p>
-          <a href="/" class="btn-primary text-sm px-6 py-2.5 inline-block mt-6">Ir al inicio</a>
+          <h1 class="font-display font-extrabold text-2xl mt-4">No encontrado</h1>
+          <p class="text-sm mt-2 text-muted">Esta página no existe o no tienes acceso.</p>
+          <a href="/" class="btn-primary text-sm px-6 py-2.5 mt-6">Ir al inicio</a>
         </div>
       ) : (
         <>
           <div class="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Panel de administración</h1>
-              <p class="text-sm mt-1">Moderación de publicaciones y verificación de organizaciones.</p>
+              <h1 class="font-display font-extrabold text-2xl">Panel de administración</h1>
+              <p class="text-sm mt-1 text-muted">Moderación de publicaciones y verificación de organizaciones.</p>
             </div>
           </div>
 
-          {errorMsg && <p class="text-sm mt-4 font-semibold" style="color:#B45309" role="alert">{errorMsg}</p>}
+          {errorMsg && <p class="alert alert-error mt-5" role="alert">{errorMsg}</p>}
+          <p id="adminEstado" class="alert alert-ok mt-4 hidden" role="status" aria-live="polite"></p>
 
           <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-5" role="status" aria-label="Resumen">
             <div class="soft-card p-5 text-center">
-              <p class="font-display font-extrabold text-3xl" style="color:#1E293B">{reportes.length}</p>
-              <p class="text-xs mt-1">Reportes pendientes</p>
+              <p class="font-display font-extrabold text-3xl text-ink tabular">{pendientesReportes}</p>
+              <p class="text-xs mt-1 text-muted">Reportes pendientes</p>
             </div>
             <div class="soft-card p-5 text-center">
-              <p class="font-display font-extrabold text-3xl" style="color:#1E293B">{verificaciones.length}</p>
-              <p class="text-xs mt-1">Verificaciones pendientes</p>
+              <p class="font-display font-extrabold text-3xl text-ink tabular">{pendientesVerif}</p>
+              <p class="text-xs mt-1 text-muted">Verificaciones pendientes</p>
             </div>
             <div class="soft-card p-5 text-center col-span-2 lg:col-span-1">
-              <p class="font-display font-extrabold text-3xl" style="color:#1E293B">{reportes.length + verificaciones.length}</p>
-              <p class="text-xs mt-1">Total por revisar</p>
+              <p class="font-display font-extrabold text-3xl text-brand tabular">
+                {pendientesReportes + pendientesVerif}
+              </p>
+              <p class="text-xs mt-1 text-muted">Total por revisar</p>
             </div>
           </div>
 
           {/* ---------- Reportes ---------- */}
           <section class="mt-8" aria-labelledby="sec-reportes">
-            <h2 id="sec-reportes" class="font-display font-extrabold text-lg" style="color:#1E293B">
-              Reportes de publicación
-            </h2>
-            <p class="text-xs text-gray-400 mt-1">
+            <h2 id="sec-reportes" class="font-display font-extrabold text-lg">Reportes de publicación</h2>
+            <p class="text-xs text-muted mt-1">
               Por privacidad solo se muestra el <b>nombre</b> de quien reportó, nunca su correo.
             </p>
+
+            <nav class="flex gap-2 mt-3 flex-wrap" aria-label="Filtrar reportes por estado">
+              {ESTADOS_REPORTE.map((e) => (
+                <a href={tabRe(e).href} class="tab" aria-current={re === e ? 'page' : undefined}>
+                  {ETIQUETA_REPORTE[e]}
+                  {e === 'pendiente' && pendientesReportes > 0 && (
+                    <span class="tab-cuenta">{pendientesReportes}</span>
+                  )}
+                </a>
+              ))}
+            </nav>
 
             {reportes.length === 0 ? (
               <div class="soft-card p-8 mt-3 text-center">
                 <p class="text-3xl" aria-hidden="true">✅</p>
-                <p class="text-sm mt-2">No hay reportes pendientes.</p>
+                <p class="text-sm mt-2 text-muted">
+                  {re === 'pendiente' ? 'No hay reportes pendientes.' : 'No hay reportes en esta bandeja.'}
+                </p>
               </div>
             ) : (
               <div class="grid gap-4 mt-3">
                 {reportes.map((r) => {
                   const [cls, dot, etiqueta] = reporteBadge(r.estado);
+                  const oculta = Boolean(r.mascota.deleted_at);
                   return (
                     <article class="soft-card p-5" data-reporte={r.id}>
                       <div class="flex items-center gap-2 flex-wrap">
-                        <a href={`/mascota/${r.mascota.slug ?? r.mascota.id}`} class="font-display font-bold" style="color:#1E293B">
+                        <a
+                          href={`/mascota/${r.mascota.slug ?? r.mascota.id}`}
+                          class="font-display font-bold text-ink hover:underline"
+                        >
                           {r.mascota.nombre}
                         </a>
-                        <span class={`badge ${cls}`}><span class="dot" style={`background:${dot}`}></span>{etiqueta}</span>
-                        <span class="text-xs ml-auto text-gray-400">{fechaCorta(r.fecha_reporte)}</span>
+                        <span class={`badge ${cls}`}>
+                          <span class="dot" style={`background:${dot}`} />
+                          {etiqueta}
+                        </span>
+                        {oculta && (
+                          <span class="badge badge-adoptada">
+                            <span class="dot" style="background:#94A3B8" />
+                            Oculta
+                          </span>
+                        )}
+                        <span class="text-xs ml-auto text-faint tabular">{fechaCorta(r.fecha_reporte)}</span>
                       </div>
-                      <p class="text-xs text-gray-400 mt-1">
+                      <p class="text-xs text-muted mt-1">
                         {r.mascota.ubicacion} · Reportado por <b>{r.reportador}</b>
                       </p>
-                      <p class="text-sm mt-3 p-3 rounded-xl" style="background:#F8FAFC">“{r.motivo}”</p>
-                      <div class="flex gap-2 mt-4 flex-wrap">
-                        <button type="button" data-ocultar={r.id} class="btn-primary text-sm px-5 py-2.5">
-                          Ocultar publicación
-                        </button>
-                        <button type="button" data-descartar={r.id} class="btn-ghost text-sm px-5 py-2.5">
-                          Descartar reporte
-                        </button>
-                      </div>
-                      <p class="text-xs mt-2 text-gray-400">
-                        Ocultar la esconde de Explorar (reversible) y descarta los demás reportes de esa mascota.
-                      </p>
-                      <p data-err={r.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert" aria-live="polite"></p>
+                      <p class="text-sm mt-3 p-3 rounded-xl bg-surface text-muted italic">“{r.motivo}”</p>
+                      {r.notas_admin && (
+                        <p class="text-xs mt-2 text-muted">
+                          <b>Nota de moderación:</b> {r.notas_admin}
+                        </p>
+                      )}
+
+                      {r.estado === 'pendiente' ? (
+                        <>
+                          <div class="flex gap-2 mt-4 flex-wrap">
+                            <button type="button" data-ocultar={r.id} class="btn-primary text-sm px-5 py-2.5">
+                              Ocultar publicación
+                            </button>
+                            <button type="button" data-descartar={r.id} class="btn-ghost text-sm px-5 py-2.5">
+                              Descartar reporte
+                            </button>
+                          </div>
+                          <p class="text-xs mt-2 text-faint">
+                            Ocultar la esconde de Explorar (reversible) y descarta los demás reportes de
+                            esa mascota.
+                          </p>
+                        </>
+                      ) : (
+                        <div class="flex items-center gap-2 mt-4 flex-wrap">
+                          {
+                            oculta ? (
+                              <button
+                                type="button"
+                                data-restaurar={r.mascota.id}
+                                class="btn-ghost text-sm px-5 py-2.5"
+                              >
+                                Restaurar publicación
+                              </button>
+                            ) : (
+                              <span class="text-xs text-muted">
+                                {r.estado === 'resuelto'
+                                  ? 'Resuelto · la publicación sigue visible'
+                                  : 'Reporte descartado · la publicación sigue visible'}
+                              </span>
+                            )
+                          }
+                          {r.fecha_resolucion && (
+                            <span class="text-xs text-faint">
+                              Resuelto el {fechaCorta(r.fecha_resolucion)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <p
+                        data-err={r.id}
+                        class="alert alert-error text-xs mt-2 hidden"
+                        role="alert"
+                        aria-live="polite"
+                      />
                     </article>
                   );
                 })}
               </div>
             )}
+            {reportes.length === LIMITE_PANEL && (
+              <p class="text-xs text-faint mt-3">Mostrando los {LIMITE_PANEL} más recientes.</p>
+            )}
           </section>
 
           {/* ---------- Verificaciones ---------- */}
           <section class="mt-8" aria-labelledby="sec-verif">
-            <h2 id="sec-verif" class="font-display font-extrabold text-lg" style="color:#1E293B">
+            <h2 id="sec-verif" class="font-display font-extrabold text-lg">
               Verificaciones de organizaciones
             </h2>
+
+            <nav class="flex gap-2 mt-3 flex-wrap" aria-label="Filtrar verificaciones por estado">
+              {ESTADOS_VERIF.map((e) => (
+                <a href={tabVe(e).href} class="tab" aria-current={ve === e ? 'page' : undefined}>
+                  {ETIQUETA_VERIF[e]}
+                  {e === 'pendiente' && pendientesVerif > 0 && (
+                    <span class="tab-cuenta">{pendientesVerif}</span>
+                  )}
+                </a>
+              ))}
+            </nav>
 
             {verificaciones.length === 0 ? (
               <div class="soft-card p-8 mt-3 text-center">
                 <p class="text-3xl" aria-hidden="true">✅</p>
-                <p class="text-sm mt-2">No hay solicitudes de verificación pendientes.</p>
+                <p class="text-sm mt-2 text-muted">
+                  {ve === 'pendiente'
+                    ? 'No hay solicitudes de verificación pendientes.'
+                    : 'No hay solicitudes en esta bandeja.'}
+                </p>
               </div>
             ) : (
               <div class="grid gap-4 mt-3">
@@ -153,53 +279,86 @@ const TIPO_EVIDENCIA: Record<string, string> = {
                   return (
                     <article class="soft-card p-5" data-verif={v.id}>
                       <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-display font-bold" style="color:#1E293B">{v.organizacion.nombre_oficial}</span>
-                        <span class={`badge ${cls}`}><span class="dot" style={`background:${dot}`}></span>{etiqueta}</span>
-                        <span class="text-xs ml-auto text-gray-400">{fechaCorta(v.fecha_solicitud)}</span>
+                        <span class="font-display font-bold text-ink">{v.organizacion.nombre_oficial}</span>
+                        <span class={`badge ${cls}`}>
+                          <span class="dot" style={`background:${dot}`} />
+                          {etiqueta}
+                        </span>
+                        {v.organizacion.verificada && (
+                          <span class="badge badge-disponible">✓ badge activo</span>
+                        )}
+                        <span class="text-xs ml-auto text-faint tabular">
+                          {fechaCorta(v.fecha_solicitud)}
+                        </span>
                       </div>
-                      <p class="text-xs text-gray-400 mt-1">
+                      <p class="text-xs text-muted mt-1">
                         Evidencia: <b>{TIPO_EVIDENCIA[v.tipo_evidencia] ?? v.tipo_evidencia}</b>
                       </p>
-                      <a href={v.url_evidencia} target="_blank" rel="noopener noreferrer" class="text-xs break-all underline mt-1 inline-block" style="color:#14A098">
+                      <a
+                        href={v.url_evidencia}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="link text-xs break-all mt-1 inline-block"
+                      >
                         {v.url_evidencia}
                       </a>
                       {v.descripcion && <p class="text-sm mt-2">“{v.descripcion}”</p>}
-                      <div class="grid gap-2 mt-4">
-                        <label class="text-xs font-bold uppercase tracking-wide text-gray-400" for={`notas-${v.id}`}>
-                          Notas para la organización (opcional)
-                        </label>
-                        <input id={`notas-${v.id}`} data-notas={v.id} maxlength="500" class="input-soft text-sm" placeholder="Motivo de la decisión o evidencia revisada" />
-                      </div>
-                      <div class="flex gap-2 mt-3 flex-wrap">
-                        <button type="button" data-aprobar={v.id} class="btn-primary text-sm px-5 py-2.5">
-                          Aprobar y verificar
-                        </button>
-                        <button type="button" data-rechazar={v.id} class="btn-ghost text-sm px-5 py-2.5">
-                          Rechazar
-                        </button>
-                      </div>
-                      <p data-err={v.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert" aria-live="polite"></p>
+                      {v.notas_admin && (
+                        <p class="text-xs mt-2 text-muted">
+                          <b>Nota enviada a la organización:</b> {v.notas_admin}
+                        </p>
+                      )}
+
+                      {v.estado === 'pendiente' ? (
+                        <>
+                          <div class="grid gap-2 mt-4">
+                            <label class="label" for={`notas-${v.id}`}>
+                              Notas para la organización <span class="font-normal normal-case">(opcional)</span>
+                            </label>
+                            <input
+                              id={`notas-${v.id}`}
+                              data-notas={v.id}
+                              maxlength="500"
+                              class="input-soft text-sm"
+                              placeholder="Motivo de la decisión o evidencia revisada"
+                            />
+                          </div>
+                          <div class="flex gap-2 mt-3 flex-wrap">
+                            <button type="button" data-aprobar={v.id} class="btn-primary text-sm px-5 py-2.5">
+                              Aprobar y verificar
+                            </button>
+                            <button type="button" data-rechazar={v.id} class="btn-ghost text-sm px-5 py-2.5">
+                              Rechazar
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        v.fecha_resolucion && (
+                          <p class="text-xs text-faint mt-3">
+                            Resuelto el {fechaCorta(v.fecha_resolucion)}
+                          </p>
+                        )
+                      )}
+                      <p
+                        data-err={v.id}
+                        class="alert alert-error text-xs mt-2 hidden"
+                        role="alert"
+                        aria-live="polite"
+                      />
                     </article>
                   );
                 })}
               </div>
             )}
           </section>
+
+          <p class="text-xs mt-8 text-faint">
+            Las decisiones quedan registradas en la auditoría de la base de datos.
+          </p>
         </>
       )
     }
   </main>
-
-  {
-    <p id="adminEstado" class="text-xs font-semibold mt-3" role="status" aria-live="polite"></p>
-    {
-      esAdminUser && (
-        <p class="text-xs mt-8 text-gray-400">
-          Las decisiones quedan registradas en la auditoría de la base de datos.
-        </p>
-      )
-    }
-  }
 
   <script>
     const mostrarErr = (id, msg) => {
@@ -214,31 +373,47 @@ const TIPO_EVIDENCIA: Record<string, string> = {
       return el && 'value' in el ? String(el.value).trim() : '';
     };
 
-    const avisar = (msg, color) => {
+    const avisar = (msg, tipo) => {
       const el = document.getElementById('adminEstado');
       if (!el) return;
       el.textContent = msg;
-      el.style.color = color;
+      el.classList.remove('hidden');
+      el.classList.toggle('alert-ok', tipo === 'ok');
+      el.classList.toggle('alert-error', tipo !== 'ok');
+    };
+
+    const enviar = async (url, cuerpo, okMsg) => {
+      avisar('Procesando…', 'proceso');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        avisar(data.error || 'No se pudo procesar', 'error');
+        return { ok: false, error: data.error || 'No se pudo procesar' };
+      }
+      avisar(okMsg, 'ok');
+      return { ok: true };
     };
 
     async function accionReporte(id, accion) {
       const msg =
         accion === 'ocultar'
-          ? '¿Ocultar esta publicación? Dejará de verse en Explorar (se puede restaurar). Los demás reportes de esta mascota se descartarán.'
+          ? '¿Ocultar esta publicación? Dejará de verse en Explorar (se puede restaurar desde la bandeja "Ocultadas"). Los demás reportes de esta mascota se descartarán.'
           : '¿Descartar este reporte? No se ocultará la publicación.';
       if (!confirm(msg)) return;
-      avisar('Procesando…', '#B45309');
-      const res = await fetch(`/api/admin/reportes/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        avisar(data.error || 'No se pudo procesar', '#B45309');
-        return mostrarErr(id, data.error || 'No se pudo procesar');
-      }
-      avisar(accion === 'ocultar' ? 'Publicación oculta.' : 'Reporte descartado.', '#065F46');
+      const r = await enviar(`/api/admin/reportes/${id}`, { accion },
+        accion === 'ocultar' ? 'Publicación oculta.' : 'Reporte descartado.');
+      if (!r.ok) return mostrarErr(id, r.error);
+      location.reload();
+    }
+
+    async function accionRestaurar(mascotaId) {
+      if (!confirm('¿Restaurar esta publicación? Volverá a verse en Explorar.')) return;
+      const r = await enviar(`/api/admin/mascotas/${mascotaId}/restaurar`, {}, 'Publicación restaurada.');
+      if (!r.ok) return;
       location.reload();
     }
 
@@ -247,18 +422,9 @@ const TIPO_EVIDENCIA: Record<string, string> = {
         ? '¿Aprobar la verificación? La organización verá el badge "verificada".'
         : '¿Rechazar la verificación?';
       if (!confirm(msg)) return;
-      avisar('Procesando…', '#B45309');
-      const res = await fetch(`/api/admin/verificaciones/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aprobar, notas: notasDe(id) }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        avisar(data.error || 'No se pudo procesar', '#B45309');
-        return mostrarErr(id, data.error || 'No se pudo procesar');
-      }
-      avisar(aprobar ? 'Organización verificada.' : 'Solicitud rechazada.', '#065F46');
+      const r = await enviar(`/api/admin/verificaciones/${id}`, { aprobar, notas: notasDe(id) },
+        aprobar ? 'Organización verificada.' : 'Solicitud rechazada.');
+      if (!r.ok) return mostrarErr(id, r.error);
       location.reload();
     }
 
@@ -271,6 +437,9 @@ const TIPO_EVIDENCIA: Record<string, string> = {
       b.addEventListener('click', () =>
         accionReporte(b.getAttribute('data-descartar'), 'descartar'),
       ),
+    );
+    document.querySelectorAll('[data-restaurar]').forEach((b) =>
+      b.addEventListener('click', () => accionRestaurar(b.getAttribute('data-restaurar'))),
     );
     document.querySelectorAll('[data-aprobar]').forEach((b) =>
       b.addEventListener('click', () => accionVerif(b.getAttribute('data-aprobar'), true)),

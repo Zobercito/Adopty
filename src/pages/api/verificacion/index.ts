@@ -52,6 +52,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   });
 
   if (error) {
+    // 23505: ya hay una solicitud pendiente (índice único parcial).
+    if (error.code === '23505') {
+      return Response.json(
+        { error: 'Ya tienes una solicitud de verificación pendiente' },
+        { status: 409 },
+      );
+    }
     return Response.json({ error: error.message }, { status: 400 });
   }
 
