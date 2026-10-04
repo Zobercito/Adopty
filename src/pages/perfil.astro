@@ -68,6 +68,27 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
           <p id="verifMsg" class="text-xs mt-2 hidden" style="color:#065F46" role="status"></p>
         </div>
       )}
+      <details class="mt-4 p-4 rounded-xl" style="background:#F8FAFC">
+        <summary class="text-xs font-bold cursor-pointer" style="color:#1E293B">Cambiar contraseña</summary>
+        <form id="passForm" class="mt-3 grid gap-3" novalidate>
+          <div>
+            <label class="text-xs font-bold uppercase tracking-wide" for="p-actual">Contraseña actual</label>
+            <input id="p-actual" name="actual" type="password" required autocomplete="current-password" class="input-soft mt-1 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs font-bold uppercase tracking-wide" for="p-nueva">Nueva contraseña</label>
+            <input id="p-nueva" name="nueva" type="password" required minlength="8" maxlength="72" autocomplete="new-password" class="input-soft mt-1 text-sm" aria-describedby="p-ayuda" />
+            <p id="p-ayuda" class="text-xs mt-1 text-gray-400">Mínimo 8 caracteres.</p>
+          </div>
+          <div>
+            <label class="text-xs font-bold uppercase tracking-wide" for="p-confirmar">Repite la nueva contraseña</label>
+            <input id="p-confirmar" name="confirmar" type="password" required minlength="8" maxlength="72" autocomplete="new-password" class="input-soft mt-1 text-sm" />
+          </div>
+          <button class="btn-primary py-2.5 text-sm" type="submit">Actualizar contraseña</button>
+          <p id="passErr" class="text-sm font-semibold hidden" style="color:#B45309" role="alert"></p>
+          <p id="passOk" class="text-sm font-semibold hidden" style="color:#065F46" role="status"></p>
+        </form>
+      </details>
       <form action="/api/auth/logout" method="post" class="mt-4">
         <button class="btn-ghost w-full py-2.5 text-sm" type="submit">Cerrar sesión</button>
       </form>
@@ -87,6 +108,33 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { err.textContent = data.error ?? 'Error al guardar'; err.classList.remove('hidden'); return; }
       ok.textContent = 'Perfil actualizado.'; ok.classList.remove('hidden');
+    });
+
+    // Cambio de contraseña
+    const passForm = document.getElementById('passForm');
+    passForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('passErr'), ok = document.getElementById('passOk');
+      err.classList.add('hidden'); ok.classList.add('hidden');
+      const fd = new FormData(passForm);
+      const payload = { actual: fd.get('actual'), nueva: fd.get('nueva'), confirmar: fd.get('confirmar') };
+      // Comprobación temprana: no gastar un intento del servidor si no coinciden.
+      if (payload.nueva !== payload.confirmar) {
+        err.textContent = 'Las contraseñas nuevas no coinciden'; err.classList.remove('hidden'); return;
+      }
+      const btn = passForm.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/auth/cambiar-password', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { err.textContent = data.error ?? 'No se pudo cambiar la contraseña'; err.classList.remove('hidden'); return; }
+        passForm.reset();
+        ok.textContent = 'Contraseña actualizada. Las otras sesiones se cerraron.'; ok.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     // Botón solicitar verificación

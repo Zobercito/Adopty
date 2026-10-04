@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { z } from 'zod';
+import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -17,6 +18,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  // 5 solicitudes de verificación por hora: basta para el trámite y frena el envío en cadena.
+  const rl = rateLimit(`verificacion:${user.id}`, 5, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   // Verificar que es organización
   const { data: perfil } = await supabase

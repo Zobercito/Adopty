@@ -1,0 +1,92 @@
+name: Backup base de datos
+
+# Copia de seguridad automática de Supabase (pg_dump).
+# Corre cada noche a las 3:00 a. m. de Panamá (08:00 UTC) y también a mano
+# desde la pestaña Actions → "Run workflow".
+#
+# Guarda el .sql.gz como artefacto (retención 30 días). Para una copia de
+# largo plazo fuera del repo, añade un paso con aws s3 cp (ver README).
+
+on:
+  schedule:
+    # 08:00 UTC = 03:00 Panamá (UTC-5, sin horario de verano)
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: backup-db
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    name: pg_dump + comprimir
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Secreto del repositorio: Supabase → Project Settings → Database → URI
+      # (usar el connection pooler: la IP dinámica de los runners no llega al
+      # host directo). Formato:
+      #   postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FECHA: ${{ github.run_number }}
+
+    steps:
+      - name: Instalar PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Verificar conexión
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Falta el secreto DATABASE_URL en el repositorio (Settings → Secrets → Actions)"
+            exit 1
+          fi
+          psql "$DATABASE_URL" -c 'SELECT 1' >/dev/null && echo "conexión OK"
+
+      - name: Generar dump
+        run: |
+          mkdir -p backups
+          ARCHIVO="backups/adopty_$(date -u +%Y%m%d_%H%M%S).sql"
+          # --clean --if-exists: dump completo, restaurable sobre una DB vacía
+          pg_dump "$DATABASE_URL" --clean --if-exists --no-owner --no-privileges > "$ARCHIVO"
+          gzip -9 "$ARCHIVO"
+          ls -lh backups/
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: adopty-backup
+          path: backups/*.sql.gz
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Resumen
+        run: |
+          echo "### Backup completado ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "Fecha: $(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh backups/ | tail -5 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # Verificación de que el dump no esté vacío ni corrupto.
+  verificar:
+    name: Verificar integridad
+    runs-on: ubuntu-latest
+    needs: dump
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: adopty-backup
+      - name: El dump debe contener el esquema y datos
+        run: |
+          set -euo pipefail
+          ARCHIVO=$(ls *.sql.gz | head -1)
+          gzip -t "$ARCHIVO"            # el .gz no está corrupto
+          gunzip -c "$ARCHIVO" > /tmp/dump.sql
+          test "$(wc -c < /tmp/dump.sql)" -gt 10000 || { echo "::error::Dump sospechosamente vacío"; exit 1; }
+          grep -qi 'CREATE TABLE.*mascotas' /tmp/dump.sql || { echo "::error::No aparece la tabla mascotas"; exit 1; }
+          grep -qi 'CREATE TABLE.*usuarios'  /tmp/dump.sql || { echo "::error::No aparece la tabla usuarios"; exit 1; }
+          echo "Integridad OK: $(wc -l < /tmp/dump.sql) líneas"

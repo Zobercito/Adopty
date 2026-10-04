@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { loginSchema, organizacionSchema, personaSchema, registerSchema } from './user';
+import {
+  cambiarPasswordSchema,
+  loginSchema,
+  organizacionSchema,
+  personaSchema,
+  registerSchema,
+} from './user';
 
 describe('registerSchema (Fase 1)', () => {
   it('acepta un registro válido persona/organización', () => {
@@ -71,5 +77,39 @@ describe('personaSchema / organizacionSchema', () => {
         sitio_web: '',
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('cambiarPasswordSchema', () => {
+  const valido = { actual: 'Secreta123', nueva: 'NuevaClave456', confirmar: 'NuevaClave456' };
+
+  it('acepta un cambio válido', () => {
+    expect(cambiarPasswordSchema.safeParse(valido).success).toBe(true);
+  });
+
+  it('exige la contraseña actual', () => {
+    const r = cambiarPasswordSchema.safeParse({ ...valido, actual: '' });
+    expect(r.success).toBe(false);
+  });
+
+  it('rechaza la nueva si no coincide la confirmación', () => {
+    const r = cambiarPasswordSchema.safeParse({ ...valido, confirmar: 'OtraClave789' });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].message).toMatch(/no coinciden/i);
+  });
+
+  it('exige mínimo 8 caracteres en la nueva', () => {
+    const r = cambiarPasswordSchema.safeParse({ ...valido, nueva: 'corta', confirmar: 'corta' });
+    expect(r.success).toBe(false);
+  });
+
+  it('no permite repetir la contraseña actual', () => {
+    const r = cambiarPasswordSchema.safeParse({
+      actual: 'Secreta123',
+      nueva: 'Secreta123',
+      confirmar: 'Secreta123',
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].message).toMatch(/distinta/i);
   });
 });

@@ -1,15 +1,21 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
+import { googleActivo } from '../../../lib/oauth';
 
 export const prerender = false;
 
 /**
  * GET /api/auth/google?next=/perfil — inicia OAuth con Google (Fase 1).
- * Requiere provider Google activo en Supabase (Dashboard o env local).
- * Si no está configurado, Supabase devuelve error y respondemos 501 claro
- * en vez de romper: el login por correo sigue funcionando.
+ *
+ * Solo responde si el provider está habilitado (`PUBLIC_GOOGLE_ENABLED=true`
+ * + credenciales en Supabase). Si no, devuelve 404 para que la UI no ofrezca
+ * una opción que no puede completarse. El login por correo sigue funcionando.
  */
 export const GET: APIRoute = async ({ url, cookies, redirect }) => {
+  if (!googleActivo) {
+    return new Response('Not found', { status: 404 });
+  }
+
   const rawNext = url.searchParams.get('next') ?? '/perfil';
   const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/perfil';
   const supabase = supabaseServer(cookies);

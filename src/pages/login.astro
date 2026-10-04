@@ -1,5 +1,6 @@
 ---
 export const prerender = false;
+import { googleActivo } from '../lib/oauth';
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 
@@ -17,10 +18,16 @@ const oauthMsg = Astro.url.searchParams.get('msg') ?? '';
       {errorParam === 'callback' && <p class="text-sm mt-3 font-semibold" style="color:#B45309" role="alert">El enlace expiró o es inválido. Intenta de nuevo.</p>}
       {errorParam === 'oauth' && <p class="text-sm mt-3 font-semibold" style="color:#B45309" role="alert">{oauthMsg || 'Google no disponible en este entorno.'}</p>}
       <p id="err" class="text-sm mt-3 font-semibold hidden" style="color:#B45309" role="alert"></p>
-      <a href={`/api/auth/google?next=${encodeURIComponent(next)}`} class="btn-ghost w-full py-2.5 text-sm mt-4 block text-center" aria-label="Entrar con Google">
-        <span aria-hidden="true">G&nbsp;</span>Entrar con Google
-      </a>
-      <div class="flex items-center gap-3 mt-4" aria-hidden="true"><hr class="flex-1 border-gray-200" /><span class="text-xs text-gray-400">o con correo</span><hr class="flex-1 border-gray-200" /></div>
+      {
+        googleActivo && (
+          <>
+            <a href={`/api/auth/google?next=${encodeURIComponent(next)}`} class="btn-ghost w-full py-2.5 text-sm mt-4 block text-center" aria-label="Entrar con Google">
+              <span aria-hidden="true">G&nbsp;</span>Entrar con Google
+            </a>
+            <div class="flex items-center gap-3 mt-4" aria-hidden="true"><hr class="flex-1 border-gray-200" /><span class="text-xs text-gray-400">o con correo</span><hr class="flex-1 border-gray-200" /></div>
+          </>
+        )
+      }
       <form id="loginForm" class="mt-5 grid gap-3">
         <div>
           <label class="text-xs font-bold uppercase tracking-wide" for="correo">Correo</label>

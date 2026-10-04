@@ -13,6 +13,29 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Contraseña requerida'),
 });
 
+/**
+ * Cambio de contraseña: se valida también en servidor porque el cliente puede
+ * falsearse. Exige la actual (para confirmar que eres tú) y que la nueva sea
+ * distinta de ella.
+ */
+export const cambiarPasswordSchema = z
+  .object({
+    actual: z.string().min(1, 'Escribe tu contraseña actual'),
+    nueva: z
+      .string()
+      .min(8, 'La nueva debe tener al menos 8 caracteres')
+      .max(72, 'Máximo 72 caracteres'),
+    confirmar: z.string().min(1, 'Confirma la nueva contraseña'),
+  })
+  .refine((d) => d.nueva === d.confirmar, {
+    message: 'Las contraseñas nuevas no coinciden',
+    path: ['confirmar'],
+  })
+  .refine((d) => d.nueva !== d.actual, {
+    message: 'La nueva contraseña debe ser distinta de la actual',
+    path: ['nueva'],
+  });
+
 export const personaSchema = z.object({
   nombre: z.string().min(2).max(80),
   telefono: z.string().max(20).optional().or(z.literal('')),

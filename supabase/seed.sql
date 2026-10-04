@@ -2,7 +2,9 @@
 -- Correr DESPUÉS de las migraciones, en SQL editor o `supabase db execute`.
 -- Los UUIDs son fijos para que el seed sea idempotente (ON CONFLICT DO NOTHING).
 
--- Publicadores demo: se crean como usuarios REALES de auth.users (password: Adopty123!
+-- Publicadores demo: se crean como usuarios REALES de auth.users.
+-- Contraseña inicial 'Adopty123!' — SOLO para entornos locales.
+-- En staging/producción cámbiala con: UPDATE auth.users SET encrypted_password = crypt('<nueva>', gen_salt('bf')) WHERE email = '...';
 -- SOLO para pruebas locales/piloto — cambiar o borrar antes de producción).
 -- El trigger handle_new_user crea las filas espejo en usuarios/personas/organizaciones.
 -- IMPORTANTE: TODAS las columnas token de auth.users deben ir en '' y nunca NULL —

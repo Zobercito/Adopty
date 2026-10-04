@@ -121,17 +121,37 @@ Las API routes validan el rol **además** de la RPC (doble barrera).
 
 ## 5. Nota de seguridad sobre las cuentas demo
 
-Las cuentas de la semilla usan la contraseña `Adopty123!` y son públicas en el
-repositorio. **Nunca** las añadas a `administradores` en un entorno real, y
-elimínalas o rota su contraseña antes del piloto:
+Las cuentas de la semilla (`patitas@adopty.pa`, `rescatista@adopty.pa`) son las
+**dueñas de todo el catálogo de demostración** (19 + 13 mascotas), así que borrarlas
+deja la aplicación vacía. Lo que se hizo fue **rotar su contraseña**: la clave ya no
+está en el repositorio.
 
 ```sql
 -- Ver las cuentas demo
 SELECT correo FROM auth.users WHERE correo IN ('patitas@adopty.pa','rescatista@adopty.pa');
+
+-- Cambiar su contraseña (rotar)
+UPDATE auth.users SET encrypted_password = crypt('<nueva-clave>', gen_salt('bf'))
+WHERE email = 'patitas@adopty.pa';
 ```
 
-Para borrarlas (esto también elimina sus mascotas, solicitudes y mensajes en cascada):
+**Nunca** añadas estas cuentas a `administradores`: como son públicas, cualquiera que
+conozca el proyecto sería administrador.
+
+### Si decides borrarlas
+
+Ojo: se lleva por cascada las 32 mascotas, las solicitudes y los mensajes. Hazlo solo
+cuando ya no necesites datos de demostración, y primero respalda:
+
+```bash
+./scripts/backup.sh   # o el workflow de GitHub Actions "Backup base de datos"
+```
 
 ```sql
 DELETE FROM auth.users WHERE correo IN ('patitas@adopty.pa','rescatista@adopty.pa');
 ```
+
+### Crear un administrador
+
+Vuelve a la sección 1. Para el correo del administrador no hace falta que el dominio
+exista todavía: Supabase solo valida el MX al **registrarse**, no al iniciar sesión.

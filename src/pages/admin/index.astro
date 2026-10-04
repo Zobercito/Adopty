@@ -127,7 +127,7 @@ const TIPO_EVIDENCIA: Record<string, string> = {
                       <p class="text-xs mt-2 text-gray-400">
                         Ocultar la esconde de Explorar (reversible) y descarta los demás reportes de esa mascota.
                       </p>
-                      <p data-err={r.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert"></p>
+                      <p data-err={r.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert" aria-live="polite"></p>
                     </article>
                   );
                 })}
@@ -178,7 +178,7 @@ const TIPO_EVIDENCIA: Record<string, string> = {
                           Rechazar
                         </button>
                       </div>
-                      <p data-err={v.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert"></p>
+                      <p data-err={v.id} class="text-xs font-semibold hidden mt-2" style="color:#B45309" role="alert" aria-live="polite"></p>
                     </article>
                   );
                 })}
@@ -191,11 +191,14 @@ const TIPO_EVIDENCIA: Record<string, string> = {
   </main>
 
   {
-    esAdminUser && (
-      <p class="text-xs mt-8 text-gray-400">
-        Las decisiones quedan registradas en la auditoría de la base de datos.
-      </p>
-    )
+    <p id="adminEstado" class="text-xs font-semibold mt-3" role="status" aria-live="polite"></p>
+    {
+      esAdminUser && (
+        <p class="text-xs mt-8 text-gray-400">
+          Las decisiones quedan registradas en la auditoría de la base de datos.
+        </p>
+      )
+    }
   }
 
   <script>
@@ -211,19 +214,31 @@ const TIPO_EVIDENCIA: Record<string, string> = {
       return el && 'value' in el ? String(el.value).trim() : '';
     };
 
+    const avisar = (msg, color) => {
+      const el = document.getElementById('adminEstado');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = color;
+    };
+
     async function accionReporte(id, accion) {
       const msg =
         accion === 'ocultar'
           ? '¿Ocultar esta publicación? Dejará de verse en Explorar (se puede restaurar). Los demás reportes de esta mascota se descartarán.'
           : '¿Descartar este reporte? No se ocultará la publicación.';
       if (!confirm(msg)) return;
+      avisar('Procesando…', '#B45309');
       const res = await fetch(`/api/admin/reportes/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accion }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) return mostrarErr(id, data.error || 'No se pudo procesar');
+      if (!res.ok) {
+        avisar(data.error || 'No se pudo procesar', '#B45309');
+        return mostrarErr(id, data.error || 'No se pudo procesar');
+      }
+      avisar(accion === 'ocultar' ? 'Publicación oculta.' : 'Reporte descartado.', '#065F46');
       location.reload();
     }
 
@@ -232,13 +247,18 @@ const TIPO_EVIDENCIA: Record<string, string> = {
         ? '¿Aprobar la verificación? La organización verá el badge "verificada".'
         : '¿Rechazar la verificación?';
       if (!confirm(msg)) return;
+      avisar('Procesando…', '#B45309');
       const res = await fetch(`/api/admin/verificaciones/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ aprobar, notas: notasDe(id) }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) return mostrarErr(id, data.error || 'No se pudo procesar');
+      if (!res.ok) {
+        avisar(data.error || 'No se pudo procesar', '#B45309');
+        return mostrarErr(id, data.error || 'No se pudo procesar');
+      }
+      avisar(aprobar ? 'Organización verificada.' : 'Solicitud rechazada.', '#065F46');
       location.reload();
     }
 

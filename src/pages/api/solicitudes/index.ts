@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { getMisSolicitudes, getSolicitudesRecibidas } from '../../../lib/solicitudes';
 import { solicitudSchema } from '../../../lib/validation/request';
+import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -48,6 +49,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       { error: 'No autenticado — inicia sesión para solicitar' },
       { status: 401 },
     );
+  // Anti-spam: 10 solicitudes por hora y usuario (ya hay un límite de 1 pendiente
+  // por mascota en BD; esto frena a quien publica solicitudes en cadena).
+  const rl = rateLimit(`solicitud:${user.id}`, 10, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
   const parsed = solicitudSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return Response.json(

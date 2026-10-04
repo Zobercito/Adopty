@@ -11,6 +11,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  // Cada subida ocupa Storage: 20 imágenes por hora y usuario.
+  const rl = rateLimit(`upload:${user.id}`, 20, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
   const form = await request.formData().catch(() => null);
   if (!form) return Response.json({ error: 'FormData inválido' }, { status: 400 });
   const files = form.getAll('fotos').filter((f): f is File => f instanceof File);

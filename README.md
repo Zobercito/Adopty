@@ -44,13 +44,25 @@ npm run dev            # http://localhost:4321
 supabase db reset   # local · En cloud: pegar supabase/seed.sql en SQL Editor
 ```
 
-| Usuario                | Clave        | Rol                     |
-| ---------------------- | ------------ | ----------------------- |
-| `patitas@adopty.pa`    | `Adopty123!` | Organización verificada |
-| `rescatista@adopty.pa` | `Adopty123!` | Persona                 |
+Las cuentas de demostración **existen, pero su contraseña no está en el repositorio**:
+los credenciales de prueba viven fuera del control de versiones.
+
+| Usuario                | Rol                     |
+| ---------------------- | ----------------------- |
+| `patitas@adopty.pa`    | Organización verificada |
+| `rescatista@adopty.pa` | Persona                 |
+
+Para poder entrar durante una demo o revisión, pídele la clave a quien administra el
+proyecto, o crea tu propia cuenta desde `/register` (funciona sin confirmación de correo).
+
+> 🔐 **Por qué no está la clave aquí.** Con la clave publicada, cualquiera que lea el repo
+> entra como organización _verificada_. Si necesitas regenerar el seed para un entorno
+> nuevo, `supabase/seed.sql` usa `Adopty123!` como clave inicial **solo para uso local**:
+> cámbiala antes de subirlo a ningún sitio.
 
 > ⚠️ El seed inserta filas en `auth.users` con **todos los tokens en `''`** (GoTrue falla con NULL:
 > `500 Database error querying schema`). Si editas el seed, respeta esa regla.
+> Ese mismo `500` aparece si creas usuarios a mano sin rellenar las columnas generadas.
 
 ## Rutas
 
