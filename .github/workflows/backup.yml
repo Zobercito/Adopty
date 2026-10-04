@@ -45,8 +45,10 @@ jobs:
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg\n' "$CODENAME" \
+          # La línea necesita el componente "main" al final; sin él apt la rechaza.
+          printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$CODENAME" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          cat /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq
           sudo apt-get install -y -qq "postgresql-client-$PG_MAJOR"
           sudo ln -sf "/usr/lib/postgresql/$PG_MAJOR/bin/pg_dump" /usr/bin/pg_dump
