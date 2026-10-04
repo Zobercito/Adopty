@@ -22,35 +22,45 @@ jobs:
     name: pg_dump + comprimir
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Secreto del repositorio: Supabase → Project Settings → Database → URI.
+    # Usar el connection pooler: la IP dinámica de los runners no llega al host
+    # directo. Formato:
+    #   postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
     env:
-      # Secreto del repositorio: Supabase → Project Settings → Database → URI
-      # (usar el connection pooler: la IP dinámica de los runners no llega al
-      # host directo). Formato:
-      #   postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      FECHA: ${{ github.run_number }}
+      # Versión del cliente = versión del servidor (Supabase corre PG 17).
+      # Si un día Supabase actualiza, cambia este número también.
+      PG_MAJOR: '17'
 
     steps:
-      - name: Instalar PostgreSQL client (v17, igual al del servidor)
+      - name: Instalar cliente pg_dump (misma versión que el servidor)
         run: |
+          set -euo pipefail
+          # La imagen de ubuntu-latest trae un pg_dump más viejo que el servidor
+          # y éste aborta con "server version mismatch". Añadimos el repo de
+          # PostgreSQL e instalamos la versión concreta.
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
-          # pg_dump se niega a hablar con un servidor más nuevo que él
-          # ("server version mismatch"), así que apuntamos al binario v17.
-          sudo ln -sf /usr/lib/postgresql/17/bin/pg_dump /usr/bin/pg_dump
+          sudo apt-get install -y -qq "postgresql-client-$PG_MAJOR"
+          sudo ln -sf "/usr/lib/postgresql/$PG_MAJOR/bin/pg_dump" /usr/bin/pg_dump
           pg_dump --version
 
       - name: Verificar conexión
         run: |
+          set -euo pipefail
           if [ -z "$DATABASE_URL" ]; then
-            echo "::error::Falta el secreto DATABASE_URL en el repositorio (Settings → Secrets → Actions)"
+            echo "::error::Falta el secreto DATABASE_URL (Settings → Secrets → Actions)"
             exit 1
           fi
-          pg_dump --version
-          psql "$DATABASE_URL" -c 'SELECT 1' >/dev/null && echo "conexión OK"
+          psql "$DATABASE_URL" -tAc 'SELECT version()' | head -1
 
       - name: Generar dump
         run: |
+          set -euo pipefail
           mkdir -p backups
           ARCHIVO="backups/adopty_$(date -u +%Y%m%d_%H%M%S).sql"
           # --clean --if-exists: dump completo, restaurable sobre una DB vacía
@@ -68,12 +78,15 @@ jobs:
 
       - name: Resumen
         run: |
-          echo "### Backup completado ✅" >> "$GITHUB_STEP_SUMMARY"
-          echo "Fecha: $(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          ls -lh backups/ | tail -5 >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Backup completado ✅"
+            echo ""
+            echo "Fecha: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            echo ""
+            echo '```'
+            ls -lh backups/
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Verificación de que el dump no esté vacío ni corrupto.
   verificar:
@@ -85,13 +98,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: adopty-backup
-      - name: El dump debe contener el esquema y datos
+      - name: El dump debe contener esquema y datos
         run: |
           set -euo pipefail
           ARCHIVO=$(ls *.sql.gz | head -1)
-          gzip -t "$ARCHIVO"            # el .gz no está corrupto
+          gzip -t "$ARCHIVO"                       # el .gz no está corrupto
           gunzip -c "$ARCHIVO" > /tmp/dump.sql
           test "$(wc -c < /tmp/dump.sql)" -gt 10000 || { echo "::error::Dump sospechosamente vacío"; exit 1; }
-          grep -qi 'CREATE TABLE.*mascotas' /tmp/dump.sql || { echo "::error::No aparece la tabla mascotas"; exit 1; }
-          grep -qi 'CREATE TABLE.*usuarios'  /tmp/dump.sql || { echo "::error::No aparece la tabla usuarios"; exit 1; }
+          for tabla in usuarios mascotas solicitudes personas organizaciones; do
+            grep -qi "CREATE TABLE.*$tabla" /tmp/dump.sql || { echo "::error::Falta la tabla $tabla"; exit 1; }
+          done
           echo "Integridad OK: $(wc -l < /tmp/dump.sql) líneas"
+          {
+            echo ""
+            echo "### Verificación ✅"
+            echo "- \`gzip -t\` sin errores"
+            echo "- $(wc -l < /tmp/dump.sql) líneas, $(du -h /tmp/dump.sql | cut -f1)"
+            echo "- Tablas `usuarios`, `mascotas`, `solicitudes`, `personas` y `organizaciones` presentes"
+          } >> "$GITHUB_STEP_SUMMARY"
