@@ -155,3 +155,54 @@ DELETE FROM auth.users WHERE correo IN ('patitas@adopty.pa','rescatista@adopty.p
 
 Vuelve a la sección 1. Para el correo del administrador no hace falta que el dominio
 exista todavía: Supabase solo valida el MX al **registrarse**, no al iniciar sesión.
+
+---
+
+## 6. Cambiar la contraseña
+
+Desde `/perfil` → _Cambiar contraseña_.
+
+La API (`POST /api/auth/cambiar-password`) **exige la contraseña actual** antes de
+aplicar la nueva. Eso es lo que la convierte en un cambio de contraseña y no en un
+simple _set_ de sesión: sin esa comprobación, un cookie robado bastaría para dejar la
+cuenta inutilizable.
+
+```
+POST /api/auth/cambiar-password  {actual, nueva, confirmar}
+```
+
+- Valida con Zod en servidor (`cambiarPasswordSchema`): mínimo 8 caracteres, las dos
+  nuevas coinciden y no repite la actual.
+- Verifica la actual con `signInWithPassword`; si falla, `401`.
+- Supabase invalida el resto de sesiones al cambiar la contraseña.
+- 5 intentos por hora y usuario, y queda registrado en `auditoria`
+  (`password_cambiada`).
+
+Cuando tu correo todavía no tiene dominio, esta pantalla es tu única forma de dejar de
+depender de la que está escrita en el chat: cámbiala y no la menciones más.
+
+---
+
+## 7. Rate limiting por ruta
+
+Todas las rutas que escriben datos tienen límite. El contador vive en memoria por
+proceso (suficiente para frenar abuso casual); en un despliegue multi-instancia habría
+que migrarlo a Upstash/Redis.
+
+| Ruta                              | Límite              |
+| --------------------------------- | ------------------- |
+| `POST /api/auth/register`         | 10/min por IP       |
+| `POST /api/auth/login`            | 10/min por IP       |
+| `POST /api/auth/recuperar`        | 5/min por IP        |
+| `POST /api/auth/cambiar-password` | 5/hora por usuario  |
+| `POST /api/mascotas`              | 5/hora por usuario  |
+| `POST /api/mascotas/upload`       | 20/hora por usuario |
+| `POST /api/mensajes`              | 30/min por usuario  |
+| `POST /api/solicitudes`           | 10/hora por usuario |
+| `POST /api/reportes`              | 10/hora por usuario |
+| `POST /api/verificacion`          | 5/hora por usuario  |
+| `PUT /api/perfil`                 | 20/hora por usuario |
+| `POST/DELETE /api/favoritos`      | 60/min por usuario  |
+
+Las autenticadas se limitan por `user.id`, no por IP: varias personas pueden salir por
+la misma IP sin estorbarse. Al superarse devuelven `429` con `Retry-After`.

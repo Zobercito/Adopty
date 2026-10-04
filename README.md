@@ -107,3 +107,17 @@ verdes (los corre el CI), RLS considerada, Zod en servidor, responsive 320–144
 ## Equipo
 
 Francisco Gonzalez · Eira Arrocha — Ing. Software II, Prof. Leovigildo Bosquez Barria.
+
+## Operación
+
+| Tarea                                | Cómo                                                                                                                                                                                            |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backup de la BD**                  | Automático a las **3:00 a. m.** (workflow _Backup base de datos_). También a mano: pestaña _Actions → Run workflow_. Se guarda como artefacto 30 días. Alternativa local: `./scripts/backup.sh` |
+| **Restaurar un backup**              | Descargar el artefacto → `gunzip -c adopty_*.sql.gz \| psql "$DATABASE_URL"`                                                                                                                    |
+| **Regenerar iconos PWA**             | `node scripts/generar-iconos.mjs` (solo si cambia el logo)                                                                                                                                      |
+| **Revisar decisiones de moderación** | Tabla `auditoria`, o la columna `accion` (`admin_reporte_ocultar`, `admin_verificacion_aprobar`, `password_cambiada`…)                                                                          |
+| **Dar de alta un administrador**     | Ver [`docs/ADMIN.md`](docs/ADMIN.md)                                                                                                                                                            |
+
+El backup usa el **connection pooler** de Supabase porque los runners de GitHub Actions
+tienen IP dinámica y no llegan al host directo. El secreto `DATABASE_URL` ya está
+configurado en el repositorio.
