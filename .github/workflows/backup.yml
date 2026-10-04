@@ -31,10 +31,13 @@ jobs:
       FECHA: ${{ github.run_number }}
 
     steps:
-      - name: Instalar PostgreSQL client
+      - name: Instalar PostgreSQL client (v17, igual al del servidor)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client
+          sudo install -y -qq postgresql-client-17 postgresql-common
+          # pg_dump se niega a hablar con un servidor más nuevo que él
+          # ("server version mismatch"), así que fijamos la versión 17.
+          sudo update-alternatives --set pg_dump /usr/lib/postgresql/17/bin/pg_dump
 
       - name: Verificar conexión
         run: |
@@ -42,6 +45,7 @@ jobs:
             echo "::error::Falta el secreto DATABASE_URL en el repositorio (Settings → Secrets → Actions)"
             exit 1
           fi
+          pg_dump --version
           psql "$DATABASE_URL" -c 'SELECT 1' >/dev/null && echo "conexión OK"
 
       - name: Generar dump
