@@ -7,7 +7,11 @@ interface Props {
   description?: string;
   ogImage?: string;
 }
-const { title = 'Adopty — Adopta con amor en Panamá', description = 'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatea y solicita sin exponer tu número.', ogImage } = Astro.props as Props;
+const {
+  title = 'Adopty — Adopta con amor en Panamá',
+  description = 'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatee y solicita sin exponer tu número.',
+  ogImage,
+} = Astro.props as Props;
 ---
 <!DOCTYPE html>
 <html lang="es">
@@ -28,25 +32,32 @@ const { title = 'Adopty — Adopta con amor en Panamá', description = 'Platafor
     <link rel="manifest" href="/manifest.json" />
     <!-- Instalable como app: iOS no lee el manifest, necesita estos links -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="apple-touch-icon" sizes="167x167" href="/apple-add-icon-image.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Adopty" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#FF7A29" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <title>{title}</title>
   </head>
   <body>
-    <slot />
+    <a href="#contenido" class="skip-link">Saltar al contenido</a>
+    <!-- Envoltorio enfocable: da destino real al skip-link sin tocar cada <main> -->
+    <div id="contenido" tabindex="-1" class="focus:outline-none">
+      <slot />
+    </div>
     <footer class="max-w-6xl mx-auto px-4 my-10">
       <div class="soft-card p-6 flex flex-col sm:flex-row justify-between gap-3 text-sm">
-        <p><b style="color:#1E293B">Adopty</b> · Ing. Software II · Francisco Gonzalez · Eira Arrocha</p>
-        <p class="flex gap-4">
-          <a href="/terminos" class="hover:underline">Términos</a>
-          <a href="/privacidad" class="hover:underline">Privacidad</a>
-          <span class="text-gray-400">Astro · Supabase · Vercel</span>
+        <p><b class="text-ink">Adopty</b> · Ing. Software II · Francisco Gonzalez · Eira Arrocha</p>
+        <p class="flex flex-wrap gap-x-3 gap-y-0">
+          <a href="/terminos" class="link link-suave">Términos</a>
+          <a href="/privacidad" class="link link-suave">Privacidad</a>
+          <span class="text-faint self-center text-xs">Astro · Supabase · Vercel</span>
         </p>
       </div>
     </footer>
@@ -61,3 +72,10 @@ const { title = 'Adopty — Adopta con amor en Panamá', description = 'Platafor
     </script>
   </body>
 </html>
+
+<style>
+  /* Los <main> de cada página no share id: se lo damos aquí para el skip-link. */
+  :global(main) {
+    scroll-margin-top: 6rem;
+  }
+</style>

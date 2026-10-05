@@ -1,39 +1,59 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
+
+const SECCIONES = [
+  {
+    t: '1. Qué es Adopty',
+    p: 'Adopty es un canal de contacto para la adopción de mascotas en Panamá: publica fichas, busca con filtros, solicita y chatea. <b>Adopty no es parte del acuerdo de adopción.</b>',
+  },
+  {
+    t: '2. El acuerdo final es fuera de la plataforma',
+    p: 'La entrega, verificación del hogar y cualquier compromiso se acuerdan <b>directamente entre adoptante y publicador, fuera de Adopty</b>. Adopty no gestiona contratos, entregas, pagos ni firmas.',
+  },
+  {
+    t: '3. Contenido de las publicaciones',
+    p: 'El publicador es responsable de que los datos y fotos sean verídicos y propias. Está prohibido publicar contenido falso, ofensivo o con fines comerciales encubiertos. Adopty puede ocultar publicaciones reportadas.',
+  },
+  {
+    t: '4. Conducta',
+    p: 'Prohibido el spam, el acoso por chat, compartir datos personales de terceros y usar la plataforma para ventas. Las cuentas que incumplan pueden ser suspendidas.',
+  },
+  {
+    t: '5. Organizaciones verificadas',
+    p: 'El badge «verificada» lo otorga manualmente el equipo tras recibir evidencia (redes/documento). No constituye certificación oficial.',
+  },
+  {
+    t: '6. Disponibilidad',
+    p: 'Proyecto académico en piloto: sin garantías de uptime. Los datos del piloto pueden migrarse o depurarse antes de producción.',
+  },
+];
 ---
+
 <Layout title="Adopty — Términos de uso" description="Términos de uso de la plataforma Adopty.">
-  <Navbar active="inicio" />
-  <main class="max-w-3xl mx-auto px-4 mt-6 mb-6">
-    <div class="soft-card p-6 sm:p-8">
-      <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Términos de uso</h1>
-      <p class="text-xs mt-1 text-gray-400">Versión piloto — Ing. Software II, 2026</p>
-      <div class="grid gap-4 mt-5 text-sm leading-relaxed">
-        <section>
-          <h2 class="font-display font-bold" style="color:#1E293B">1. Qué es Adopty</h2>
-          <p class="mt-1">Adopty es un canal de contacto para la adopción de mascotas en Panamá: publica fichas, busca con filtros, solicita y chatea. <b>Adopty no es parte del acuerdo de adopción.</b></p>
-        </section>
-        <section>
-          <h2 class="font-display font-bold" style="color:#1E293B">2. El acuerdo final es fuera de la plataforma</h2>
-          <p class="mt-1">La entrega, verificación del hogar y cualquier compromiso se acuerdan <b>directamente entre adoptante y publicador, fuera de Adopty</b>. Adopty no gestiona contratos, entregas, pagos ni firmas.</p>
-        </section>
-        <section>
-          <h2 class="font-display font-bold" style="color:#1E293B">3. Contenido de las publicaciones</h2>
-          <p class="mt-1">El publicador es responsable de que los datos y fotos sean verídicos y propias. Está prohibido publicar contenido falso, ofensivo o con fines comerciales encubiertos. Adopty puede ocultar publicaciones reportadas.</p>
-        </section>
-        <section>
-          <h2 class="font-display font-bold" style="color:#1E293B">4. Conducta</h2>
-          <p class="mt-1">Prohibido el spam, el acoso por chat, compartir datos personales de terceros y usar la plataforma para ventas. Las cuentas que incumplan pueden ser suspendidas.</p>
-        </section>
-        <section>
-          <h2 class="font-display font-bold" style="color:#1E293B">5. Organizaciones verificadas</h2>
-          <p class="mt-1">El badge "verificada" lo otorga manualmente el equipo tras recibir evidencia (redes/documento). No constituye certificación oficial.</p>
-        </section>
-        <section>
-          <h2 class="font-display font-bold" style="color:#1E293B">6. Disponibilidad</h2>
-          <p class="mt-1">Proyecto académico en piloto: sin garantías de uptime. Los datos del piloto pueden migrarse o depurarse antes de producción.</p>
-        </section>
+  <Navbar />
+  <main class="max-w-3xl mx-auto px-4 mt-6">
+    <article class="soft-card p-6 sm:p-9">
+      <header class="border-b border-line pb-5">
+        <h1 class="font-display font-extrabold text-3xl">Términos de uso</h1>
+        <p class="text-xs mt-2 text-muted">Versión piloto — Ing. Software II, 2026</p>
+      </header>
+
+      <div class="grid gap-6 mt-6 text-sm leading-relaxed">
+        {
+          SECCIONES.map((s) => (
+            <section>
+              <h2 class="font-display font-bold text-base">{s.t}</h2>
+              <p class="mt-1.5 text-muted" set:html={s.p} />
+            </section>
+          ))
+        }
       </div>
-    </div>
+
+      <p class="text-xs text-faint mt-8 pt-5 border-t border-line">
+        Al usar Adopty aceptas estos términos. Lee también el{' '}
+        <a href="/privacidad" class="link">aviso de privacidad</a>.
+      </p>
+    </article>
   </main>
 </Layout>

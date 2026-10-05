@@ -14,39 +14,54 @@ interface Props {
   estado: string;
   edadLabel: string;
   fotos?: FotoRow[];
+  /** Etiqueta extra opcional (p. ej. "1 foto nueva") */
+  eyebrow?: string;
 }
-const { id, slug, nombre, raza, sexo, tamano, ubicacion, estado, edadLabel, fotos } = Astro.props as Props;
+const { id, slug, nombre, raza, sexo, tamano, ubicacion, estado, edadLabel, fotos, eyebrow } = Astro.props as Props;
 const url = slug ? `/mascota/${slug}` : `/mascota/${id}`;
 const principal = [...(fotos ?? [])].sort((a, b) => (a.es_principal === b.es_principal ? a.orden - b.orden : a.es_principal ? -1 : 1))[0];
 const foto = fotoUrl(principal?.url_foto);
 const grad = gradFor(id);
+const extraFotos = (fotos?.length ?? 0) - (principal ? 1 : 0);
+const etiqueta = [edadLabel, sexo, tamano, ubicacion].filter(Boolean).join(' · ');
 ---
-<article class="soft-card overflow-hidden">
-  <a href={url} aria-label={`Ver perfil de ${nombre}`}>
+
+<article class="soft-card overflow-hidden card-link">
+  <a href={url} aria-label={`Ver perfil de ${nombre}`} class="block relative">
     <div class={`pet-photo ${grad} w-full h-52`}>
-      {foto && (
-        <img
-          src={foto}
-          alt={`${nombre} - ${raza}`}
-          loading="lazy"
-          class="absolute inset-0 w-full h-full object-cover"
-          style="object-position:center"
-          onerror="this.remove()"
-        />
+      {
+        foto && (
+          <img
+            src={foto}
+            alt={`${nombre} - ${raza}`}
+            loading="lazy"
+            decoding="async"
+            width="640"
+            height="416"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-300"
+            style="object-position:center"
+            onerror="this.remove()"
+          />
+        )
+      }
+      {extraFotos > 0 && (
+        <span class="absolute bottom-3 right-3 text-xs font-bold text-white bg-ink/70 backdrop-blur px-2.5 py-1 rounded-full">
+          +{extraFotos} {extraFotos === 1 ? 'foto' : 'fotos'}
+        </span>
       )}
     </div>
   </a>
   <div class="p-5">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-2">
       <Badge estado={estadoLabel(estado)} />
       <FavButton id={id} nombre={nombre} />
     </div>
-    <h3 class="font-display font-bold text-lg mt-2" style="color:#1E293B">
-      {nombre} <span class="text-sm font-medium text-gray-400">· {raza}</span>
+    <h3 class="font-display font-bold text-lg mt-2 text-ink">
+      {nombre} <span class="text-sm font-medium text-muted">· {raza}</span>
     </h3>
-    <p class="text-sm mt-1">{edadLabel} · {sexo} · {ubicacion}</p>
+    <p class="text-sm mt-1">{eyebrow ?? etiqueta}</p>
     <div class="flex gap-2 mt-4">
-      <a href={url} class="btn-primary text-sm px-5 py-2.5 flex-1 text-center">Ver perfil</a>
+      <a href={url} class="btn-primary text-sm px-5 py-2.5 flex-1">Ver perfil</a>
     </div>
   </div>
 </article>

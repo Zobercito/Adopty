@@ -15,66 +15,155 @@ try {
   errorMsg = e instanceof Error ? e.message : 'Error al cargar';
 }
 const pendientes = lista.filter((s) => s.estado === 'pendiente').length;
+// Las pendientes primero: es la cola de trabajo real del publicador.
+const ordenados = [...lista].sort((a, b) => {
+  const peso = (e: string) => (e === 'pendiente' ? 0 : 1);
+  return peso(a.estado) - peso(b.estado) || b.fecha_solicitud.localeCompare(a.fecha_solicitud);
+});
 ---
+
 <Layout title="Adopty — Solicitudes recibidas">
-  <Navbar active="panel" />
-  <main class="max-w-4xl mx-auto px-4 mt-6 mb-6">
-    <h1 class="font-display font-extrabold text-2xl" style="color:#1E293B">Solicitudes recibidas</h1>
-    <p class="text-sm mt-1" role="status">
-      {pendientes > 0 ? `${pendientes} pendiente${pendientes === 1 ? '' : 's'} de respuesta` : 'Sin pendientes. Todo al día 🎉'}
-      {lista.length > 0 && ` · ${lista.length} en total`}
-    </p>
-
-    {errorMsg && <p class="text-sm mt-4 font-semibold" style="color:#B45309" role="alert">{errorMsg}</p>}
-
-    {lista.length === 0 && !errorMsg ? (
-      <div class="soft-card p-8 mt-5 text-center">
-        <p class="text-4xl" aria-hidden="true">📥</p>
-        <p class="text-sm mt-2">Nadie solicitó tus mascotas todavía. Cuando alguien lo haga, aparece aquí.</p>
-        <a href="/mascota/nueva" class="btn-primary text-sm px-6 py-2.5 inline-block mt-4">Publicar mascota</a>
+  <Navbar />
+  <main class="max-w-4xl mx-auto px-4 mt-6">
+    <div class="flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="font-display font-extrabold text-2xl">Solicitudes recibidas</h1>
+        <p class="text-sm mt-1 text-muted" role="status">
+          {pendientes > 0
+            ? `${pendientes} pendiente${pendientes === 1 ? '' : 's'} de respuesta`
+            : 'Sin pendientes. Todo al día 🎉'}
+          {lista.length > 0 && ` · ${lista.length} en total`}
+        </p>
       </div>
-    ) : (
-      <div class="grid gap-4 mt-5">
-        {lista.map((s) => {
-          const [cls, dot, etiqueta] = solBadge(s.estado);
-          return (
-            <article class="soft-card p-5">
-              <div class="flex items-center gap-2 flex-wrap">
-                <a href={`/mascota/${s.mascota.id}`} class="font-display font-bold" style="color:#1E293B">{s.mascota.nombre}</a>
-                <span class={`badge ${cls}`}><span class="dot" style={`background:${dot}`}></span>{etiqueta}</span>
-                <span class="text-xs ml-auto text-gray-400">{fechaCorta(s.fecha_solicitud)}</span>
-              </div>
-              <p class="text-sm mt-2"><b>{s.adoptante.nombre}</b> quiere adoptar:</p>
-              <p class="text-sm mt-1 p-3 rounded-xl" style="background:#F8FAFC">“{s.mensaje_inicial}”</p>
-              {s.estado === 'pendiente' ? (
-                <div class="flex gap-2 mt-4">
-                  <button type="button" data-aprobar={s.id} class="btn-primary text-sm px-6 py-2.5">Aprobar</button>
-                  <button type="button" data-rechazar={s.id} class="btn-ghost text-sm px-6 py-2.5">Rechazar</button>
+      <a href="/mascota/nueva" class="btn-ghost text-sm px-5 py-2.5">+ Publicar otra</a>
+    </div>
+
+    {errorMsg && <p class="alert alert-error mt-5" role="alert">{errorMsg}</p>}
+
+    {
+      lista.length === 0 && !errorMsg ? (
+        <div class="soft-card p-10 mt-6 text-center">
+          <p class="text-5xl" aria-hidden="true">
+            📥
+          </p>
+          <h2 class="font-display font-bold text-lg mt-4">Nadie solicitó tus mascotas todavía</h2>
+          <p class="text-sm mt-2 text-muted">
+            Cuando alguien lo haga, aparece aquí con su mensaje para que decidas.
+          </p>
+          <a href="/mascota/nueva" class="btn-primary text-sm px-6 py-2.5 mt-5">
+            Publicar mascota
+          </a>
+        </div>
+      ) : (
+        <div class="grid gap-4 mt-6">
+          {ordenados.map((s) => {
+            const [cls, dot, etiqueta] = solBadge(s.estado);
+            return (
+              <article class="soft-card p-5">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <a href={`/mascota/${s.mascota.id}`} class="font-display font-bold text-ink">
+                    {s.mascota.nombre}
+                  </a>
+                  <span class={`badge ${cls}`}>
+                    <span class="dot" style={`background:${dot}`} />
+                    {etiqueta}
+                  </span>
+                  <span class="text-xs text-faint ml-auto tabular">{fechaCorta(s.fecha_solicitud)}</span>
                 </div>
-              ) : s.estado === 'aprobada' ? (
-                <p class="text-xs mt-3 font-semibold" style="color:#065F46">Aprobada: la mascota pasó a En proceso y las demás solicitudes se rechazaron solas.</p>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
-    )}
-    <p class="text-xs mt-5 text-gray-400">Aprobar mueve la mascota a <b>En proceso</b> y rechaza automáticamente el resto. El acuerdo final se firma fuera de la plataforma.</p>
+                <p class="text-sm mt-3">
+                  <b class="text-ink">{s.adoptante.nombre}</b> quiere adoptar:
+                </p>
+                <p class="text-sm mt-1 p-3 rounded-xl bg-surface text-muted italic">“{s.mensaje_inicial}”</p>
+
+                {s.estado === 'pendiente' ? (
+                  <div class="flex gap-2 mt-4 flex-wrap">
+                    <button
+                      type="button"
+                      data-aprobar={s.id}
+                      class="btn-primary text-sm px-6 py-2.5"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      type="button"
+                      data-rechazar={s.id}
+                      class="btn-ghost text-sm px-6 py-2.5"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                ) : s.estado === 'aprobada' ? (
+                  <div class="mt-3 flex flex-wrap items-center gap-3">
+                    <p class="alert alert-ok text-xs flex-1 min-w-[14rem]">
+                      Aprobada: la mascota pasó a En proceso y las demás solicitudes se rechazaron
+                      solas.
+                    </p>
+                    <a
+                      href={`/mensajes?mascota=${s.mascota.id}`}
+                      class="btn-primary text-xs px-4 py-2.5"
+                    >
+                      Abrir chat
+                    </a>
+                  </div>
+                ) : (
+                  <p class="text-xs mt-3 text-muted">
+                    {s.estado === 'rechazada' ? 'Rechazada por ti.' : 'Cancelada por el adoptante.'}
+                  </p>
+                )}
+                <p data-err={s.id} class="alert alert-error text-xs mt-2 hidden" role="alert" />
+              </article>
+            );
+          })}
+        </div>
+      )
+    }
+
+    <p class="text-xs mt-6 text-faint">
+      Aprobar mueve la mascota a <b>En proceso</b> y rechaza automáticamente el resto. El acuerdo
+      final se firma fuera de la plataforma.
+    </p>
   </main>
+
   <script>
-    async function accionar(id, accion) {
-      const msg = accion === 'aprobar' ? '¿Aprobar? La mascota pasa a En proceso y se rechaza al resto.' : '¿Rechazar esta solicitud?';
+    const mostrarErr = (id, msg) => {
+      const el = document.querySelector(`[data-err="${id}"]`);
+      if (el) {
+        el.textContent = msg;
+        el.classList.remove('hidden');
+      }
+    };
+
+    async function accionar(id, accion, btn) {
+      const msg =
+        accion === 'aprobar'
+          ? '¿Aprobar? La mascota pasa a En proceso y se rechaza al resto.'
+          : '¿Rechazar esta solicitud?';
       if (!confirm(msg)) return;
+      const previo = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Procesando…';
       const res = await fetch(`/api/solicitudes/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accion }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) location.reload();
-      else alert(data.error || 'No se pudo procesar');
+      if (res.ok) {
+        location.reload();
+        return;
+      }
+      btn.disabled = false;
+      btn.textContent = previo;
+      mostrarErr(id, data.error || 'No se pudo procesar');
     }
-    document.querySelectorAll('[data-aprobar]').forEach((b) => b.addEventListener('click', () => accionar(b.getAttribute('data-aprobar'), 'aprobar')));
-    document.querySelectorAll('[data-rechazar]').forEach((b) => b.addEventListener('click', () => accionar(b.getAttribute('data-rechazar'), 'rechazar')));
+
+    document
+      .querySelectorAll('[data-aprobar]')
+      .forEach((b) => b.addEventListener('click', () => accionar(b.getAttribute('data-aprobar'), 'aprobar', b)));
+    document
+      .querySelectorAll('[data-rechazar]')
+      .forEach((b) =>
+        b.addEventListener('click', () => accionar(b.getAttribute('data-rechazar'), 'rechazar', b)),
+      );
   </script>
 </Layout>

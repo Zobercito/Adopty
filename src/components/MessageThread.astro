@@ -1,5 +1,6 @@
 ---
 import { fotoUrl, fotosOrdenadas } from '../lib/mascotas';
+import { solBadge } from '../lib/solicitudes';
 
 interface Props {
   key: string;
@@ -10,22 +11,79 @@ interface Props {
   no_leidos: number;
   mascota: any;
   solicitud?: string;
+  /** Marca el hilo abierto en el panel de escritorio */
+  activo?: boolean;
 }
-const { key, id_mascota, otra_parte, nombre_otra, ultima, no_leidos, mascota, solicitud } = Astro.props as Props;
+const { id_mascota, otra_parte, nombre_otra, ultima, no_leidos, mascota, solicitud, activo } = Astro.props as Props;
 const fotos = fotosOrdenadas(mascota?.fotos_mascota ?? []);
 const foto = fotoUrl(fotos[0]?.url_foto);
-const fecha = new Date(ultima).toLocaleDateString('es-PA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const hoy = new Date(ultima).toDateString() === new Date().toDateString();
+const fecha = hoy
+  ? new Date(ultima).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })
+  : new Date(ultima).toLocaleDateString('es-PA', { day: 'numeric', month: 'short' });
+// El estado de la solicitud se pinta como badge, no como texto suelto en la línea.
+const sol = solicitud ? solBadge(solicitud) : null;
 ---
-<a href={`/mensajes?mascota=${id_mascota}&con=${otra_parte}`} class="soft-card p-4 flex gap-3 group hover:shadow-md transition-shadow" aria-label={`Chat con ${nombre_otra} sobre ${mascota?.nombre}`}>
-  <div class={`pet-photo w-14 h-14 rounded-xl shrink-0 ${mascota ? '' : 'pet-grad-1'}`} style={foto ? `background-image:url('${foto}');background-size:cover;background-position:center` : ''}>
-    {foto && <img src={foto} alt="" class="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity" onerror="this.remove()" />}
-  </div>
-  <div class="flex-1 min-w-0">
-    <div class="flex items-center justify-between gap-2">
-      <p class="font-bold truncate" style="color:#1E293B">{nombre_otra}</p>
-      <time class="text-xs text-gray-400 shrink-0" dateTime={ultima}>{fecha}</time>
-    </div>
-    <p class="text-sm text-gray-500 truncate mt-1" style="color:#475569">{mascota?.nombre ? `Sobre ${mascota.nombre}` : 'Sin mascota asociada'}{solicitud ? ` · Solicitud: ${solicitud}` : ''}</p>
-  </div>
-  {no_leidos > 0 && <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style="background:#FF7A29">{no_leidos > 9 ? '9+' : no_leidos}</span>}
+
+<a
+  href={`/mensajes?mascota=${id_mascota}&con=${otra_parte}`}
+  class={`hilo flex gap-3 px-4 py-3.5 items-center ${activo ? 'hilo-activo' : ''}`}
+  aria-label={`Chat con ${nombre_otra} sobre ${mascota?.nombre}`}
+  aria-current={activo ? 'page' : undefined}
+>
+  <span class={`pet-photo w-14 h-14 rounded-xl shrink-0 ${mascota ? '' : 'pet-grad-1'}`}>
+    {
+      foto ? (
+        <img
+          src={foto}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width="56"
+          height="56"
+          class="w-full h-full object-cover"
+          onerror="this.remove()"
+        />
+      ) : (
+        <span class="text-faint text-xs font-bold" aria-hidden="true">
+          🐾
+        </span>
+      )
+    }
+  </span>
+  <span class="flex-1 min-w-0">
+    <span class="flex items-center justify-between gap-2">
+      <span class={`font-bold truncate text-sm ${no_leidos > 0 ? 'text-ink' : ''}`}>{nombre_otra}</span>
+      <time class="text-xs text-faint shrink-0 tabular" dateTime={ultima}>{fecha}</time>
+    </span>
+    <span class="flex items-center gap-2 mt-1 min-w-0">
+      <span class="text-xs text-muted truncate">{mascota?.nombre ?? 'Sin mascota asociada'}</span>
+      {sol && <span class={`badge ${sol[0]} text-[0.65rem] px-2 py-0.5 shrink-0`}>{sol[2]}</span>}
+    </span>
+  </span>
+  {
+    no_leidos > 0 && (
+      <span class="shrink-0 min-w-[1.5rem] h-6 px-1.5 rounded-full flex items-center justify-center text-xs font-bold text-white tabular" style="background:#FF7A29">
+        {no_leidos > 9 ? '9+' : no_leidos}
+        <span class="sr-only"> mensajes sin leer</span>
+      </span>
+    )
+  }
 </a>
+
+<style>
+  .hilo {
+    display: flex;
+    transition: background-color 0.15s ease;
+  }
+  .hilo:hover {
+    background: #f8fafc;
+  }
+  .hilo-activo {
+    background: #fff1e6;
+    box-shadow: inset 3px 0 0 #ff7a29;
+  }
+  .hilo-activo:hover {
+    background: #fff1e6;
+  }
+</style>

@@ -6,24 +6,36 @@
 interface Props { id: string; nombre: string; }
 const { id, nombre } = Astro.props as Props;
 ---
+<!-- Zona de clic de 40px (mínimo táctil) en vez de un glifo de ~18px -->
 <button
   type="button"
   data-fav-btn={id}
+  data-fav-nombre={nombre}
   aria-label={`Guardar ${nombre} en favoritos`}
   aria-pressed="false"
   title="Guardar en favoritos"
-  class="text-gray-300 text-xl hover:scale-110 transition-transform"
->♥</button>
+  class="fav-btn -m-2 p-2 w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-faint hover:bg-brand-soft hover:text-brand"
+>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path
+      d="M12 21s-7.5-4.6-9.6-9A5.6 5.6 0 0 1 12 5.7 5.6 5.6 0 0 1 21.6 12c-2.1 4.4-9.6 9-9.6 9Z"
+    ></path>
+  </svg>
+</button>
 <script>
   // Delegación única a nivel documento: válida para todos los botones, presentes o futuros.
-  type FavBtn = HTMLElement & { dataset: { favBtn: string } };
+  type FavBtn = HTMLElement & { dataset: { favBtn: string; favNombre?: string } };
   const KEY = 'adopty_favs';
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const getLocal = (): string[] => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
   const setLocal = (f: string[]) => localStorage.setItem(KEY, JSON.stringify(f));
   const paint = (btn: FavBtn, on: boolean) => {
     btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', `${on ? 'Quitar' : 'Guardar'} ${btn.dataset.favNombre ?? ''} ${on ? 'de' : 'en'} favoritos`);
+    btn.title = on ? 'Quitar de favoritos' : 'Guardar en favoritos';
     btn.style.color = on ? '#FF7A29' : '';
+    // El estado activo necesita leerse sin depender solo del color
+    btn.classList.toggle('bg-brand-soft', on);
   };
   // caché compartido: una sola petición de DB por página
   let dbPromise: Promise<string[]> | null = null;

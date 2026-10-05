@@ -15,7 +15,16 @@ const currentUserId = Astro.locals.user.id;
 const mascotaId = Astro.url.searchParams.get('mascota');
 const con = Astro.url.searchParams.get('con');
 
-let hilos: { key: string; id_mascota: string; otra_parte: string; nombre_otra: string; ultima: string; no_leidos: number; mascota: any }[] = [];
+let hilos: {
+  key: string;
+  id_mascota: string;
+  otra_parte: string;
+  nombre_otra: string;
+  ultima: string;
+  no_leidos: number;
+  mascota: any;
+  solicitud?: string;
+}[] = [];
 let chatActivo: { id_mascota: string; otra_parte: string; nombre_otra: string; mascota: any; mensajes: any[] } | null = null;
 
 try {
@@ -100,38 +109,87 @@ try {
 } catch (e) {
   console.error(e);
 }
+const totalNoLeidos = hilos.reduce((n, h) => n + h.no_leidos, 0);
 ---
 <Layout title="Adopty — Mis mensajes">
-  <Navbar active="mensajes" />
-  <main class="max-w-6xl mx-auto px-4 mt-6 h-[calc(100vh-8rem)] flex">
-    <aside class="w-72 lg:w-80 shrink-0 soft-card flex flex-col hidden lg:flex">
-      <div class="p-4 border-b"><h2 class="font-display font-extrabold text-lg" style="color:#1E293B">Mensajes</h2></div>
-      <div class="flex-1 overflow-y-auto">
-        {hilos.length === 0 ? (
-          <div class="p-4 text-center text-sm text-gray-400">No hay conversaciones aún.</div>
-        ) : (
-          <div class="divide-y">
-            {hilos.map((h) => <MessageThread {...h} />)}
-          </div>
-        )}
+  <Navbar />
+
+  <main class="max-w-6xl mx-auto px-4 mt-6 flex">
+    {/* Lista de hilos: en móvil se oculta al abrir un chat y vuelve con el botón "Volver" */}
+    <aside
+      class="w-full lg:w-80 shrink-0 soft-card flex flex-col overflow-hidden lg:h-[calc(100vh-13rem)]"
+      class:list={[chatActivo && 'hidden lg:flex']}
+      aria-label="Conversaciones"
+    >
+      <div class="p-4 border-b border-line flex items-center justify-between">
+        <h2 class="font-display font-extrabold text-lg">Mensajes</h2>
+        {
+          totalNoLeidos > 0 && (
+            <span class="badge badge-proceso">{totalNoLeidos} sin leer</span>
+          )
+        }
+      </div>
+      <div class="flex-1 overflow-y-auto divide-y divide-line no-scrollbar">
+        {
+          hilos.length === 0 ? (
+            <div class="p-8 text-center">
+              <p class="text-4xl" aria-hidden="true">
+                💬
+              </p>
+              <p class="text-sm font-bold text-ink mt-3">No hay conversaciones aún</p>
+              <p class="text-sm text-muted mt-1">
+                Cuando alguien te escriba sobre una mascota, aparecerá aquí.
+              </p>
+              <a href="/explorar" class="btn-primary text-sm px-5 py-2.5 mt-4">
+                Explorar mascotas
+              </a>
+            </div>
+          ) : (
+            hilos.map((h) => (
+              <MessageThread
+                {...h}
+                activo={chatActivo?.id_mascota === h.id_mascota && chatActivo?.otra_parte === h.otra_parte}
+              />
+            ))
+          )
+        }
       </div>
     </aside>
 
-    <div class="flex-1 lg:w-0 flex flex-col min-w-0">
-      {chatActivo ? (
-        <ChatView
-          id_mascota={chatActivo.id_mascota}
-          otra_parte={chatActivo.otra_parte}
-          nombre_otra={chatActivo.nombre_otra}
-          mascota={chatActivo.mascota}
-          mensajes={chatActivo.mensajes}
-          currentUserId={currentUserId}
-        />
-      ) : (
-        <div class="flex-1 soft-card flex items-center justify-center text-center">
-          <p class="text-sm text-gray-400">Selecciona una conversación o empieza una desde una ficha de mascota.</p>
-        </div>
-      )}
+    <div class="flex-1 lg:w-0 flex flex-col min-w-0 lg:h-[calc(100vh-13rem)]">
+      {
+        chatActivo ? (
+          <>
+            {/* Solo en móvil: volver a la lista de conversaciones */}
+            <a href="/mensajes" class="btn-quiet text-sm px-3 py-2 mb-2 self-start lg:hidden">
+              ← Conversaciones
+            </a>
+            <div class="flex-1 min-h-0">
+              <ChatView
+                id_mascota={chatActivo.id_mascota}
+                otra_parte={chatActivo.otra_parte}
+                nombre_otra={chatActivo.nombre_otra}
+                mascota={chatActivo.mascota}
+                mensajes={chatActivo.mensajes}
+                currentUserId={currentUserId}
+              />
+            </div>
+          </>
+        ) : (
+          <div class="flex-1 soft-card hidden lg:flex items-center justify-center text-center p-8">
+            <div>
+              <p class="text-5xl" aria-hidden="true">
+                🐾
+              </p>
+              <p class="text-sm font-bold text-ink mt-4">Selecciona una conversación</p>
+              <p class="text-sm text-muted mt-1 max-w-sm">
+                El chat se habilita cuando una solicitud de adopción se aprueba. Así el contacto
+                ocurre entre las partes SIN exponer números de teléfono.
+              </p>
+            </div>
+          </div>
+        )
+      }
     </div>
   </main>
 </Layout>

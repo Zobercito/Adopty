@@ -1,5 +1,5 @@
 ---
-import { fotoUrl, type FotoRow } from '../lib/mascotas';
+import { fotoUrl, fotosOrdenadas, type FotoRow } from '../lib/mascotas';
 
 interface Props {
   id_mascota: string;
@@ -10,60 +10,193 @@ interface Props {
   currentUserId: string;
 }
 const { id_mascota, otra_parte, nombre_otra, mascota, mensajes, currentUserId } = Astro.props as Props;
+const foto = fotoUrl(fotosOrdenadas(mascota.fotos)[0]?.url_foto);
+const hoy = (iso: string) => {
+  const d = new Date(iso);
+  return d.toDateString() === new Date().toDateString();
+};
+const reloj = (iso: string) =>
+  new Date(iso).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' });
+/** Agrupa por día para que un chat largo sea legible. */
+const conSeparadores = mensajes.map((m, i) => {
+  const previo = mensajes[i - 1];
+  const nuevoDia = !previo || new Date(previo.fecha_envio).toDateString() !== new Date(m.fecha_envio).toDateString();
+  const separador = nuevoDia
+    ? new Date(m.fecha_envio).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long' })
+    : null;
+  return { m, separador };
+});
 ---
+
 <div class="soft-card flex flex-col h-full" data-chat-id={id_mascota} data-otra={otra_parte} data-mine={currentUserId}>
-  <header class="p-4 border-b flex items-center gap-3">
-    <div class="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shrink-0" style="background:#2EC4B6">
-      {nombre_otra.charAt(0).toUpperCase()}
-    </div>
+  <header class="p-4 border-b border-line flex items-center gap-3">
+    <span class="avatar w-11 h-11 shrink-0" aria-hidden="true">{nombre_otra.charAt(0).toUpperCase()}</span>
     <div class="flex-1 min-w-0">
-      <p class="font-bold truncate" style="color:#1E293B">{nombre_otra}</p>
-      <p class="text-xs text-gray-400 truncate">{mascota.nombre}</p>
+      <p class="font-bold truncate text-ink">{nombre_otra}</p>
+      <p class="text-xs text-muted truncate">{mascota.nombre}</p>
     </div>
-    <a href={`/mascota/${id_mascota}`} class="text-xs font-bold" style="color:#14A098">Ver ficha</a>
+    <a href={`/mascota/${id_mascota}`} class="link text-xs whitespace-nowrap">Ver ficha</a>
   </header>
 
-  <main id="messages" class="flex-1 overflow-y-auto p-4 space-y-3" aria-live="polite" aria-label={`Mensajes con ${nombre_otra}`}>
-    {mensajes.length === 0 ? (
-      <p class="text-sm text-center text-gray-400 mt-8">Sin mensajes aun. Escribe el primero.</p>
-    ) : (
-      mensajes.map((m) => {
-        const yo = m.id_emisor === currentUserId;
-        const fecha = new Date(m.fecha_envio).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' });
-        return (
-          <div class={`flex ${yo ? 'justify-end' : 'justify-start'}`} data-msg-id={m.id}>
-            <div class={`max-w-[75%] ${yo ? 'text-right' : ''}`}>
-              <div class={`inline-block px-4 py-2 rounded-2xl ${yo ? 'rounded-tr-none' : 'rounded-tl-none'}`} style={`background:${yo ? '#FF7A29' : '#F1F5F9'};color:${yo ? '#fff' : '#1E293B'}`}>
-                <p class="text-sm break-words">{m.contenido}</p>
+  <main id="messages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-surface" aria-label={`Mensajes con ${nombre_otra}`} aria-live="polite" aria-relevant="additions">
+    {
+      mensajes.length === 0 ? (
+        <div class="text-center py-10">
+          {foto ? (
+            <img
+              src={foto}
+              alt=""
+              width="64"
+              height="64"
+              class="w-16 h-16 rounded-full object-cover mx-auto"
+              onerror="this.remove()"
+            />
+          ) : (
+            <span class="avatar w-16 h-16 mx-auto text-xl" aria-hidden="true">
+              {mascota.nombre.charAt(0).toUpperCase()}
+            </span>
+          )}
+          <p class="text-sm font-bold text-ink mt-3">{mascota.nombre}</p>
+          <p class="text-sm text-muted mt-1">
+            Sin mensajes todavía. Escribe el primero y coordina la entrega.
+          </p>
+          <p class="text-xs text-faint mt-3">
+            No compartas datos personales: el acuerdo final se firma fuera de la plataforma.
+          </p>
+        </div>
+      ) : (
+        conSeparadores.map(({ m, separador }) => {
+          const yo = m.id_emisor === currentUserId;
+          return (
+            <>
+              {separador && (
+                <p class="text-center text-xs font-semibold text-muted py-1" role="separator">
+                  <span class="bg-white border border-line rounded-full px-3 py-1 inline-block">
+                    {separador}
+                  </span>
+                </p>
+              )}
+              <div class={`flex ${yo ? 'justify-end' : 'justify-start'}`} data-msg-id={m.id}>
+                <div class={`max-w-[80%] sm:max-w-[70%] ${yo ? 'items-end' : 'items-start'} flex flex-col`}>
+                  <div
+                    class={`msg-burbuja px-4 py-2.5 ${yo ? 'msg-mia' : 'msg-otra'}`}
+                    style={yo ? undefined : 'border-radius:1rem 1rem 1rem .35rem'}
+                  >
+                    <p class="text-sm break-words whitespace-pre-wrap">{m.contenido}</p>
+                  </div>
+                  <p class="text-xs mt-1 text-faint flex items-center gap-1">
+                    <time dateTime={m.fecha_envio}>
+                      {hoy(m.fecha_envio) ? reloj(m.fecha_envio) : new Date(m.fecha_envio).toLocaleDateString('es-PA', { day: 'numeric', month: 'short' })}
+                    </time>
+                    {yo && m.leido && <span title="Leído">✓✓</span>}
+                  </p>
+                </div>
               </div>
-              <p class="text-xs mt-1 opacity-60 text-right">{fecha}</p>
-            </div>
-          </div>
-        );
-      })
-    )}
+            </>
+          );
+        })
+      )
+    }
   </main>
 
-  <form id="msgForm" class="p-4 border-t flex gap-2" aria-label={`Enviar mensaje a ${nombre_otra}`}>
-    <input id="msgInput" name="contenido" type="text" required minlength="1" maxlength="2000" placeholder="Escribe un mensaje..." class="flex-1 input-soft text-sm" aria-label="Mensaje" />
-    <button type="submit" class="btn-primary px-5 py-2.5 shrink-0" aria-label="Enviar">Enviar</button>
+  <form id="msgForm" class="p-3 sm:p-4 border-t border-line flex items-end gap-2" aria-label={`Enviar mensaje a ${nombre_otra}`}>
+    <label class="sr-only" for="msgInput">Mensaje</label>
+    <textarea
+      id="msgInput"
+      name="contenido"
+      required
+      minlength="1"
+      maxlength="2000"
+      rows="1"
+      placeholder="Escribe un mensaje..."
+      class="input-soft text-sm resize-none max-h-32 py-2.5"
+      aria-label="Mensaje"
+    />
+    <button id="msgSend" type="submit" class="btn-primary px-5 py-2.5 shrink-0 h-[2.85rem]" aria-label="Enviar mensaje">
+      Enviar
+    </button>
   </form>
 </div>
+
 <script define:vars={{ id_mascota, otra_parte, currentUserId }}>
   const form = document.getElementById('msgForm');
   const input = document.getElementById('msgInput');
+  const send = document.getElementById('msgSend');
   const messages = document.getElementById('messages');
   const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
   const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
   const { createClient } = await import('@supabase/supabase-js');
   const sb = createClient(supabaseUrl, supabaseKey);
-  messages.scrollTop = messages.scrollHeight;
+
+  const alFinal = () => {
+    messages.scrollTop = messages.scrollHeight;
+  };
+  alFinal();
+
+  // El textarea crece hasta 4 líneas y Enter envía (Shift+Enter = salto).
+  const autoAlto = () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 128) + 'px';
+  };
+  input.addEventListener('input', autoAlto);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  function pintarMensaje(m, separador = null) {
+    const previo = messages.lastElementChild?.dataset.msgId;
+    if (separador && !previo) {
+      const sep = document.createElement('p');
+      sep.className = 'text-center text-xs font-semibold text-muted py-1';
+      sep.innerHTML = `<span class="bg-white border border-line rounded-full px-3 py-1 inline-block">${separador}</span>`;
+      messages.appendChild(sep);
+    }
+    const yo = m.id_emisor === currentUserId;
+    const fecha = new Date(m.fecha_envio).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.dataset.msgId = m.id;
+    div.className = 'flex ' + (yo ? 'justify-end' : 'justify-start');
+    const burbuja = yo ? 'msg-mia' : 'msg-otra';
+    const radio = yo ? '1rem .35rem 1rem 1rem' : '1rem 1rem 1rem .35rem';
+    const contenido = document.createElement('p');
+    contenido.className = 'text-sm break-words whitespace-pre-wrap';
+    contenido.textContent = m.contenido; // textContent: sin inyección de HTML
+    const cuerpo = document.createElement('div');
+    cuerpo.className = `px-4 py-2.5 msg-burbuja ${burbuja}`;
+    cuerpo.style.borderRadius = radio;
+    cuerpo.appendChild(contenido);
+    const meta = document.createElement('p');
+    meta.className = 'text-xs mt-1 text-faint';
+    meta.textContent = fecha;
+    const wrap = document.createElement('div');
+    wrap.className = `max-w-[80%] sm:max-w-[70%] flex flex-col ${yo ? 'items-end' : 'items-start'}`;
+    wrap.appendChild(cuerpo);
+    wrap.appendChild(meta);
+    div.appendChild(wrap);
+    messages.appendChild(div);
+    alFinal();
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const contenido = input.value.trim();
     if (!contenido) return;
     input.disabled = true;
+    send.disabled = true;
     input.value = '';
+    autoAlto();
+    // Optimista: se pinta ya y se marca pendiente hasta que el servidor confirme.
+    const optimista = {
+      id: 'tmp-' + Date.now(),
+      id_emisor: currentUserId,
+      contenido,
+      fecha_envio: new Date().toISOString(),
+      leido: false,
+    };
+    pintarMensaje(optimista);
     try {
       const res = await fetch('/api/mensajes', {
         method: 'POST',
@@ -73,41 +206,62 @@ const { id_mascota, otra_parte, nombre_otra, mascota, mensajes, currentUserId } 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Error al enviar');
     } catch (err) {
-      alert(err.message);
+      // Error en línea: se marca para que el usuario vea qué no salió.
+      const nodo = messages.querySelector(`[data-msg-id="${optimista.id}"]`);
+      if (nodo) {
+        nodo.querySelector('p:last-child').textContent = 'No se pudo enviar';
+        nodo.querySelector('.msg-burbuja').classList.add('msg-error');
+        nodo.setAttribute('role', 'alert');
+      }
+      input.value = contenido; // se devuelve el texto para reintentar
+      autoAlto();
     } finally {
       input.disabled = false;
+      send.disabled = false;
       input.focus();
     }
   });
+
   const canal = sb
     .channel('chat-' + id_mascota + '-' + currentUserId)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: 'id_mascota=eq.' + id_mascota }, (payload) => {
       const m = payload.new;
+      // Ignora el eco de lo que acabamos de enviar (ya pintado de forma optimista).
       if (m.id_emisor === currentUserId || m.id_receptor !== currentUserId) return;
-      fetch('/api/mensajes/' + m.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leido: true }) }).catch(() => {});
-      appendMessage(m);
+      fetch('/api/mensajes/' + m.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leido: true }),
+      }).catch(() => {});
+      pintarMensaje(m);
     })
     .subscribe();
-  function appendMessage(m) {
-    const yo = m.id_emisor === currentUserId;
-    const fecha = new Date(m.fecha_envio).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' });
-    const div = document.createElement('div');
-    div.dataset.msgId = m.id;
-    div.className = 'flex ' + (yo ? 'justify-end' : 'justify-start');
-    const burbuja = yo ? 'rounded-tr-none' : 'rounded-tl-none';
-    const fondo = yo ? '#FF7A29' : '#F1F5F9';
-    const color = yo ? '#fff' : '#1E293B';
-    const alineado = yo ? 'text-right' : '';
-    div.innerHTML =
-      '<div class="max-w-[75%] ' + alineado + '">' +
-      '<div class="inline-block px-4 py-2 rounded-2xl ' + burbuja + '" style="background:' + fondo + ';color:' + color + '">' +
-      '<p class="text-sm break-words">' + escapeHtml(m.contenido) + '</p></div>' +
-      '<p class="text-xs mt-1 opacity-60 text-right">' + fecha + '</p></div>';
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
-  }
-  function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-  window.addEventListener('beforeunload', () => { sb.removeChannel(canal); });
+
+  window.addEventListener('beforeunload', () => {
+    sb.removeChannel(canal);
+  });
 </script>
+
+<style>
+  .msg-burbuja {
+    display: inline-block;
+    max-width: 100%;
+  }
+  .msg-mia {
+    background: #ff7a29;
+    color: #fff;
+    border-radius: 1rem 0.35rem 1rem 1rem;
+    box-shadow: 0 4px 14px rgb(255 122 41 / 0.25);
+  }
+  .msg-otra {
+    background: #fff;
+    color: #1e293b;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 1rem 1rem 1rem 0.35rem;
+  }
+  .msg-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1.5px solid #fecaca;
+  }
+</style>
