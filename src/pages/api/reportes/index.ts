@@ -68,10 +68,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
     // 23514: el trigger de auto-reporte se adelantó a la comprobación de arriba.
     if (error.code === '23514') {
-      return Response.json(
-        { error: 'No puedes reportar tu propia publicación' },
-        { status: 403 },
-      );
+      return Response.json({ error: 'No puedes reportar tu propia publicación' }, { status: 403 });
     }
     return Response.json({ error: error.message }, { status: 400 });
   }
