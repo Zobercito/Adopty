@@ -125,30 +125,71 @@ export async function buscarMascotas(
 ): Promise<ResultadoBusqueda> {
   const pageSize = Math.min(Math.max(b.pageSize ?? 20, 1), 60);
   const page = Math.max(b.page ?? 1, 1);
-  let q = supabase
-    .from('mascotas')
-    .select('*, fotos_mascota(*)', { count: 'exact' })
-    .is('deleted_at', null)
-    .eq('estado', b.estado ?? 'disponible');
-  if (b.especie) q = q.eq('especie', b.especie);
-  if (b.tamano) q = q.eq('tamano', b.tamano);
-  if (b.sexo) q = q.eq('sexo', b.sexo);
-  if (b.q) q = q.or(`nombre.ilike.%${b.q}%,raza.ilike.%${b.q}%,ubicacion.ilike.%${b.q}%`);
-  // Nota: pg_trgm (similarity) se usa en /api/mascotas/busqueda-avanzada para resultados más relevantes
-  const from = (page - 1) * pageSize;
-  const { data, error, count } = await q
-    .order('fecha_publicacion', { ascending: b.orden === 'antiguos' })
-    .range(from, from + pageSize - 1);
-  if (error) throw new Error(error.message);
-  const total = count ?? 0;
-  return {
-    items: (data ?? []).map((r) => ({
-      ...(r as MascotaRow),
-      fotos: (r.fotos_mascota ?? []) as FotoRow[],
-    })),
+  const ascendente = b.orden === 'antiguos';
+
+  type Fila = MascotaRow & { fotos_mascota?: FotoRow[] };
+
+  /**
+   * Consulta nueva en cada llamada: un PostgrestBuilder es mutable (`.order()` y
+   * `.range()` escriben en su URL interna), así que reutilizar el mismo builder
+   * para dos peticiones duplica los parámetros.
+   */
+  const consulta = () => {
+    let q = supabase
+      .from('mascotas')
+      .select('*, fotos_mascota(*)', { count: 'exact' })
+      .is('deleted_at', null)
+      .eq('estado', b.estado ?? 'disponible');
+    if (b.especie) q = q.eq('especie', b.especie);
+    if (b.tamano) q = q.eq('tamano', b.tamano);
+    if (b.sexo) q = q.eq('sexo', b.sexo);
+    // Nota: pg_trgm (similarity) se usa en /api/mascotas/busqueda-avanzada
+    if (b.q) q = q.or(`nombre.ilike.%${b.q}%,raza.ilike.%${b.q}%,ubicacion.ilike.%${b.q}%`);
+    return q;
+  };
+
+  const contar = async (): Promise<number> => {
+    const r = await consulta().select('id', { count: 'exact', head: true });
+    if (r.error) throw new Error(r.error.message);
+    return r.count ?? 0;
+  };
+
+  /**
+   * PostgREST responde 416 ("range not satisfiable") cuando `from` supera el
+   * número de filas: pasa con ?page=99 o al filtrar y quedarse en una página
+   * que ya no existe. No es un fallo real, así que se marca para recortar a la
+   * última página válida en vez de propagar el error crudo a la interfaz.
+   */
+  const paginaDe = async (
+    n: number,
+  ): Promise<{ filas: Fila[]; total: number; fueraDeRango: boolean }> => {
+    const from = (n - 1) * pageSize;
+    const r = await consulta()
+      .order('fecha_publicacion', { ascending: ascendente })
+      .range(from, from + pageSize - 1);
+    if (r.error) {
+      if (!/not satisfiable/i.test(r.error.message)) throw new Error(r.error.message);
+      return { filas: [], total: await contar(), fueraDeRango: true };
+    }
+    return { filas: (r.data ?? []) as Fila[], total: r.count ?? 0, fueraDeRango: false };
+  };
+
+  const empaquetar = (filas: Fila[], total: number, n: number): ResultadoBusqueda => ({
+    items: filas.map((f) => ({ ...f, fotos: f.fotos_mascota ?? [] })),
     total,
-    page,
+    page: n,
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
-  };
+  });
+
+  const primera = await paginaDe(page);
+
+  if (primera.fueraDeRango && primera.total > 0 && page > 1) {
+    const totalPages = Math.max(1, Math.ceil(primera.total / pageSize));
+    const ultima = Math.min(page, totalPages);
+    const ajuste = await paginaDe(ultima);
+    return empaquetar(ajuste.filas, ajuste.total, ultima);
+  }
+
+  return empaquetar(primera.filas, primera.total, page);
 }

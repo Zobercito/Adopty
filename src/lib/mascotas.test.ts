@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  buscarMascotas,
   edadLabel,
   estadoLabel,
   fotoUrl,
@@ -80,5 +81,62 @@ describe('paramsFrom', () => {
     expect(sp('page=abc').page).toBe(1);
     expect(sp('orden=antiguos').orden).toBe('antiguos');
     expect(sp('orden=x').orden).toBe('recientes');
+  });
+});
+
+describe('buscarMascotas', () => {
+  /** Cliente mínimo que encadena filtros y responde por rango solicitado. */
+  function clienteStub(total: number, filasPorRango: (from: number) => unknown[]) {
+    // Builder "thenable": se puede encadenar (.is/.eq/.order) y también awaiting
+    // directo, que es como lo usa el conteo `head`.
+    const builder: any = new Proxy(
+      {
+        then: (res: any) => res({ count: total }),
+      },
+      {
+        get(_t, prop: string) {
+          if (prop === 'then') return (res: any) => res({ count: total });
+          if (prop === 'range') {
+            return (from: number) => {
+              const filas = filasPorRango(from);
+              return Promise.resolve(
+                filas.length
+                  ? { data: filas, error: null, count: total }
+                  : // PostgREST responde 416 si `from` pasa el total de filas.
+                    {
+                      data: null,
+                      count: null,
+                      error: { message: 'Requested range not satisfiable' },
+                    },
+              );
+            };
+          }
+          return () => builder;
+        },
+      },
+    );
+    return { from: () => builder } as any;
+  }
+
+  const fila = (n: number) => ({ id: `m${n}`, nombre: `M${n}`, fotos_mascota: [] });
+  const hasta = (total: number) => (from: number) =>
+    Array.from({ length: Math.max(0, Math.min(8, total - from)) }, (_, i) => fila(from + i));
+
+  it('devuelve la página pedida con su total', async () => {
+    const r = await buscarMascotas(clienteStub(28, hasta(28)), { page: 2, pageSize: 20 });
+    expect(r).toMatchObject({ total: 28, page: 2, totalPages: 2 });
+    expect(r.items).toHaveLength(8);
+  });
+
+  it('recorta a la última página si la pedida ya no existe (?page=99)', async () => {
+    const r = await buscarMascotas(clienteStub(28, hasta(28)), { page: 99, pageSize: 20 });
+    expect(r).toMatchObject({ total: 28, page: 2, totalPages: 2 });
+    expect(r.items.length).toBeGreaterThan(0);
+  });
+
+  it('no recorta cuando no hay resultados: devuelve lista vacía', async () => {
+    const r = await buscarMascotas(clienteStub(0, hasta(0)), { page: 1, pageSize: 20 });
+    expect(r).toMatchObject({ total: 0, page: 1, totalPages: 1 });
+    expect(r.items).toEqual([]);
   });
 });
