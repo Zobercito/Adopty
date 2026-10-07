@@ -3,29 +3,59 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import { supabaseServer } from '../lib/supabase';
+import { fotoUrl } from '../lib/mascotas';
+import { completitudPerfil, etiquetaExperiencia, EXPERIENCIAS } from '../lib/perfil';
+import { redesVacias } from '../lib/validation/user';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login?next=/perfil');
 
 const supabase = supabaseServer(Astro.cookies);
-const { data: perfil } = await supabase.from('usuarios').select('tipo_usuario, correo').eq('id', user.id).single();
+const { data: perfil } = await supabase
+  .from('usuarios')
+  .select('tipo_usuario, correo, activo, borrado_en')
+  .eq('id', user.id)
+  .single();
 const tipo = perfil?.tipo_usuario ?? 'persona';
 const esOrg = tipo === 'organizacion';
+const correo = perfil?.correo ?? user.email ?? '';
 
 let detalle: Record<string, string | boolean | null> = {};
 let verificada = false;
 if (esOrg) {
   const { data } = await supabase
     .from('organizaciones')
-    .select('nombre_oficial, direccion, descripcion, sitio_web, verificada')
+    .select('nombre_oficial, direccion, descripcion, sitio_web, verificada, logo, contacto_visible, redes')
     .eq('id', user.id)
     .single();
   detalle = data ?? {};
   verificada = Boolean((data as { verificada?: boolean } | null)?.verificada);
 } else {
-  const { data } = await supabase.from('personas').select('nombre, telefono, descripcion').eq('id', user.id).single();
+  const { data } = await supabase
+    .from('personas')
+    .select('nombre, descripcion, foto_perfil, experiencia, motivacion')
+    .eq('id', user.id)
+    .single();
   detalle = data ?? {};
 }
+const fotoActual = esOrg ? fotoUrl((detalle.logo as string) ?? null) : fotoUrl((detalle.foto_perfil as string) ?? null);
+const redes = redesVacias(
+  detalle.redes as { instagram?: string; facebook?: string; whatsapp?: string } | null,
+);
+
+// Barra de completitud: el adoptante ve qué le falta y por qué importa.
+const comp = esOrg
+  ? { pct: 100, faltan: [] as string[], faltanCampos: [] as string[] }
+  : completitudPerfil({
+      nombre: detalle.nombre as string,
+      foto: detalle.foto_perfil as string,
+      descripcion: detalle.descripcion as string,
+      experiencia: detalle.experiencia as string,
+      motivacion: detalle.motivacion as string,
+    });
+
+/** ¿Este campo sigue vacío? Marca el punto pulsante al lado de la etiqueta. */
+const falta = (campo: string) => comp.faltanCampos.includes(campo);
 
 // Última solicitud de verificación: así la organización sabe en qué quedó y,
 // si fue rechazada, por qué. La nota la escribe el admin en el panel.
@@ -55,11 +85,17 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
   <main class="max-w-xl mx-auto px-4 mt-8">
     <div class="soft-card p-6 sm:p-8">
       <div class="flex items-center gap-4">
-        <span class="avatar w-14 h-14 text-xl" aria-hidden="true">{nombre.charAt(0).toUpperCase()}</span>
+        <span class="avatar w-14 h-14 text-xl" aria-hidden="true">
+          {fotoActual ? (
+            <img src={fotoActual} alt="" width="56" height="56" class="w-full h-full object-cover" />
+          ) : (
+            nombre.charAt(0).toUpperCase()
+          )}
+        </span>
         <div class="min-w-0">
           <h1 class="font-display font-extrabold text-2xl truncate">{nombre}</h1>
           <p class="text-sm text-muted truncate">
-            {perfil?.correo} · {esOrg ? 'Organización' : 'Persona'}
+            {correo} · {esOrg ? 'Organización' : 'Persona'}
             {esOrg && (verificada ? ' · ✓ Verificada' : ' · pendiente de verificación')}
           </p>
         </div>
@@ -68,11 +104,90 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       <p id="err" class="alert alert-error mt-4 hidden" role="alert" />
       <p id="ok" class="alert alert-ok mt-4 hidden" role="status" />
 
+      {!esOrg && comp.pct < 100 && (
+        <div class="mt-4 rounded-2xl bg-surface p-4">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-ink">Tu perfil está al {comp.pct}%</p>
+            <span class="badge badge-proceso">incompleto</span>
+          </div>
+          <div
+            class="barra mt-2"
+            role="progressbar"
+            aria-valuenow={comp.pct}
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-label="Completitud de tu perfil"
+          >
+            <span style={`width:${comp.pct}%`} />
+          </div>
+          <p class="text-xs text-muted mt-2">
+            Los refugios leen tu perfil antes de aprobar una solicitud. Falta: {comp.faltan.join(', ')}.
+          </p>
+        </div>
+      )}
+
+      <!-- ---------- Pestañas ---------- -->
+      <div class="flex flex-wrap gap-2 mt-6 mb-5" role="tablist" aria-label="Secciones del perfil">
+        <button
+          type="button"
+          id="tab-datos"
+          class="tab"
+          role="tab"
+          aria-selected="true"
+          aria-current="page"
+          data-tab="datos"
+        >
+          Datos del perfil
+        </button>
+        <button
+          type="button"
+          id="tab-estilo"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          data-tab="estilo"
+        >
+          Estilo de vida
+        </button>
+        <button
+          type="button"
+          id="tab-cuenta"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          data-tab="cuenta"
+        >
+          Cuenta
+        </button>
+      </div>
+
       <!-- ---------- Datos de perfil ---------- -->
-      <h2 class="font-display font-bold text-base mt-7 mb-3">Datos del perfil</h2>
+      <div id="panel-datos" role="tabpanel" aria-labelledby="tab-datos">
       {
         esOrg ? (
-          <form id="perfForm" class="grid gap-4" data-org="1">
+          <form id="perfForm" class="grid gap-4" enctype="multipart/form-data">
+            <div class="flex items-center gap-4">
+              <span class="avatar w-16 h-16 text-2xl shrink-0" aria-hidden="true" id="fotoPreview">
+                {
+                  fotoActual ? (
+                    <img
+                      src={fotoActual}
+                      alt=""
+                      width="64"
+                      height="64"
+                      class="w-full h-full object-cover"
+                    />
+                  ) : (
+                    (detalle.nombre_oficial as string ?? 'O').charAt(0).toUpperCase()
+                  )
+                }
+              </span>
+              <div class="min-w-0">
+                <label class="label" for="logo">Logo</label>
+                <input id="logo" name="logo_archivo" type="file" accept="image/jpeg,image/png,image/webp" class="text-xs mt-1" />
+                <p class="text-xs text-faint mt-1">Cuadrado, hasta 5 MB. Se convierte a 512×512.</p>
+              </div>
+            </div>
             <div>
               <label class="label" for="nombre_oficial">
                 Nombre oficial
@@ -124,18 +239,120 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
                 maxlength="1000"
                 rows="3"
                 class="input-soft mt-1 text-sm"
-              >
-                {detalle.descripcion as string ?? ''}
-              </textarea>
+                placeholder="Qué hace la organización, a qué se dedica, cómo es el proceso de adopción."
+              >{detalle.descripcion as string ?? ''}</textarea>
             </div>
+            <div class="border-t border-line pt-4">
+              <p class="text-sm font-semibold text-ink">Redes <span class="font-normal text-muted text-xs">(opcional)</span></p>
+              <p class="text-xs text-faint mt-0.5 mb-3">
+                Aparecen en tu ficha de publicador y el equipo las contrasta al verificarte.
+              </p>
+              <div class="grid gap-3">
+                <div>
+                  <label class="label" for="instagram">Instagram</label>
+                  <input
+                    id="instagram"
+                    name="instagram"
+                    maxlength="200"
+                    placeholder="@refugio"
+                    value={redes.instagram}
+                    class="input-soft mt-1 text-sm"
+                  />
+                </div>
+                <div>
+                  <label class="label" for="facebook">Facebook</label>
+                  <input
+                    id="facebook"
+                    name="facebook"
+                    maxlength="200"
+                    placeholder="facebook.com/refugio"
+                    value={redes.facebook}
+                    class="input-soft mt-1 text-sm"
+                  />
+                </div>
+                <div>
+                  <label class="label" for="whatsapp">WhatsApp</label>
+                  <input
+                    id="whatsapp"
+                    name="whatsapp"
+                    maxlength="40"
+                    inputmode="tel"
+                    placeholder="6000-0000"
+                    value={redes.whatsapp}
+                    class="input-soft mt-1 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <label class="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="contacto_visible"
+                value="1"
+                checked={Boolean(detalle.contacto_visible)}
+                class="mt-1"
+              />
+              <span>
+                Mostrar mi correo de contacto
+                <span class="block text-xs text-faint">
+                  Por defecto no se muestra: el adoptante te escribe por el chat interno.
+                </span>
+              </span>
+            </label>
             <button id="perfBtn" class="btn-primary py-3 text-sm" type="submit">
               Guardar cambios
             </button>
           </form>
         ) : (
-          <form id="perfForm" class="grid gap-4">
+          <form id="perfForm" class="grid gap-4" enctype="multipart/form-data">
+            <div class="flex items-center gap-4">
+              <span class="avatar w-16 h-16 text-2xl shrink-0" aria-hidden="true" id="fotoPreview">
+                {
+                  fotoActual ? (
+                    <img
+                      src={fotoActual}
+                      alt=""
+                      width="64"
+                      height="64"
+                      class="w-full h-full object-cover"
+                    />
+                  ) : (
+                    nombre.charAt(0).toUpperCase()
+                  )
+                }
+              </span>
+              <div class="min-w-0">
+                <label class="label" for="foto">
+                  <span
+                    class:list={['falta', { oculto: !falta('foto') }]}
+                    data-para="foto"
+                    aria-hidden="true"
+                  />
+                  {falta('foto') && <span class="sr-only">Sin completar.</span>}
+                  Foto de perfil
+                </label>
+                <input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp" class="text-xs mt-1" />
+                <p class="text-xs text-faint mt-1">
+                  Cuadrada, hasta 5 MB. Se convierte a 512×512. El refugio la ve al revisar tu
+                  solicitud.
+                </p>
+                {
+                  fotoActual && (
+                    <label class="flex items-center gap-2 text-xs text-muted mt-1.5">
+                      <input type="checkbox" name="quitar_foto" value="1" /> Quitar la foto
+                    </label>
+                  )
+                }
+              </div>
+            </div>
             <div>
               <label class="label" for="nombre">
+                <span
+                  class:list={['falta', { oculto: !falta('nombre') }]}
+                  data-para="nombre"
+                  aria-hidden="true"
+                />
+                {falta('nombre') && <span class="sr-only">Sin completar.</span>}
                 Nombre
               </label>
               <input
@@ -150,22 +367,14 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
               />
             </div>
             <div>
-              <label class="label" for="telefono">
-                Teléfono <span class="font-normal normal-case">(opcional, nunca se muestra en público)</span>
-              </label>
-              <input
-                id="telefono"
-                name="telefono"
-                type="tel"
-                maxlength="20"
-                inputmode="tel"
-                value={detalle.telefono as string ?? ''}
-                class="input-soft mt-1 text-sm"
-              />
-            </div>
-            <div>
               <label class="label" for="descripcion">
-                Descripción
+                <span
+                  class:list={['falta', { oculto: !falta('descripcion') }]}
+                  data-para="descripcion"
+                  aria-hidden="true"
+                />
+                {falta('descripcion') && <span class="sr-only">Sin completar.</span>}
+                Sobre mí <span class="font-normal normal-case">(opcional, 500 caracteres)</span>
               </label>
               <textarea
                 id="descripcion"
@@ -173,9 +382,47 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
                 maxlength="500"
                 rows="3"
                 class="input-soft mt-1 text-sm"
-              >
-                {detalle.descripcion as string ?? ''}
-              </textarea>
+                placeholder="Quién eres, cómo es tu día a día, por qué te interesa adoptar."
+              >{detalle.descripcion as string ?? ''}</textarea>
+            </div>
+            <div>
+              <label class="label" for="experiencia">
+                <span
+                  class:list={['falta', { oculto: !falta('experiencia') }]}
+                  data-para="experiencia"
+                  aria-hidden="true"
+                />
+                {falta('experiencia') && <span class="sr-only">Sin completar.</span>}
+                Experiencia con mascotas
+              </label>
+              <select id="experiencia" name="experiencia" class="input-soft mt-1 text-sm">
+                <option value="">Sin indicar</option>
+                {Object.entries(EXPERIENCIAS).map(([v, t]) => (
+                  <option value={v} selected={(detalle.experiencia as string ?? '') === v}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label class="label" for="motivacion">
+                <span
+                  class:list={['falta', { oculto: !falta('motivacion') }]}
+                  data-para="motivacion"
+                  aria-hidden="true"
+                />
+                {falta('motivacion') && <span class="sr-only">Sin completar.</span>}
+                ¿Por qué quieres adoptar?{' '}
+                <span class="font-normal normal-case">(opcional, 300 caracteres)</span>
+              </label>
+              <textarea
+                id="motivacion"
+                name="motivacion"
+                maxlength="300"
+                rows="2"
+                class="input-soft mt-1 text-sm"
+                placeholder="Es lo primero que lee el refugio al revisar tu solicitud."
+              >{detalle.motivacion as string ?? ''}</textarea>
             </div>
             <button id="perfBtn" class="btn-primary py-3 text-sm" type="submit">
               Guardar cambios
@@ -183,8 +430,100 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
           </form>
         )
       }
+      </div>
+
+      <!-- ---------- Estilo de vida (match) ---------- -->
+      <div id="panel-estilo" role="tabpanel" aria-labelledby="tab-estilo" hidden>
+        <section aria-labelledby="t-estilo">
+        <h2 id="t-estilo" class="font-display font-bold text-base">Estilo de vida</h2>
+        <p class="text-xs text-muted mt-1 mb-4">
+          Estos datos alimentan el match: en Explorar verás mascotas elegidas para tu hogar.
+        </p>
+        <form id="estiloForm" class="grid gap-4">
+          <div>
+            <label class="label" for="ev-ambiente">¿Dónde vives?</label>
+            <select id="ev-ambiente" name="ambiente" class="input-soft mt-1 text-sm" required>
+              <option value="apartamento">Apartamento</option>
+              <option value="casa_chica">Casa con patio chico</option>
+              <option value="casa_grande">Casa grande o finca</option>
+            </select>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label" for="ev-ninos">¿Hay niños en casa?</label>
+              <div class="flex gap-2 mt-2">
+                <label class="chip flex-1 justify-center">
+                  <input type="radio" name="ninos" value="si" class="sr-only" /> Sí
+                </label>
+                <label class="chip flex-1 justify-center">
+                  <input type="radio" name="ninos" value="no" class="sr-only" /> No
+                </label>
+              </div>
+            </div>
+            <div>
+              <label class="label" for="ev-otras">¿Tienes otras mascotas?</label>
+              <div class="flex gap-2 mt-2">
+                <label class="chip flex-1 justify-center">
+                  <input type="radio" name="otras_mascotas" value="si" class="sr-only" /> Sí
+                </label>
+                <label class="chip flex-1 justify-center">
+                  <input type="radio" name="otras_mascotas" value="no" class="sr-only" /> No
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="label" for="ev-especie">Especie preferida</label>
+            <select id="ev-especie" name="especie_pref" class="input-soft mt-1 text-sm" required>
+              <option value="perro">Perro</option>
+              <option value="gato">Gato</option>
+              <option value="otro">Otro</option>
+              <option value="indiferente">Me da igual</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="label" for="ev-ubicacion">Ubicación</label>
+            <input
+              id="ev-ubicacion"
+              name="ubicacion"
+              class="input-soft mt-1 text-sm"
+              placeholder="Ej. Bethania, Ciudad de Panamá"
+              required
+            />
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label" for="ev-energia">Energía preferida</label>
+              <select id="ev-energia" name="energia_pref" class="input-soft mt-1 text-sm" required>
+                <option value="tranquila">Tranquila</option>
+                <option value="moderada">Moderada</option>
+                <option value="activa">Activa</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="ev-edad">Prefieres</label>
+              <select id="ev-edad" name="edad_pref" class="input-soft mt-1 text-sm">
+                <option value="cachorro">Cachorro</option>
+                <option value="adulto">Adulto</option>
+                <option value="indiferente">Me da igual</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="estiloBtn" class="btn-primary py-3 text-sm" type="submit">
+            Guardar estilo de vida
+          </button>
+          <p id="estiloMsg" class="alert alert-ok text-xs mt-3 hidden" role="status" />
+        </form>
+      </section>
+      </div>
 
       <!-- ---------- Verificación de organización ---------- -->
+      <div id="panel-cuenta" role="tabpanel" aria-labelledby="tab-cuenta" hidden>
       {
         !verificada && esOrg && !verificacion && (
           <section class="mt-6 p-4 rounded-2xl bg-info-soft border border-sky-200" aria-labelledby="t-verif">
@@ -284,6 +623,96 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         </details>
       </section>
 
+      <!-- ---------- Cambio de correo ---------- -->
+      <section class="mt-6 border-t border-line pt-5">
+        <details>
+          <summary class="font-display font-bold text-base cursor-pointer hover:text-brand-dark py-2">
+            Cambiar correo
+          </summary>
+          <form id="mailForm" class="mt-4 grid gap-4" novalidate>
+            <p class="text-xs text-muted">
+              Ahora usas <b class="text-ink">{correo}</b>. Te enviaremos un correo de confirmación al
+              nuevo y un aviso al anterior.
+            </p>
+            <div>
+              <label class="label" for="m-correo">Nuevo correo</label>
+              <input
+                id="m-correo"
+                name="correo"
+                type="email"
+                required
+                maxlength="160"
+                autocomplete="email"
+                class="input-soft mt-1 text-sm"
+              />
+            </div>
+            <button class="btn-primary py-2.5 text-sm" type="submit">Enviar confirmación</button>
+            <p id="mailErr" class="alert alert-error hidden" role="alert" />
+            <p id="mailOk" class="alert alert-ok hidden" role="status" />
+          </form>
+        </details>
+      </section>
+
+      <!-- ---------- Tus datos ---------- -->
+      <section class="mt-6 border-t border-line pt-5">
+        <h2 class="font-display font-bold text-base">Tus datos</h2>
+        <p class="text-xs text-muted mt-1">
+          Descarga una copia de todo lo que guardamos de ti (Ley 81 de Panamá). Son los mismos datos
+          que puedes ver en la app: nada más.
+        </p>
+        <a href="/api/mis-datos" class="btn-ghost inline-block text-xs px-4 py-2.5 mt-3" download>
+          Descargar mis datos (JSON)
+        </a>
+      </section>
+
+      <!-- ---------- Dar de baja la cuenta ---------- -->
+      <section class="mt-6 border-t border-line pt-5">
+        <details id="bajaDetails">
+          <summary class="font-display font-bold text-base cursor-pointer hover:text-brand-dark py-2 text-danger">
+            Dar de baja mi cuenta
+          </summary>
+          <div class="mt-4 rounded-2xl bg-danger-soft p-4 border border-red-200">
+            <p class="text-sm font-semibold text-ink">Esto es irreversible. Qué pasa exactamente:</p>
+            <ul class="text-xs text-body mt-2 grid gap-1.5 list-disc pl-4">
+              <li>Tu perfil se anonimiza: tu nombre pasa a «Usuario no disponible» y se borran tu foto y tus textos.</li>
+              <li>Las mascotas que publicaste se despublican y salen del Explorar.</li>
+              <li>Las solicitudes que están pendientes se cancelan.</li>
+              <li>Los mensajes que compartiste <b>se conservan</b>: la otra parte sigue viéndolos, con tu nombre reemplazado.</li>
+              <li>No puedes volver a entrar con esta cuenta.</li>
+            </ul>
+            <p class="text-xs text-body mt-3">
+              Si tienes una adopción aprobada sin resolver, primero cancélala o complétala.
+            </p>
+            <form id="bajaForm" class="mt-4 grid gap-3" novalidate>
+              <div>
+                <label class="label" for="b-pass">Tu contraseña</label>
+                <input
+                  id="b-pass"
+                  name="password"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+                  class="input-soft mt-1 text-sm"
+                />
+              </div>
+              <div>
+                <label class="label" for="b-conf">Escribe ELIMINAR</label>
+                <input
+                  id="b-conf"
+                  name="confirmacion"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  class="input-soft mt-1 text-sm"
+                />
+              </div>
+              <button class="btn-danger py-2.5 text-sm" type="submit">Eliminar mi cuenta</button>
+              <p id="bajaErr" class="alert alert-error hidden" role="alert" />
+            </form>
+          </div>
+        </details>
+      </section>
+
       <!-- ---------- Sesión ---------- -->
       <section class="mt-6 border-t border-line pt-5">
         <h2 class="font-display font-bold text-base">Sesión</h2>
@@ -292,6 +721,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
           <button class="btn-ghost w-full py-2.5 text-sm" type="submit">Cerrar sesión</button>
         </form>
       </section>
+      </div>
     </div>
   </main>
 
@@ -306,25 +736,14 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       err.classList.add('hidden');
       ok.classList.add('hidden');
       if (!perfForm.reportValidity()) return;
+      // FormData directo: la foto de perfil viaja en la misma petición.
       const fd = new FormData(perfForm);
-      const isOrg = perfForm.hasAttribute('data-org');
-      const payload = isOrg
-        ? {
-            nombre_oficial: fd.get('nombre_oficial'),
-            direccion: fd.get('direccion'),
-            sitio_web: fd.get('sitio_web'),
-            descripcion: fd.get('descripcion'),
-          }
-        : { nombre: fd.get('nombre'), telefono: fd.get('telefono'), descripcion: fd.get('descripcion') };
+      if (!fd.get('quitar_foto')) fd.delete('quitar_foto');
       perfBtn.disabled = true;
       const previo = perfBtn.textContent;
       perfBtn.textContent = 'Guardando…';
       try {
-        const res = await fetch('/api/perfil', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const res = await fetch('/api/perfil', { method: 'PUT', body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           err.textContent = data.error ?? 'Error al guardar';
@@ -333,12 +752,132 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         }
         ok.textContent = 'Perfil actualizado.';
         ok.classList.remove('hidden');
+        // Refresca para recalcular la barra de completitud y mostrar la foto nueva.
+        setTimeout(() => location.reload(), 700);
       } catch {
         err.textContent = 'No se pudo conectar. Revisa tu red e intenta de nuevo.';
         err.classList.remove('hidden');
       } finally {
         perfBtn.disabled = false;
         perfBtn.textContent = previo;
+      }
+    });
+
+    // Los puntos de "falta completar" se apagan en cuanto el campo se llena,
+    // para no tener que guardar solo para verlos desaparecer.
+    (() => {
+      const vacío = (campo) => {
+        const el = document.getElementById(campo);
+        if (!el) return true;
+        if (el.type === 'file') return !el.files?.length;
+        return !String(el.value ?? '').trim();
+      };
+      const revisar = (campo) => {
+        const dot = document.querySelector(`.falta[data-para="${campo}"]`);
+        if (dot) dot.classList.toggle('oculto', !vacío(campo));
+      };
+      for (const dot of document.querySelectorAll('.falta')) {
+        const campo = dot.getAttribute('data-para');
+        const el = document.getElementById(campo);
+        if (!campo || !el) continue;
+        el.addEventListener('input', () => revisar(campo));
+        el.addEventListener('change', () => revisar(campo));
+      }
+    })();
+
+    // Vista previa de la foto antes de subirla.
+    const fotoInput = document.getElementById('foto');
+    fotoInput?.addEventListener('change', () => {
+      const file = fotoInput.files?.[0];
+      const preview = document.getElementById('fotoPreview');
+      if (!file || !preview) return;
+      preview.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.alt = '';
+      img.width = 64;
+      img.height = 64;
+      img.className = 'w-full h-full object-cover';
+      preview.appendChild(img);
+    });
+
+    // ---------- Cambio de correo ----------
+    const mailForm = document.getElementById('mailForm');
+    mailForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const mailErr = document.getElementById('mailErr');
+      const mailOk = document.getElementById('mailOk');
+      mailErr.classList.add('hidden');
+      mailOk.classList.add('hidden');
+      if (!mailForm.reportValidity()) return;
+      const btn = mailForm.querySelector('button[type="submit"]');
+      const previo = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Enviando…';
+      try {
+        const res = await fetch('/api/auth/cambiar-email', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo: new FormData(mailForm).get('correo') }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          mailErr.textContent = data.error ?? 'No se pudo cambiar el correo';
+          mailErr.classList.remove('hidden');
+          return;
+        }
+        mailOk.textContent = data.mensaje ?? 'Revisa tu correo para confirmar el cambio.';
+        mailOk.classList.remove('hidden');
+        mailForm.reset();
+      } catch {
+        mailErr.textContent = 'No se pudo conectar. Revisa tu red e intenta de nuevo.';
+        mailErr.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = previo;
+      }
+    });
+
+    // ---------- Dar de baja la cuenta ----------
+    const bajaForm = document.getElementById('bajaForm');
+    bajaForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const bajaErr = document.getElementById('bajaErr');
+      bajaErr.classList.add('hidden');
+      const fd = new FormData(bajaForm);
+      if (String(fd.get('confirmacion') || '').trim().toUpperCase() !== 'ELIMINAR') {
+        bajaErr.textContent = 'Escribe ELIMINAR para confirmar.';
+        bajaErr.classList.remove('hidden');
+        return;
+      }
+      if (!confirm('Esto es irreversible. ¿Eliminar tu cuenta?')) return;
+      const btn = bajaForm.querySelector('button[type="submit"]');
+      const previo = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Eliminando…';
+      try {
+        const res = await fetch('/api/cuenta/borrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: fd.get('password'),
+            confirmacion: fd.get('confirmacion'),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          bajaErr.textContent = data.error ?? 'No se pudo eliminar la cuenta';
+          bajaErr.classList.remove('hidden');
+          return;
+        }
+        // Sesión cerrada desde el servidor: lo único que queda es volver a la portada.
+        location.href = '/?cuenta=eliminada';
+      } catch {
+        bajaErr.textContent = 'No se pudo conectar. Revisa tu red e intenta de nuevo.';
+        bajaErr.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = previo;
       }
     });
 
@@ -452,6 +991,88 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         }
       });
     }
+
+    // ---------- Estilo de vida (match) ----------
+    const estiloForm = document.getElementById('estiloForm');
+    if (estiloForm) {
+      const estiloMsg = document.getElementById('estiloMsg');
+      const estiloBtn = document.getElementById('estiloBtn');
+
+      // Cargar el perfil existente (si lo hay).
+      fetch('/api/estilo-de-vida')
+        .then((r) => (r.ok ? r.json() : { perfil: null }))
+        .then(({ perfil }) => {
+          if (!perfil) return;
+          estiloForm.ambiente.value = perfil.ambiente;
+          estiloForm.ubicacion.value = perfil.ubicacion;
+          estiloForm.especie_pref.value = perfil.especie_pref;
+          estiloForm.energia_pref.value = perfil.energia_pref;
+          estiloForm.edad_pref.value = perfil.edad_pref;
+          estiloForm.ninos.value = perfil.ninos ? 'si' : 'no';
+          estiloForm.otras_mascotas.value = perfil.otras_mascotas ? 'si' : 'no';
+        })
+        .catch(() => {});
+
+      estiloForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        estiloMsg.classList.add('hidden');
+        estiloMsg.classList.remove('alert-error');
+        if (!estiloForm.reportValidity()) return;
+        const fd = new FormData(estiloForm);
+        const payload = {
+          ambiente: fd.get('ambiente'),
+          ninos: fd.get('ninos') === 'si',
+          especie_pref: fd.get('especie_pref'),
+          ubicacion: fd.get('ubicacion'),
+          energia_pref: fd.get('energia_pref'),
+          otras_mascotas: fd.get('otras_mascotas') === 'si',
+          edad_pref: fd.get('edad_pref'),
+        };
+        estiloBtn.disabled = true;
+        const previo = estiloBtn.textContent;
+        estiloBtn.textContent = 'Guardando…';
+        try {
+          const res = await fetch('/api/estilo-de-vida', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar');
+          estiloMsg.textContent = 'Estilo de vida guardado. En Explorar verás mascotas elegidas para ti.';
+          estiloMsg.classList.remove('hidden');
+        } catch (err) {
+          estiloMsg.textContent = err instanceof Error ? err.message : 'No se pudo guardar';
+          estiloMsg.classList.remove('hidden');
+          estiloMsg.classList.replace('alert-ok', 'alert-error');
+        } finally {
+          estiloBtn.disabled = false;
+          estiloBtn.textContent = previo;
+        }
+      });
+    }
+
+    // ---------- Pestañas del perfil ----------
+    (() => {
+      const tabs = document.querySelectorAll('[data-tab]');
+      const paneles = {
+        datos: document.getElementById('panel-datos'),
+        estilo: document.getElementById('panel-estilo'),
+        cuenta: document.getElementById('panel-cuenta'),
+      };
+      const activar = (nombre) => {
+        tabs.forEach((t) => {
+          const on = t.dataset.tab === nombre;
+          t.setAttribute('aria-selected', String(on));
+          if (on) t.setAttribute('aria-current', 'page');
+          else t.removeAttribute('aria-current');
+        });
+        Object.entries(paneles).forEach(([k, el]) => {
+          if (el) el.hidden = k !== nombre;
+        });
+      };
+      tabs.forEach((t) => t.addEventListener('click', () => activar(t.dataset.tab)));
+    })();
   </script>
 </Layout>
 
@@ -477,5 +1098,58 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
   }
   details[open] > summary::before {
     rotate: 45deg;
+  }
+  /* Barra de completitud del perfil */
+  .barra {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--color-surface);
+    overflow: hidden;
+  }
+  .barra > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-brand), var(--color-teal));
+    transition: width 0.3s ease;
+  }
+  .avatar img {
+    border-radius: 9999px;
+  }
+
+  /* ---------- Punto de "falta completar" ----------
+     Marca los campos vacíos del perfil. Parpadea suave para que se vea sin
+     necesidad de leer, y se apaga solo (JS) cuando el campo ya tiene algo. */
+  .falta {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    margin-right: 0.45rem;
+    background: var(--color-brand);
+    vertical-align: middle;
+    box-shadow: 0 0 0 0 rgb(255 107 53 / 0.55);
+    animation: falta-pulso 2s ease-out infinite;
+  }
+  @keyframes falta-pulso {
+    0% {
+      box-shadow: 0 0 0 0 rgb(255 107 53 / 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 0.45rem rgb(255 107 53 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(255 107 53 / 0);
+    }
+  }
+  /* Sin parpadeo para quien no lo quiere; el color sigue señalando el campo. */
+  @media (prefers-reduced-motion: reduce) {
+    .falta {
+      animation: none;
+    }
+  }
+  /* El JS lo apaga al rellenar el campo (sin esperar al guardado). */
+  .falta.oculto {
+    display: none;
   }
 </style>
