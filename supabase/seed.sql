@@ -87,3 +87,9 @@ FROM mascotas m JOIN (VALUES
   ('Max','5.jpeg'),('Nina','6.JPG'),('Simba','7.jpeg'),('Coco','8.jpeg'),('Kira','9.jpg')
 ) AS x(nombre, foto) ON x.nombre = m.nombre
 ON CONFLICT DO NOTHING;
+
+-- Fase 2: energía y compatibilidad (deterministas por nombre) para el match.
+UPDATE mascotas SET
+  nivel_energia = (ARRAY['tranquila','moderada','activa'])[1 + mod(abs(hashtext(nombre)), 3)]::nivel_energia,
+  apto_ninos = mod(abs(hashtext(nombre)), 4) <> 0,
+  apto_otros = mod(abs(hashtext(nombre)), 5) <> 0;

@@ -12,9 +12,15 @@ const {
   description = 'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatee y solicita sin exponer tu número.',
   ogImage,
 } = Astro.props as Props;
+
+const user = Astro.locals.user ?? null;
+const anio = new Date().getFullYear();
+// Portada tipo "pantalla completa": activa el scroll por secciones solo en inicio.
+const esInicio = (Astro.url.pathname.replace(/\/+$/, '') || '/') === '/';
 ---
+
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class:list={[esInicio && 'snap-home']}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -36,11 +42,11 @@ const {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Adopty" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#FF7A29" />
+    <meta name="theme-color" content="#FF6B35" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <title>{title}</title>
@@ -50,17 +56,101 @@ const {
     <!-- Envoltorio enfocable: da destino real al skip-link sin tocar cada <main> -->
     <div id="contenido" tabindex="-1" class="focus:outline-none">
       <slot />
-    </div>
-    <footer class="max-w-6xl mx-auto px-4 my-10">
-      <div class="soft-card p-6 flex flex-col sm:flex-row justify-between gap-3 text-sm">
-        <p><b class="text-ink">Adopty</b> · Ing. Software II · Francisco Gonzalez · Eira Arrocha</p>
-        <p class="flex flex-wrap gap-x-3 gap-y-0">
-          <a href="/terminos" class="link link-suave">Términos</a>
-          <a href="/privacidad" class="link link-suave">Privacidad</a>
-          <span class="text-faint self-center text-xs">Astro · Supabase · Vercel</span>
-        </p>
+
+      <!-- Pie de página (rediseño mockup) -->
+      <footer id="contacto" class="bg-slate-900 text-slate-300 mt-16">
+      <div class="max-w-6xl mx-auto px-4 pt-10 pb-10">
+        {
+          esInicio && (
+            <div
+              class="rounded-[2rem] p-8 sm:p-10 text-center text-white relative overflow-hidden mb-10"
+              style="background:linear-gradient(120deg,#FF6B35,#00A8E8)"
+            >
+              <h2 class="font-display font-extrabold text-2xl sm:text-3xl">
+                ¿Listo para conocer a tu nuevo mejor amigo?
+              </h2>
+              <p class="text-white/90 text-sm sm:text-base mt-3 max-w-xl mx-auto">
+                Regístrate y descubre a tu nuevo mejor amigo hoy mismo.
+              </p>
+              <div class="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+                <a
+                  href="/login"
+                  class="px-8 py-3.5 rounded-2xl bg-white text-brand font-bold text-sm hover:bg-slate-50 transition-colors"
+                >
+                  Iniciar sesión
+                </a>
+                <a
+                  href="/register?tipo=persona"
+                  class="px-8 py-3.5 rounded-2xl bg-slate-900/25 text-white font-bold text-sm border border-white/40 hover:bg-slate-900/40 transition-colors"
+                >
+                  Crear cuenta gratis
+                </a>
+              </div>
+            </div>
+          )
+        }
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-10 border-b border-slate-800">
+          <div class="space-y-4">
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Plataforma centralizada e inteligente para la adopción de mascotas en Panamá. Reducimos el
+              abandono y promovemos el bienestar animal.
+            </p>
+          </div>
+
+          <div>
+            <h2 class="text-white font-extrabold text-sm mb-4">Navegación</h2>
+            <ul class="space-y-2.5 text-xs text-slate-400 font-medium list-none p-0 m-0">
+              {!user && <li><a href="/" class="link-suave">Inicio</a></li>}
+              <li>
+                <a href={user ? '/explorar' : '/#mascotas'} class="link-suave">Buscar mascotas</a>
+              </li>
+              <li><a href="/#como-funciona" class="link-suave">Cómo funciona</a></li>
+              {!user && <li><a href="/#nosotros" class="link-suave">Sobre nosotros</a></li>}
+            </ul>
+          </div>
+
+          <div>
+            <h2 class="text-white font-extrabold text-sm mb-4">Proyecto académico</h2>
+            <ul class="space-y-2 text-xs text-slate-400 font-medium list-none p-0 m-0">
+              <li><strong class="text-slate-300">Universidad de Panamá</strong></li>
+              <li>Facultad de Informática, Electrónica y Comunicación</li>
+              <li class="pt-1 text-slate-500">Materia: Ingeniería de Software II</li>
+              <li class="text-slate-500">Francisco Gonzalez · Eira Arrocha</li>
+            </ul>
+          </div>
+
+          <div>
+            <h2 class="text-white font-extrabold text-sm mb-4">
+              {user ? 'Sigue ayudando' : 'Únete como refugio'}
+            </h2>
+            <p class="text-xs text-slate-400 mb-3">
+              {user
+                ? 'Publica una mascota o revisa tus solicitudes pendientes.'
+                : '¿Tienes una fundación o eres rescatista independiente?'}
+            </p>
+            <a
+              href={user ? '/mascota/nueva' : '/register?tipo=organizacion'}
+              class="block text-center w-full py-3 rounded-2xl bg-teal hover:bg-teal-dark text-white font-bold text-xs transition-colors"
+            >
+              {user ? 'Publicar mascota' : 'Registrar mi organización'}
+            </a>
+          </div>
+        </div>
+
+        <div
+          class="pt-8 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3"
+        >
+          <p>© {anio} Adopty Panamá. Todos los derechos reservados.</p>
+          <p class="flex flex-wrap items-center gap-x-4 gap-y-1 justify-center">
+            <a href="/terminos" class="link-suave">Términos</a>
+            <a href="/privacidad" class="link-suave">Privacidad</a>
+            <span class="text-slate-600">Diseñado con amor para salvar vidas 🐾</span>
+          </p>
+        </div>
       </div>
     </footer>
+    </div>
+
     <Analytics />
     <script>
       import { trackEvento } from '../lib/analytics';
@@ -77,5 +167,12 @@ const {
   /* Los <main> de cada página no share id: se lo damos aquí para el skip-link. */
   :global(main) {
     scroll-margin-top: 6rem;
+  }
+  /* Enlaces del pie oscuro */
+  footer .link-suave {
+    color: #94a3b8;
+  }
+  footer .link-suave:hover {
+    color: #fff;
   }
 </style>

@@ -5,26 +5,30 @@ import Navbar from '../components/Navbar.astro';
 const SECCIONES = [
   {
     t: '1. Qué datos guardamos',
-    p: 'Correo y tipo de cuenta; nombre y descripción de perfil; teléfono solo si lo escribes (nunca se muestra en público); ubicación que publicas en cada mascota; fotos; mensajes y solicitudes que intercambias.',
+    p: 'Correo y tipo de cuenta; tu nombre, tu foto de perfil y lo que escribas en “Sobre mí”, “Experiencia con mascotas” y “Motivación para adoptar”; los datos de estilo de vida que alimentan el match (dónde vives, ambiente, energía, niños y otras mascotas); la ubicación que publicas en cada mascota; fotos; mensajes y solicitudes que intercambias. <b>No pedimos teléfono ni documento de identidad.</b>',
   },
   {
     t: '2. Para qué los usamos',
-    p: 'Operar la plataforma: autenticarte, mostrar tus publicaciones, permitir solicitudes y chat entre adoptantes y publicadores. No vendemos datos ni hacemos publicidad con ellos.',
+    p: 'Operar la plataforma: autenticarte, mostrar tus publicaciones, permitir solicitudes y chat entre adoptantes y publicadores, y buscarte mascotas compatibles con tu estilo de vida. No vendemos datos ni hacemos publicidad con ellos.',
   },
   {
     t: '3. Quién los ve',
-    p: 'Tus publicaciones y mensajes solo los ven las partes implicadas (reglas RLS). Tu teléfono y correo <b>nunca</b> se publican: el contacto es por chat interno.',
+    p: 'Tus publicaciones y mensajes solo los ven las partes implicadas (reglas RLS de la base de datos). Tu <b>correo y tu teléfono nunca se publican</b>: el contacto es por chat interno. Los refugios ven tu nombre, tu foto, tu zona y lo que escribiste en tu perfil <b>solo cuando te han enviado una solicitud</b> sobre una de sus mascotas, y les avisas de que pueden hacerlo.',
   },
   {
     t: '4. Tus derechos (ARCO)',
-    p: 'Puedes acceder, rectificar, cancelar u oponerte al uso de tus datos editando tu <a href="/perfil" class="link">perfil</a> o escribiendo al equipo del proyecto. Eliminar tu cuenta borra tus datos personales (las mascotas adoptadas conservan registro mínimo histórico).',
+    p: 'Puedes <a href="/perfil" class="link">acceder y rectificar</a> tus datos, <b>descargar una copia</b> de todo lo que tenemos desde el mismo perfil, <b>darte de baja</b> desde “Cuenta → Dar de baja mi cuenta”, u oponerte al uso de tus datos escribiendo al equipo del proyecto.',
   },
   {
-    t: '5. Conservación y seguridad',
+    t: '5. Qué pasa al darte de baja',
+    p: 'Tu perfil se anonimiza: tu nombre pasa a “Usuario no disponible” y se borran tu foto y tus textos. Las mascotas que publicaste se despublican y las solicitudes pendientes se cancelan. <b>Los mensajes que compartiste se conservan</b> para que la otra parte tenga contexto, pero tu nombre aparece como “Usuario no disponible”. Las mascotas ya adoptadas conservan su registro histórico. No puedes volver a entrar con esa cuenta.',
+  },
+  {
+    t: '6. Conservación y seguridad',
     p: 'Claves gestionadas por Supabase Auth (hash, nunca en claro), acceso por roles (RLS) y copias de respaldo manuales durante el piloto.',
   },
   {
-    t: '6. Consentimiento',
+    t: '7. Consentimiento',
     p: 'Al registrarte aceptas este aviso marcando la casilla correspondiente. Si no estás de acuerdo, no uses la plataforma.',
   },
 ];

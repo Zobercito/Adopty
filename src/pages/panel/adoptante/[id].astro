@@ -1,0 +1,192 @@
+---
+export const prerender = false;
+import Layout from '../../../layouts/Layout.astro';
+import Navbar from '../../../components/Navbar.astro';
+import { supabaseServer } from '../../../lib/supabase';
+import { completitudPerfil, etiquetaExperiencia, resumenesAdoptantes } from '../../../lib/perfil';
+import { fechaCorta } from '../../../lib/solicitudes';
+
+if (!Astro.locals.user) return Astro.redirect('/login?next=/panel');
+const supabase = supabaseServer(Astro.cookies);
+const id = Astro.params.id ?? '';
+
+// El RPC decide si este publicador puede ver al adoptante: solo si le llegó una
+// solicitud sobre una de sus mascotas. Si no, el mapa viene vacío y no hay ficha.
+const resumen = (await resumenesAdoptantes(supabase, [id])).get(id);
+
+const { data: solicitudes } = await supabase
+  .from('solicitudes')
+  .select('id, id_mascota, estado, fecha_solicitud, mascotas(id, nombre, estado)')
+  .eq('id_adoptante', id)
+  .order('fecha_solicitud', { ascending: false });
+
+// De sus solicitudes, cuáles son sobre nuestras mascotas (las que puedo ver).
+const { data: mias } = await supabase
+  .from('mascotas')
+  .select('id, nombre')
+  .eq('id_publicador', Astro.locals.user.id)
+  .is('deleted_at', null);
+const misIds = new Set((mias ?? []).map((m) => m.id as string));
+const relevantes = (solicitudes ?? []).filter((s) =>
+  misIds.has((s.mascotas as { id: string } | null)?.id ?? ''),
+);
+
+const comp = completitudPerfil({
+  nombre: resumen?.nombre,
+  foto: resumen?.foto,
+  descripcion: resumen?.sobre_mi,
+  experiencia: resumen?.experiencia,
+  motivacion: resumen?.motivacion,
+});
+---
+
+<Layout
+  title={resumen ? `${resumen.nombre} — Perfil del adoptante` : 'Perfil del adoptante'}
+  description="Ficha del adoptante que te envió una solicitud."
+>
+  <Navbar />
+  <main class="max-w-2xl mx-auto px-4 mt-6 pb-10">
+    <a href="/panel/solicitudes" class="link text-sm">← Volver a solicitudes</a>
+
+    {
+      !resumen ? (
+        <div class="soft-card p-8 text-center mt-4">
+          <h1 class="font-display font-bold text-lg">No puedes ver este perfil</h1>
+          <p class="text-sm mt-2 text-muted">
+            Solo puedes abrir la ficha de quien te envió una solicitud sobre una de tus mascotas.
+          </p>
+        </div>
+      ) : (
+        <div class="soft-card p-6 sm:p-8 mt-4">
+          <div class="flex items-center gap-4">
+            <span class="avatar w-16 h-16 text-2xl shrink-0" aria-hidden="true">
+              {resumen.foto ? (
+                <img
+                  src={resumen.foto}
+                  alt=""
+                  width="64"
+                  height="64"
+                  class="w-full h-full object-cover"
+                />
+              ) : (
+                resumen.nombre.charAt(0).toUpperCase()
+              )}
+            </span>
+            <div class="min-w-0">
+              <h1 class="font-display font-extrabold text-2xl truncate">{resumen.nombre}</h1>
+              <p class="text-sm text-muted">
+                {resumen.zona ? `Zona: ${resumen.zona}` : 'Sin zona indicada'}
+                {' · '}
+                {etiquetaExperiencia(resumen.experiencia)}
+              </p>
+            </div>
+          </div>
+
+          {resumen.eliminado && (
+            <p class="alert alert-error text-xs mt-4" role="alert">
+              Esta cuenta se dio de baja. Sus datos personales fueron anonimizados, pero puedes seguir
+              viendo la conversación.
+            </p>
+          )}
+
+          <div class="mt-5 border-t border-line pt-5">
+            <div class="flex items-center justify-between gap-3">
+              <h2 class="font-display font-bold text-base">Perfil del adoptante</h2>
+              <span class={`badge ${comp.pct === 100 ? 'badge-disponible' : 'badge-proceso'}`}>
+                {comp.pct}% completo
+              </span>
+            </div>
+            <div
+              class="barra mt-2"
+              role="progressbar"
+              aria-valuenow={comp.pct}
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-label="Completitud del perfil del adoptante"
+            >
+              <span style={`width:${comp.pct}%`} />
+            </div>
+            {comp.faltan.length > 0 && (
+              <p class="text-xs text-faint mt-2">Sin llenar: {comp.faltan.join(', ')}.</p>
+            )}
+          </div>
+
+          {!resumen.eliminado && (
+            <div class="mt-5 grid gap-4 border-t border-line pt-5">
+              {resumen.motivacion && (
+                <div>
+                  <h2 class="font-display font-bold text-sm">Motivación para adoptar</h2>
+                  <p class="text-sm mt-1 text-muted leading-relaxed">{resumen.motivacion}</p>
+                </div>
+              )}
+              {resumen.sobre_mi && (
+                <div>
+                  <h2 class="font-display font-bold text-sm">Sobre mí</h2>
+                  <p class="text-sm mt-1 text-muted leading-relaxed">{resumen.sobre_mi}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div class="mt-5 border-t border-line pt-5">
+            <h2 class="font-display font-bold text-base">
+              Solicitudes sobre tus mascotas ({relevantes.length})
+            </h2>
+            {
+              relevantes.length ? (
+                <ul class="grid gap-2 mt-3">
+                  {relevantes.map((s) => {
+                    const m = s.mascotas as { id: string; nombre: string; estado: string };
+                    const clase =
+                      s.estado === 'aprobada'
+                        ? 'badge-disponible'
+                        : s.estado === 'pendiente'
+                          ? 'badge-proceso'
+                          : 'badge-adoptada';
+                    return (
+                      <li class="flex items-center gap-2 flex-wrap text-sm">
+                        <a href={`/mascota/${m.id}`} class="font-semibold text-ink">
+                          {m.nombre}
+                        </a>
+                        <span class={`badge ${clase}`}>{s.estado}</span>
+                        <span class="text-xs text-faint ml-auto tabular">
+                          {fechaCorta(s.fecha_solicitud)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p class="text-sm text-muted mt-2">No hay solicitudes registradas.</p>
+              )
+            }
+          </div>
+
+          <p class="text-xs text-faint mt-6 pt-4 border-t border-line">
+            Quien envió esta solicitud puede ver que su perfil se comparte contigo, tal como
+            describe el <a href="/privacidad" class="link">aviso de privacidad</a>. No mostramos su
+            correo ni su teléfono: el contacto es por el chat interno.
+          </p>
+        </div>
+      )
+    }
+  </main>
+</Layout>
+
+<style>
+  .barra {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--color-surface);
+    overflow: hidden;
+  }
+  .barra > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-brand), var(--color-teal));
+  }
+  img {
+    border-radius: 999px;
+  }
+</style>

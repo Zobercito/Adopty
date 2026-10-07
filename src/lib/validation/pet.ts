@@ -20,6 +20,10 @@ export const petSchema = z.object({
     .max(2000, 'Máximo 2000 caracteres'),
   estado_salud: z.string().trim().max(500, 'Máximo 500 caracteres').optional().default(''),
   estado: z.enum(['disponible', 'en_proceso', 'adoptada']).default('disponible'),
+  // Fase 2 — datos para el match.
+  nivel_energia: z.enum(['tranquila', 'moderada', 'activa']).default('moderada'),
+  apto_ninos: z.boolean().default(true),
+  apto_otros: z.boolean().default(true),
   fotos: z
     .array(z.string().regex(/^[\w-]+\/[\w-]+\.webp$/, 'Ruta de foto inválida'))
     .min(1, 'Sube al menos 1 foto')

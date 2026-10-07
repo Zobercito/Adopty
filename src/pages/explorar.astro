@@ -5,10 +5,34 @@ import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import { supabaseServer } from '../lib/supabase';
 import { buscarMascotas, edadLabel, paramsFrom, type ResultadoBusqueda } from '../lib/mascotas';
+import { afinidad, type PerfilEstilo } from '../lib/match';
 
 // Fase 3: SSR con DB (URL compartible reproduce resultados) + refetch client-side
 // con skeletons para no recargar la página al filtrar.
+const user = Astro.locals.user ?? null;
+
+// Perfil de estilo de vida (Fase 1) → alimenta el match.
+let perfil: PerfilEstilo | null = null;
+if (user) {
+  try {
+    const { data } = await supabaseServer(Astro.cookies)
+      .from('perfil_estilo_vida')
+      .select('ambiente,ninos,especie_pref,ubicacion,energia_pref,otras_mascotas,edad_pref')
+      .eq('id_persona', user.id)
+      .maybeSingle();
+    perfil = (data as PerfilEstilo | null) ?? null;
+  } catch {
+    perfil = null;
+  }
+}
+const tieneEstilo = !!perfil;
+// Modo Match por defecto si hay perfil; "?modo=manual" fuerza los filtros.
+const modoManual = Astro.url.searchParams.get('modo') === 'manual';
+const enMatch = tieneEstilo && !modoManual;
+
 const b = paramsFrom(Astro.url.searchParams);
+if (enMatch) b.pageSize = 60; // en match no paginamos: ranking completo
+
 let resultado: ResultadoBusqueda | null = null;
 let errorMsg = '';
 try {
@@ -16,9 +40,19 @@ try {
 } catch (e) {
   errorMsg = e instanceof Error ? e.message : 'Error al buscar';
 }
+
+// Ranking por afinidad (solo en modo match).
+let matchItems: { p: ResultadoBusqueda['items'][number]; afinidad: number }[] = [];
+if (enMatch && perfil && resultado) {
+  const pf = perfil;
+  matchItems = resultado.items
+    .map((p) => ({ p, afinidad: afinidad(pf, p) }))
+    .sort((a, b) => b.afinidad - a.afinidad);
+}
+
 const { especie = '', tamano = '', sexo = '', q = '', orden = 'recientes' } = b;
 const pagina = resultado?.page ?? 1;
-const paginacionVisible = !!resultado && resultado.totalPages > 1;
+const paginacionVisible = !!resultado && resultado.totalPages > 1 && !enMatch;
 /** Reconstruye la URL de una página conservando los filtros activos. */
 const paginaUrl = (n: number) => {
   const sp = new URLSearchParams(Astro.url.searchParams);
@@ -38,6 +72,68 @@ const spec: { val: string; label: string }[] = [
 ---
 <Layout title="Adopty — Explorar mascotas en Panamá" description="Busca perros, gatos y otras mascotas en adopción por especie, tamaño, ubicación o nombre.">
   <Navbar active="explorar" />
+  {
+    user && !tieneEstilo && (
+      <div class="max-w-6xl mx-auto px-4 mt-4">
+        <div class="alert alert-brand flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <span>
+            Completa tu perfil de estilo de vida y te mostraremos mascotas elegidas para ti.
+          </span>
+          <a href="/perfil" class="link whitespace-nowrap">
+            Completar perfil →
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  {
+    enMatch && (
+      <div class="max-w-6xl mx-auto px-4 mt-6">
+        <div class="flex items-end justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="font-display font-extrabold text-2xl">Elegidas para ti</h1>
+            <p class="text-sm text-muted mt-1">
+              Ordenadas por afinidad con tu estilo de vida ({matchItems.length}{' '}
+              {matchItems.length === 1 ? 'mascota' : 'mascotas'}).
+            </p>
+          </div>
+          <a href="/explorar?modo=manual" class="link text-sm">
+            Buscar con filtros manuales →
+          </a>
+        </div>
+
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-5">
+          {matchItems.map(({ p, afinidad: af }) => (
+            <PetCard
+              id={p.id}
+              nombre={p.nombre}
+              raza={p.raza}
+              sexo={p.sexo}
+              tamano={p.tamano}
+              ubicacion={p.ubicacion}
+              estado={p.estado}
+              edadLabel={edadLabel(p.edad_meses)}
+              fotos={p.fotos}
+              afinidad={af}
+            />
+          ))}
+        </div>
+
+        {matchItems.length === 0 && (
+          <div class="soft-card p-10 mt-5 text-center">
+            <p class="text-4xl" aria-hidden="true">
+              🔍
+            </p>
+            <p class="text-sm mt-3 text-muted">No hay mascotas disponibles ahora mismo.</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  {
+    !enMatch && (
   <div class="max-w-6xl mx-auto px-4 mt-6 grid lg:grid-cols-[280px_1fr] gap-5">
     <aside class="soft-card h-fit lg:sticky lg:top-24 overflow-hidden" aria-label="Filtros de búsqueda">
       {/*
@@ -111,6 +207,9 @@ const spec: { val: string; label: string }[] = [
     </aside>
 
     <main>
+      {tieneEstilo && (
+        <a href="/explorar" class="link text-xs mb-2 inline-block">← Volver al modo Match</a>
+      )}
       <p id="count" class="text-sm text-muted" role="status">
         {errorMsg ? 'Error al buscar' : `${resultado?.total ?? 0} ${resultado?.total === 1 ? 'mascota encontrada' : 'mascotas encontradas'}`}{resultado && resultado.totalPages > 1 ? ` · página ${resultado.page} de ${resultado.totalPages}` : ''}
       </p>
@@ -182,6 +281,8 @@ const spec: { val: string; label: string }[] = [
       </nav>
     </main>
   </div>
+    )
+  }
 
   <script define:vars={{ supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL }}>
     const form = document.getElementById('filtros');
@@ -194,6 +295,11 @@ const spec: { val: string; label: string }[] = [
     const prev = document.getElementById('prev');
     const next = document.getElementById('next');
     const pageNum = document.getElementById('pageNum');
+
+    // En Modo Match no se renderizan los filtros: no hay nada que enganchar.
+    if (!form || !grid) {
+      /* modo match */
+    } else {
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fotoUrl = (p) => (!p ? '' : p.startsWith('/') || p.startsWith('http') ? p : `${supabaseUrl}/storage/v1/object/public/mascotas/${p}`);
@@ -325,6 +431,7 @@ const spec: { val: string; label: string }[] = [
     document.querySelector('aside a[href="/explorar"]')?.addEventListener('click', () => {
       if (barra && !window.matchMedia('(min-width: 1024px)').matches) barra.checked = false;
     });
+    }
   </script>
 </Layout>
 
@@ -369,7 +476,7 @@ const spec: { val: string; label: string }[] = [
   }
   /* El foco del checkbox (sr-only) debe verse en la barra, no desaparecer */
   #filtros-abrir:focus-visible + .barra-filtros {
-    outline: 3px solid #2ec4b6;
+    outline: 3px solid #00a8e8;
     outline-offset: -3px;
   }
 </style>

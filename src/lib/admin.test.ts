@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  cambiarEstadoCuenta,
+  cuentaBadge,
   esAdmin,
   fechaCorta,
+  listarCuentas,
   listarReportes,
   listarVerificaciones,
   reporteBadge,
@@ -38,7 +41,38 @@ function clienteFalso(tablas: Record<string, Record<string, unknown>[]>, admin =
   };
   return {
     from: (t: string) => desde(tablas[t] ?? []),
-    rpc: (fn: string) => Promise.resolve({ data: fn === 'soy_admin' ? admin : null, error: null }),
+    // `perfil_publico` es el RPC que sustituye a leer `personas`/`organizaciones`
+    // directamente (Fase A): devuelve solo campos públicos.
+    rpc: (fn: string, args?: { p_ids?: string[] }) => {
+      if (fn === 'soy_admin') return Promise.resolve({ data: admin, error: null });
+      if (fn === 'perfil_publico') {
+        const ids = args?.p_ids ?? [];
+        const filas = [
+          ...(tablas.personas ?? [])
+            .filter((p) => ids.includes(p.id as string))
+            .map((p) => ({
+              id: p.id,
+              nombre: p.nombre,
+              foto: null,
+              tipo: 'persona',
+              verificada: false,
+              eliminado: false,
+            })),
+          ...(tablas.organizaciones ?? [])
+            .filter((o) => ids.includes(o.id as string))
+            .map((o) => ({
+              id: o.id,
+              nombre: o.nombre_oficial,
+              foto: null,
+              tipo: 'organizacion',
+              verificada: Boolean(o.verificada),
+              eliminado: false,
+            })),
+        ];
+        return Promise.resolve({ data: filas, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
   } as unknown as SupabaseClient;
 }
 
@@ -52,6 +86,56 @@ describe('badges de administración', () => {
     expect(verifBadge('pendiente')[2]).toBe('Pendiente');
     expect(verifBadge('aprobada')[2]).toBe('Aprobada');
     expect(verifBadge('rechazada')[2]).toBe('Rechazada');
+  });
+});
+
+describe('cuentas (suspensión)', () => {
+  it('cuentaBadge distingue activa de suspendida', () => {
+    expect(cuentaBadge(true)[2]).toBe('Activa');
+    expect(cuentaBadge(false)[2]).toBe('Suspendida');
+  });
+
+  it('listarCuentas va al RPC y devuelve las filas', async () => {
+    const filas = [
+      {
+        id: 'u1',
+        nombre: 'Refugio Patitas',
+        tipo: 'organizacion',
+        activo: true,
+        fecha_registro: '2026-10-01',
+        borrado_en: null,
+        mascotas: 12,
+      },
+      {
+        id: 'u2',
+        nombre: 'Usuario no disponible',
+        tipo: 'persona',
+        activo: false,
+        fecha_registro: '2026-10-02',
+        borrado_en: '2026-10-05',
+        mascotas: 0,
+      },
+    ];
+    const cliente = {
+      rpc: (fn: string, args?: { p_busqueda?: string }) => {
+        expect(fn).toBe('listar_cuentas');
+        expect(args?.p_busqueda).toBe('patitas');
+        return Promise.resolve({ data: [filas[0]], error: null });
+      },
+    } as unknown as SupabaseClient;
+    const r = await listarCuentas(cliente, 'patitas');
+    expect(r).toHaveLength(1);
+    expect(r[0].mascotas).toBe(12);
+    expect(r[0].activo).toBe(true);
+  });
+
+  it('cambiarEstadoCuenta propaga el error del RPC', async () => {
+    const cliente = {
+      rpc: () => Promise.resolve({ data: null, error: { message: 'Solo un administrador' } }),
+    } as unknown as SupabaseClient;
+    await expect(cambiarEstadoCuenta(cliente, 'u1', false)).rejects.toThrow(
+      'Solo un administrador',
+    );
   });
 });
 

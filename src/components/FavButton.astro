@@ -33,7 +33,7 @@ const { id, nombre } = Astro.props as Props;
     btn.setAttribute('aria-pressed', String(on));
     btn.setAttribute('aria-label', `${on ? 'Quitar' : 'Guardar'} ${btn.dataset.favNombre ?? ''} ${on ? 'de' : 'en'} favoritos`);
     btn.title = on ? 'Quitar de favoritos' : 'Guardar en favoritos';
-    btn.style.color = on ? '#FF7A29' : '';
+    btn.style.color = on ? '#FF6B35' : '';
     // El estado activo necesita leerse sin depender solo del color
     btn.classList.toggle('bg-brand-soft', on);
   };

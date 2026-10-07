@@ -18,6 +18,10 @@ export interface MascotaRow {
   estado_salud: string;
   ubicacion: string;
   estado: Estado;
+  /** Fase 2 — datos para el match. */
+  nivel_energia: 'tranquila' | 'moderada' | 'activa';
+  apto_ninos: boolean;
+  apto_otros: boolean;
   fecha_publicacion: string;
   deleted_at: string | null;
 }

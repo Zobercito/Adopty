@@ -2,9 +2,9 @@
 export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
-import PetCard from '../components/PetCard.astro';
+import Badge from '../components/Badge.astro';
 import { supabaseServer } from '../lib/supabase';
-import { estadoLabel, fotosOrdenadas, type FotoRow } from '../lib/mascotas';
+import { estadoLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login?next=/favoritos');
@@ -13,7 +13,9 @@ const supabase = supabaseServer(Astro.cookies);
 // Favoritos reales (UUIDs) + mascota visible por RLS + foto principal.
 const { data: favs, error } = await supabase
   .from('favoritos')
-  .select('id_mascota, mascotas(id, nombre, raza, ubicacion, estado, fotos_mascota(url_foto, es_principal, orden))')
+  .select(
+    'id_mascota, mascotas(id, nombre, raza, ubicacion, estado, id_publicador, fotos_mascota(url_foto, es_principal, orden))',
+  )
   .eq('id_usuario', user.id)
   .order('fecha', { ascending: false });
 const reales = ((favs ?? []) as { id_mascota: string; mascotas: unknown }[])
@@ -25,6 +27,7 @@ const reales = ((favs ?? []) as { id_mascota: string; mascotas: unknown }[])
       raza: string;
       ubicacion: string;
       estado: string;
+      id_publicador: string;
       fotos_mascota: FotoRow[];
     };
     const fotos = fotosOrdenadas(m.fotos_mascota);
@@ -34,6 +37,7 @@ const reales = ((favs ?? []) as { id_mascota: string; mascotas: unknown }[])
       raza: m.raza,
       ubicacion: m.ubicacion,
       estado: estadoLabel(m.estado),
+      id_publicador: m.id_publicador,
       eyebrow: `📍 ${m.ubicacion}`,
       fotos,
     };
@@ -78,7 +82,44 @@ const errorMsg = error?.message ?? '';
       ) : (
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
           {reales.map((p) => (
-            <PetCard {...p} />
+            <article class="soft-card overflow-hidden lift flex flex-col">
+              <a href={`/mascota/${p.id}`} class="block relative">
+                <div class={`pet-photo ${gradFor(p.id)} w-full h-48`}>
+                  {p.fotos[0] && (
+                    <img
+                      src={fotoUrl(p.fotos[0].url_foto)}
+                      alt={p.nombre}
+                      loading="lazy"
+                      decoding="async"
+                      width="640"
+                      height="384"
+                      class="absolute inset-0 w-full h-full object-cover"
+                      onerror="this.remove()"
+                    />
+                  )}
+                </div>
+              </a>
+              <div class="p-4 flex-1 flex flex-col">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="font-display font-extrabold text-lg text-ink truncate">{p.nombre}</h3>
+                  <Badge estado={p.estado} />
+                </div>
+                <p class="text-xs font-semibold text-muted mt-1">
+                  {p.raza} · {p.ubicacion}
+                </p>
+                <div class="flex gap-2 mt-4 pt-3 border-t border-line">
+                  <a href={`/mascota/${p.id}`} class="btn-primary text-xs px-4 py-2 flex-1 text-center">
+                    Ver perfil
+                  </a>
+                  <a
+                    href={`/mensajes?mascota=${p.id}&con=${p.id_publicador}`}
+                    class="btn-ghost text-xs px-4 py-2 flex-1 text-center"
+                  >
+                    Enviar mensaje
+                  </a>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       )

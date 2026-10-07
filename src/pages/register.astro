@@ -5,17 +5,33 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 
 if (Astro.locals.user) return Astro.redirect('/perfil');
+
+// ?tipo=organizacion preselecciona el tipo de cuenta (p. ej. desde "Registrar mi
+// organización"); por defecto es persona.
+const tipo = Astro.url.searchParams.get('tipo') === 'organizacion' ? 'organizacion' : 'persona';
+const esOrg = tipo === 'organizacion';
 ---
 
 <Layout title="Adopty — Crear cuenta">
   <Navbar />
   <main class="max-w-md mx-auto px-4 mt-8">
     <div class="soft-card p-7 sm:p-8">
-      <h1 class="font-display font-extrabold text-2xl">Crear cuenta</h1>
-      <p class="text-sm mt-1 text-muted">¿Ya tienes? <a href="/login" class="link">Entra</a></p>
+      <div class="text-center mb-6">
+        <img
+          src="/brand/adopty-logo-full-sm.png"
+          alt="Adopty"
+          width="433"
+          height="460"
+          class="h-32 w-auto mx-auto"
+        />
+        <h1 id="regTitulo" class="font-display font-extrabold text-2xl mt-3">
+          {esOrg ? 'Registra tu organización' : 'Crea tu cuenta'}
+        </h1>
+        <p class="text-sm mt-1 text-muted">¿Ya tienes? <a href="/login" class="link">Entra</a></p>
+      </div>
 
       {
-        googleActivo && (
+        googleActivo && !esOrg && (
           <>
             <a
               href="/api/auth/google?next=/perfil"
@@ -32,20 +48,41 @@ if (Astro.locals.user) return Astro.redirect('/perfil');
           </>
         )
       }
+      {
+        googleActivo && esOrg && (
+          <p class="text-xs text-muted mt-5 text-center">
+            Para registrar una organización hazlo con tu correo: Google crea cuentas personales.
+          </p>
+        )
+      }
 
       <p id="err" class="alert alert-error mt-5 hidden" role="alert" />
       <p id="ok" class="alert alert-ok mt-5 hidden" role="status" />
 
       <form id="regForm" class="mt-5 grid gap-4">
+        <fieldset>
+          <legend class="label">Tipo de cuenta</legend>
+          <div class="flex gap-2 mt-2">
+            <label class="chip flex-1 justify-center">
+              <input type="radio" name="tipo_usuario" value="persona" checked={!esOrg} class="accent-brand" /> Persona
+            </label>
+            <label class="chip flex-1 justify-center">
+              <input type="radio" name="tipo_usuario" value="organizacion" checked={esOrg} class="accent-brand" />
+              Organización
+            </label>
+          </div>
+        </fieldset>
+
         <div>
-          <label class="label" for="nombre">Nombre / Organización</label>
+          <label class="label" id="nombreLabel" for="nombre">{esOrg ? 'Organización' : 'Nombre'}</label>
           <input
             id="nombre"
             name="nombre"
             required
             minlength="2"
             maxlength="80"
-            autocomplete="name"
+            autocomplete={esOrg ? 'organization' : 'name'}
+            placeholder={esOrg ? 'Nombre de la organización' : 'Tu nombre'}
             class="input-soft mt-1 text-sm"
           />
         </div>
@@ -76,19 +113,6 @@ if (Astro.locals.user) return Astro.redirect('/perfil');
           />
           <p id="pwdHint" class="text-xs mt-1 text-faint">Mínimo 8 caracteres.</p>
         </div>
-
-        <fieldset>
-          <legend class="label">Tipo de cuenta</legend>
-          <div class="flex gap-2 mt-2">
-            <label class="chip flex-1 justify-center">
-              <input type="radio" name="tipo_usuario" value="persona" checked class="accent-brand" /> Persona
-            </label>
-            <label class="chip flex-1 justify-center">
-              <input type="radio" name="tipo_usuario" value="organizacion" class="accent-brand" />
-              Organización
-            </label>
-          </div>
-        </fieldset>
 
         <label class="flex items-start gap-2.5 text-xs text-muted leading-relaxed">
           <input type="checkbox" required class="mt-0.5 accent-brand w-4 h-4 shrink-0" />
@@ -150,5 +174,24 @@ if (Astro.locals.user) return Astro.redirect('/perfil');
         btn.textContent = 'Registrarme';
       }
     });
+
+    // Título y etiqueta dinámicos según el tipo de cuenta elegido.
+    const regTitulo = document.getElementById('regTitulo');
+    const nombreLabel = document.getElementById('nombreLabel');
+    const nombreInput = document.getElementById('nombre');
+    const sincronizar = () => {
+      const org =
+        document.querySelector('input[name="tipo_usuario"]:checked')?.value === 'organizacion';
+      if (regTitulo) regTitulo.textContent = org ? 'Registra tu organización' : 'Crea tu cuenta';
+      if (nombreLabel) nombreLabel.textContent = org ? 'Organización' : 'Nombre';
+      if (nombreInput) {
+        nombreInput.placeholder = org ? 'Nombre de la organización' : 'Tu nombre';
+        nombreInput.autocomplete = org ? 'organization' : 'name';
+      }
+    };
+    document.querySelectorAll('input[name="tipo_usuario"]').forEach((r) => {
+      r.addEventListener('change', sincronizar);
+    });
+    sincronizar();
   </script>
 </Layout>

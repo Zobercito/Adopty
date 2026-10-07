@@ -3,13 +3,16 @@ export const prerender = false;
 import Layout from '../../layouts/Layout.astro';
 import Navbar from '../../components/Navbar.astro';
 import {
+  cuentaBadge,
   esAdmin,
+  fechaCorta,
+  LIMITE_PANEL,
+  listarCuentas,
   listarReportes,
   listarVerificaciones,
   reporteBadge,
   verifBadge,
-  fechaCorta,
-  LIMITE_PANEL,
+  type CuentaAdmin,
   type EstadoReporte,
   type EstadoVerificacion,
   type ReporteAdmin,
@@ -54,24 +57,29 @@ const ve: EstadoVerificacion = ESTADOS_VERIF.includes(veRaw as EstadoVerificacio
 
 let reportes: ReporteAdmin[] = [];
 let verificaciones: VerificacionAdmin[] = [];
+let cuentas: CuentaAdmin[] = [];
 let pendientesReportes = 0;
 let pendientesVerif = 0;
+let suspendidas = 0;
 let errorMsg = '';
 
 if (esAdminUser) {
   try {
     // Los contadores del resumen siempre miran los pendientes;
     // la lista grande muestra la pestaña activa.
-    const [listaRe, listaVe, pendRe, pendVe] = await Promise.all([
+    const [listaRe, listaVe, listaCuentas, pendRe, pendVe] = await Promise.all([
       listarReportes(supabase, re),
       listarVerificaciones(supabase, ve),
+      listarCuentas(supabase),
       re === 'pendiente' ? Promise.resolve(null) : listarReportes(supabase, 'pendiente'),
       ve === 'pendiente' ? Promise.resolve(null) : listarVerificaciones(supabase, 'pendiente'),
     ]);
     reportes = listaRe;
     verificaciones = listaVe;
+    cuentas = listaCuentas;
     pendientesReportes = re === 'pendiente' ? listaRe.length : (pendRe?.length ?? 0);
     pendientesVerif = ve === 'pendiente' ? listaVe.length : (pendVe?.length ?? 0);
+    suspendidas = listaCuentas.filter((c) => !c.activo).length;
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : 'Error al cargar el panel';
   }
@@ -104,7 +112,9 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
           <div class="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 class="font-display font-extrabold text-2xl">Panel de administración</h1>
-              <p class="text-sm mt-1 text-muted">Moderación de publicaciones y verificación de organizaciones.</p>
+              <p class="text-sm mt-1 text-muted">
+              Moderación de publicaciones, verificación de organizaciones y estado de las cuentas.
+            </p>
             </div>
           </div>
 
@@ -119,6 +129,10 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
             <div class="soft-card p-5 text-center">
               <p class="font-display font-extrabold text-3xl text-ink tabular">{pendientesVerif}</p>
               <p class="text-xs mt-1 text-muted">Verificaciones pendientes</p>
+            </div>
+            <div class="soft-card p-5 text-center">
+              <p class="font-display font-extrabold text-3xl text-ink tabular">{cuentas.length}</p>
+              <p class="text-xs mt-1 text-muted">Cuentas registradas</p>
             </div>
             <div class="soft-card p-5 text-center col-span-2 lg:col-span-1">
               <p class="font-display font-extrabold text-3xl text-brand tabular">
@@ -294,6 +308,36 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
                       <p class="text-xs text-muted mt-1">
                         Evidencia: <b>{TIPO_EVIDENCIA[v.tipo_evidencia] ?? v.tipo_evidencia}</b>
                       </p>
+                      <details class="mt-2">
+                        <summary class="text-xs font-semibold text-ink cursor-pointer">
+                          Lo que declara en su perfil
+                        </summary>
+                        <div class="text-xs text-muted mt-1.5 grid gap-0.5">
+                          <p>
+                            Sitio web:{' '}
+                            {v.organizacion.sitio_web ? (
+                              <span class="break-all">{v.organizacion.sitio_web}</span>
+                            ) : (
+                              <i>no indicó</i>
+                            )}
+                          </p>
+                          {(
+                            [
+                              ['Instagram', v.organizacion.redes?.instagram],
+                              ['Facebook', v.organizacion.redes?.facebook],
+                              ['WhatsApp', v.organizacion.redes?.whatsapp],
+                            ] as const
+                          ).map(([red, valor]) => (
+                            <p>
+                              {red}: {valor ? <span class="break-all">{valor}</span> : <i>no indicó</i>}
+                            </p>
+                          ))}
+                          <p class="text-faint mt-1">
+                            No hacemos peticiones a esas direcciones desde el servidor: contrasta tú
+                            mismo antes de aprobar.
+                          </p>
+                        </div>
+                      </details>
                       <a
                         href={v.url_evidencia}
                         target="_blank"
@@ -350,6 +394,60 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
                 })}
               </div>
             )}
+          </section>
+
+          {/* ---------- Cuentas (suspender / reactivar) ---------- */}
+          <section class="mt-10" aria-labelledby="sec-cuentas">
+            <h2 id="sec-cuentas" class="font-display font-extrabold text-lg">Cuentas</h2>
+            <p class="text-xs text-muted mt-1">
+              Suspender deja entrar la cuenta: la sesión se cierra en la siguiente petición y no
+              puede volver a iniciar sesión. <b>No</b> borra nada: las publicaciones y los mensajes
+              siguen ahí. Por privacidad solo se muestra el nombre, nunca el correo.
+              {suspendidas > 0 && ` Hay ${suspendidas} suspendida(s).`}
+            </p>
+
+            <div class="grid gap-3 mt-3">
+              {cuentas.map((c) => {
+                const [cls, dot, etiqueta] = cuentaBadge(c.activo);
+                const baja = Boolean(c.borrado_en);
+                return (
+                  <article class="soft-card p-4 flex items-center gap-3 flex-wrap" data-cuenta={c.id}>
+                    <div class="min-w-0">
+                      <p class="text-sm font-bold text-ink flex items-center gap-2 flex-wrap">
+                        {c.nombre}
+                        <span class="text-xs font-normal text-faint">
+                          {c.tipo === 'organizacion' ? 'Organización' : 'Persona'}
+                        </span>
+                      </p>
+                      <p class="text-xs text-faint mt-0.5">
+                        {c.mascotas} publicación{c.mascotas === 1 ? '' : 'es'} ·{' '}
+                        {fechaCorta(c.fecha_registro)}
+                        {baja && ' · dada de baja por la persona'}
+                      </p>
+                    </div>
+                    <span class={`badge ${cls} ml-auto`}>
+                      <span class="dot" style={`background:${dot}`} />
+                      {baja ? 'Dada de baja' : etiqueta}
+                    </span>
+                    {!baja && (
+                      <button
+                        type="button"
+                        data-alternar={c.id}
+                        data-activo={String(c.activo)}
+                        class={`btn-ghost text-xs px-4 py-2 ${c.activo ? 'text-danger' : ''}`}
+                      >
+                        {c.activo ? 'Suspender' : 'Reactivar'}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+              {cuentas.length === 0 && (
+                <div class="soft-card p-8 text-center">
+                  <p class="text-sm text-muted">No hay cuentas registradas.</p>
+                </div>
+              )}
+            </div>
           </section>
 
           <p class="text-xs mt-8 text-faint">
@@ -427,6 +525,39 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
       if (!r.ok) return mostrarErr(id, r.error);
       location.reload();
     }
+
+    async function alternarCuenta(id, activo, boton) {
+      const msg = activo
+        ? '¿Suspender esta cuenta? Dejará de poder entrar; sus publicaciones y mensajes no se borran.'
+        : '¿Reactivar esta cuenta? Volverá a poder entrar con normalidad.';
+      if (!confirm(msg)) return;
+      boton.disabled = true;
+      const previo = boton.textContent;
+      boton.textContent = activo ? 'Suspendiendo…' : 'Reactivando…';
+      const res = await fetch('/api/admin/cuentas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, activo: !activo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        avisar(data.error || 'No se pudo cambiar el estado', 'error');
+        boton.disabled = false;
+        boton.textContent = previo;
+        return;
+      }
+      location.reload();
+    }
+
+    document.querySelectorAll('[data-alternar]').forEach((b) =>
+      b.addEventListener('click', () =>
+        alternarCuenta(
+          b.getAttribute('data-alternar'),
+          b.getAttribute('data-activo') === 'true',
+          b,
+        ),
+      ),
+    );
 
     document.querySelectorAll('[data-ocultar]').forEach((b) =>
       b.addEventListener('click', () =>

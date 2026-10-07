@@ -1,13 +1,14 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Marca (paleta original, sin cambios) */
-  --color-brand: #ff7a29;
-  --color-brand-dark: #f2670c;
-  --color-brand-soft: #fff1e6;
-  --color-teal-adopty: #2ec4b6;
-  --color-teal-dark: #14a098;
-  --color-teal-soft: #e6faf7;
+  /* Marca — rediseño basado en el mockup: naranja #FF6B35 + azul cielo #00A8E8 */
+  --color-brand: #ff6b35;
+  --color-brand-dark: #e85a24;
+  --color-brand-soft: #fff0ea;
+  --color-teal: #00a8e8;
+  --color-teal-adopty: #00a8e8;
+  --color-teal-dark: #0090c7;
+  --color-teal-soft: #e6f6ff;
 
   /* Texto */
   --color-ink: #1e293b;
@@ -18,7 +19,7 @@
   --color-faint: #94a3b8;
 
   /* Superficies y líneas */
-  --color-page: #e8ebf0;
+  --color-page: #faf9f6;
   --color-surface: #f8fafc;
   --color-line: #e2e8f0;
 
@@ -33,7 +34,7 @@
   --color-info-soft: #f0f9ff;
 
   --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
 }
 
 @layer base {
@@ -41,6 +42,41 @@
     scroll-behavior: smooth;
     /* Compensa la navbar flotante al saltar a un ancla */
     scroll-padding-top: 6rem;
+  }
+
+  /* Portada tipo "pantalla completa" (solo en la página de inicio).
+     Cada sección mide una ventana y el scroll salta de sección en sección,
+     sin poder quedarse a medias. Solo en escritorio. */
+  @media (min-width: 1024px) {
+    html.snap-home {
+      scroll-snap-type: y mandatory;
+      /* La barra mide 5rem (+1px de borde): las secciones se alinean debajo. */
+      scroll-padding-top: 5.0625rem;
+    }
+    html.snap-home .snap-sec {
+      min-height: calc(100vh - 5.0625rem);
+      min-height: calc(100svh - 5.0625rem);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+    }
+    /* El pie también es una "pantalla" para que su posición sea alcanzable */
+    html.snap-home footer {
+      min-height: calc(100vh - 5.0625rem);
+      min-height: calc(100svh - 5.0625rem);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.snap-home {
+      scroll-snap-type: none;
+    }
   }
 
   body {
@@ -607,6 +643,82 @@
   .skip-link:focus-visible {
     translate: -50% 0;
     outline-color: #fff;
+  }
+
+  /* ---------- Landing (rediseño mockup) ---------- */
+  /* Titular con degradado naranja → azul, como el hero del mockup */
+  .text-gradient {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-brand) 0%,
+      #fb8c3a 45%,
+      var(--color-teal-adopty) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Manchas decorativas difusas del hero */
+  .blob-orange {
+    background: radial-gradient(circle, rgb(255 107 53 / 0.18) 0%, rgb(255 255 255 / 0) 70%);
+  }
+  .blob-sky {
+    background: radial-gradient(circle, rgb(0 168 232 / 0.18) 0%, rgb(255 255 255 / 0) 70%);
+  }
+
+  /* Chips de compatibilidad (etiquetas de la tarjeta) */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.18rem 0.5rem;
+    border-radius: 0.45rem;
+    white-space: nowrap;
+  }
+  .tag-sky {
+    background: var(--color-teal-soft);
+    color: var(--color-teal-dark);
+  }
+  .tag-orange {
+    background: var(--color-brand-soft);
+    color: var(--color-brand-dark);
+  }
+  .tag-neutral {
+    background: #f1f5f9;
+    color: #475569;
+  }
+  .tag-warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  /* Flotado suave de las insignias del hero */
+  .float-slow {
+    animation: floaty 4.5s ease-in-out infinite;
+  }
+  @keyframes floaty {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Tarjeta con sombra más marcada al pasar el cursor (mockup) */
+  .lift {
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+  .lift:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      0 24px 40px -18px rgb(45 55 72 / 0.28),
+      0 8px 20px -12px rgb(45 55 72 / 0.18);
   }
 }
 

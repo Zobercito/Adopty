@@ -109,6 +109,40 @@ const nuevo = mode === 'create';
           placeholder="Ej. Vacunado y desparasitado"
         />
       </div>
+      <div>
+        <label class="label" for="nivel_energia">Nivel de energía</label>
+        <select id="nivel_energia" name="nivel_energia" class="input-soft mt-1 text-sm">
+          <option value="tranquila" selected={pet?.nivel_energia === 'tranquila'}>Tranquila</option>
+          <option value="moderada" selected={pet?.nivel_energia === 'moderada' || !pet}>Moderada</option>
+          <option value="activa" selected={pet?.nivel_energia === 'activa'}>Activa</option>
+        </select>
+      </div>
+      <fieldset>
+        <legend class="label">¿Apto para niños?</legend>
+        <div class="flex gap-2 mt-1">
+          <label class="chip flex-1 justify-center">
+            <input type="radio" name="apto_ninos" value="si" checked={pet?.apto_ninos !== false} class="accent-brand" />
+            Sí
+          </label>
+          <label class="chip flex-1 justify-center">
+            <input type="radio" name="apto_ninos" value="no" checked={pet?.apto_ninos === false} class="accent-brand" />
+            No
+          </label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">¿Apto con otros animales?</legend>
+        <div class="flex gap-2 mt-1">
+          <label class="chip flex-1 justify-center">
+            <input type="radio" name="apto_otros" value="si" checked={pet?.apto_otros !== false} class="accent-brand" />
+            Sí
+          </label>
+          <label class="chip flex-1 justify-center">
+            <input type="radio" name="apto_otros" value="no" checked={pet?.apto_otros === false} class="accent-brand" />
+            No
+          </label>
+        </div>
+      </fieldset>
     </div>
 
     <div>
@@ -299,6 +333,9 @@ const nuevo = mode === 'create';
         ubicacion: fd.get('ubicacion'),
         estado_salud: fd.get('estado_salud') || '',
         descripcion: fd.get('descripcion'),
+        nivel_energia: fd.get('nivel_energia') || 'moderada',
+        apto_ninos: fd.get('apto_ninos') === 'si',
+        apto_otros: fd.get('apto_otros') === 'si',
         ...(mode === 'edit' ? { estado: fd.get('estado') || 'disponible' } : {}),
       };
 

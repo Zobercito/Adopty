@@ -9,6 +9,9 @@ import { fechaCorta } from '../../lib/solicitudes';
 import { getPanelResumen } from '../../lib/panel';
 
 if (!Astro.locals.user) return Astro.redirect('/login?next=/panel');
+// El panel es solo para publicadores: sin publicaciones no aporta nada, así que
+// se manda al adoptante a sus solicitudes (lo demás vive en sus pestañas).
+if (!Astro.locals.tienePublicaciones) return Astro.redirect('/mis-solicitudes');
 const supabase = supabaseServer(Astro.cookies);
 let resumen: Awaited<ReturnType<typeof getPanelResumen>> | null = null;
 let errorMsg = '';
@@ -33,9 +36,7 @@ const stats = resumen
     <div class="flex items-start justify-between flex-wrap gap-3">
       <div>
         <h1 class="font-display font-extrabold text-2xl">Mi panel</h1>
-        <p class="text-sm mt-1 text-muted">
-          Gestiona tus publicaciones, solicitudes y mensajes.
-        </p>
+        <p class="text-sm mt-1 text-muted">Gestiona tus publicaciones, solicitudes y mensajes.</p>
       </div>
       <div class="flex gap-2">
         <a href="/panel/solicitudes" class="btn-ghost text-sm px-5 py-2.5">Solicitudes</a>
@@ -65,18 +66,12 @@ const stats = resumen
     }
 
     {
-      resumen && resumen.mascotas.length === 0 && !errorMsg ? (
+      resumen && !errorMsg && resumen.mascotas.length === 0 ? (
         <div class="soft-card p-10 mt-6 text-center">
-          <p class="text-5xl" aria-hidden="true">
-            🐾
-          </p>
+          <p class="text-5xl" aria-hidden="true">🐾</p>
           <h2 class="font-display font-extrabold text-xl mt-4">Publica tu primera mascota</h2>
-          <p class="text-sm mt-2 text-muted">
-            Cuéntanos quién busca hogar y empieza a recibir solicitudes hoy mismo.
-          </p>
-          <a href="/mascota/nueva" class="btn-primary text-sm px-6 py-2.5 mt-5">
-            Publicar mascota
-          </a>
+          <p class="text-sm mt-2 text-muted">Cuéntanos quién busca hogar y encuentrales un hogar.</p>
+          <a href="/mascota/nueva" class="btn-primary text-sm px-6 py-2.5 mt-5">Publicar mascota</a>
         </div>
       ) : (
         <div class="grid gap-4 mt-6">
