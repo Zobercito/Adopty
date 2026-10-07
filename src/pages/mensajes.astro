@@ -7,6 +7,7 @@ import ChatView from '../components/ChatView.astro';
 import { supabaseServer } from '../lib/supabase';
 import { fotosOrdenadas, type FotoRow } from '../lib/mascotas';
 import { getMisSolicitudes } from '../lib/solicitudes';
+import { nombresPublicos, SIN_CUENTA } from '../lib/perfil';
 
 if (!Astro.locals.user) return Astro.redirect('/login?next=/mensajes');
 
@@ -57,21 +58,15 @@ try {
     }
   }
 
-  // Nombres
+  // Nombres (Fase A: RPC público, no lectura directa de `personas`)
   const otrasIds = [...hilosMap.values()].map((h) => h.otra_parte);
-  const [personas, orgs] = await Promise.all([
-    supabase.from('personas').select('id,nombre').in('id', otrasIds.length ? otrasIds : ['00000000-0000-0000-0000-000000000000']),
-    supabase.from('organizaciones').select('id,nombre_oficial').in('id', otrasIds.length ? otrasIds : ['00000000-0000-0000-0000-000000000000']),
-  ]);
-  const nombres = new Map<string, string>();
-  for (const p of (personas.data ?? []) as { id: string; nombre: string }[]) nombres.set(p.id, p.nombre);
-  for (const o of (orgs.data ?? []) as { id: string; nombre_oficial: string }[]) nombres.set(o.id, o.nombre_oficial);
+  const nombres = await nombresPublicos(supabase, otrasIds);
 
   hilos = [...hilosMap.entries()].map(([key, h]) => ({
     key,
     id_mascota: h.id_mascota,
     otra_parte: h.otra_parte,
-    nombre_otra: nombres.get(h.otra_parte) ?? 'Usuario',
+    nombre_otra: nombres.get(h.otra_parte) ?? SIN_CUENTA,
     ultima: h.ultimo,
     no_leidos: h.no_leidos,
     mascota: h.mascota,
@@ -96,14 +91,12 @@ try {
         .or(`id_emisor.eq.${currentUserId},id_receptor.eq.${currentUserId}`)
         .order('fecha_envio', { ascending: true })
         .limit(100);
-      const { data: p } = await supabase.from('personas').select('nombre').eq('id', con).maybeSingle();
-      const { data: o } = await supabase.from('organizaciones').select('nombre_oficial').eq('id', con).maybeSingle();
-      const nombre_otra = p?.nombre ?? o?.nombre_oficial ?? 'Usuario';
+      const nombre_otra = nombres.get(con) ?? SIN_CUENTA;
       const { data: mascotaRow } = await supabase.from('mascotas').select('id, nombre, fotos_mascota(url_foto, es_principal, orden)').eq('id', mascotaId).maybeSingle();
       const mascota = mascotaRow
         ? { id: mascotaRow.id, nombre: mascotaRow.nombre, fotos: fotosOrdenadas((mascotaRow as unknown as { fotos_mascota: FotoRow[] }).fotos_mascota) }
         : null;
-      chatActivo = { id_mascota: mascotaId, otra_parte: con, nombre_otra: nombres.get(con) ?? nombre_otra, mascota, mensajes: msgs ?? [] };
+      chatActivo = { id_mascota: mascotaId, otra_parte: con, nombre_otra, mascota, mensajes: msgs ?? [] };
     }
   }
 } catch (e) {

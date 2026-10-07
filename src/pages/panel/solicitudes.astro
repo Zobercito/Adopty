@@ -70,9 +70,46 @@ const ordenados = [...lista].sort((a, b) => {
                   </span>
                   <span class="text-xs text-faint ml-auto tabular">{fechaCorta(s.fecha_solicitud)}</span>
                 </div>
-                <p class="text-sm mt-3">
-                  <b class="text-ink">{s.adoptante.nombre}</b> quiere adoptar:
-                </p>
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="avatar w-9 h-9 text-sm shrink-0" aria-hidden="true">
+                    {s.adoptante.foto ? (
+                      <img
+                        src={s.adoptante.foto}
+                        alt=""
+                        width="36"
+                        height="36"
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      s.adoptante.nombre.charAt(0).toUpperCase()
+                    )}
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-sm">
+                      <b class="text-ink">{s.adoptante.nombre}</b> quiere adoptar:
+                    </p>
+                    <p class="text-xs text-faint">
+                      Perfil {s.adoptante.completitud}% completo
+                      {s.adoptante.solicitudes > 1 && ` · ${s.adoptante.solicitudes} solicitudes`}
+                      {s.adoptante.zona && ` · Zona: ${s.adoptante.zona}`}
+                    </p>
+                  </div>
+                  <a href={`/panel/adoptante/${s.adoptante.id}`} class="btn-ghost text-xs px-4 py-2 ml-auto">
+                    Ver perfil
+                  </a>
+                </div>
+                {s.adoptante.eliminado && (
+                  <p class="alert text-xs mt-3">
+                    Esta cuenta se dio de baja: sus datos personales fueron anonimizados.
+                  </p>
+                )}
+                {!s.adoptante.eliminado && s.adoptante.completitud < 100 && (
+                  <p class="text-xs mt-2 text-faint">
+                    Le faltan datos por llenar en su perfil. Puedes aprobarla igual y preguntarle por
+                    chat.
+                  </p>
+                )}
                 <p class="text-sm mt-1 p-3 rounded-xl bg-surface text-muted italic">“{s.mensaje_inicial}”</p>
 
                 {s.estado === 'pendiente' ? (

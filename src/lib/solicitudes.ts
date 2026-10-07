@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fotoUrl, fotosOrdenadas, type FotoRow } from './mascotas';
+import { completitudPerfil, resumenesAdoptantes, SIN_CUENTA } from './perfil';
 
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
 
@@ -24,7 +25,21 @@ export interface SolicitudRecibida {
   mensaje_inicial: string;
   fecha_solicitud: string;
   mascota: { id: string; nombre: string; estado: string };
-  adoptante: { id: string; nombre: string };
+  adoptante: {
+    id: string;
+    nombre: string;
+    /** Fase B: resumen que el publicador puede ver del adoptante (solo si hay solicitud). */
+    foto: string | null;
+    zona: string | null;
+    experiencia: string | null;
+    motivacion: string | null;
+    sobre_mi: string | null;
+    eliminado: boolean;
+    solicitudes: number;
+    aprobada: boolean;
+    /** % del perfil del adoptante que está completo (incentivo allenarlo). */
+    completitud: number;
+  };
 }
 
 /** Badge [clase, color dot, etiqueta] para estados de solicitud. */
@@ -87,33 +102,40 @@ export async function getSolicitudesRecibidas(
     .order('fecha_solicitud', { ascending: false });
   if (error) throw new Error(error.message);
   const adoptantes = [...new Set((data ?? []).map((s) => s.id_adoptante as string))];
-  const salvo = ['00000000-0000-0000-0000-000000000000'];
-  const [personas, orgs] = await Promise.all([
-    supabase
-      .from('personas')
-      .select('id,nombre')
-      .in('id', adoptantes.length ? adoptantes : salvo),
-    supabase
-      .from('organizaciones')
-      .select('id,nombre_oficial')
-      .in('id', adoptantes.length ? adoptantes : salvo),
-  ]);
-  const nombres = new Map<string, string>();
-  for (const p of (personas.data ?? []) as { id: string; nombre: string }[])
-    nombres.set(p.id, p.nombre);
-  for (const o of (orgs.data ?? []) as { id: string; nombre_oficial: string }[])
-    nombres.set(o.id, o.nombre_oficial);
-  return (data ?? []).map((s) => ({
-    id: s.id as string,
-    estado: s.estado as EstadoSolicitud,
-    mensaje_inicial: s.mensaje_inicial as string,
-    fecha_solicitud: s.fecha_solicitud as string,
-    mascota: (s as { mascotas: SolicitudRecibida['mascota'] }).mascotas,
-    adoptante: {
-      id: s.id_adoptante as string,
-      nombre: nombres.get(s.id_adoptante as string) ?? 'Adoptante',
-    },
-  }));
+  // El resumen del adoptante sale del RPC `resumen_adoptantes`, que en PostgreSQL
+  // descarta a quien no le haya enviado una solicitud sobre nuestras mascotas.
+  const resumenes = await resumenesAdoptantes(supabase, adoptantes);
+  return (data ?? []).map((s) => {
+    const adoptanteId = s.id_adoptante as string;
+    const r = resumenes.get(adoptanteId);
+    const completitud = completitudPerfil({
+      nombre: r?.nombre,
+      foto: r?.foto,
+      descripcion: r?.sobre_mi,
+      experiencia: r?.experiencia,
+      motivacion: r?.motivacion,
+    }).pct;
+    return {
+      id: s.id as string,
+      estado: s.estado as EstadoSolicitud,
+      mensaje_inicial: s.mensaje_inicial as string,
+      fecha_solicitud: s.fecha_solicitud as string,
+      mascota: (s as { mascotas: SolicitudRecibida['mascota'] }).mascotas,
+      adoptante: {
+        id: adoptanteId,
+        nombre: r?.nombre ?? SIN_CUENTA,
+        foto: r?.foto ?? null,
+        zona: r?.zona ?? null,
+        experiencia: r?.experiencia ?? null,
+        motivacion: r?.motivacion ?? null,
+        sobre_mi: r?.sobre_mi ?? null,
+        eliminado: r?.eliminado ?? false,
+        solicitudes: r?.solicitudes ?? 0,
+        aprobada: r?.aprobada ?? false,
+        completitud,
+      },
+    };
+  });
 }
 
 export function fechaCorta(iso: string): string {

@@ -6,6 +6,7 @@ import Badge from '../../components/Badge.astro';
 import FavButton from '../../components/FavButton.astro';
 import { supabaseServer } from '../../lib/supabase';
 import { estadoLabel, edadLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow, type MascotaRow } from '../../lib/mascotas';
+import { perfilesPublicos } from '../../lib/perfil';
 
 const { id } = Astro.params;
 const supabase = supabaseServer(Astro.cookies);
@@ -59,6 +60,8 @@ const ogImage = ogRel
 
 let publicador = 'Publicador';
 let verificada = false;
+let sitioWeb: string | null = null;
+let redes: { instagram?: string; facebook?: string; whatsapp?: string } | null = null;
 const publicadorId = pet?.id_publicador ?? '';
 // Solicitud aprobada de esta mascota (para el chat del publicador)
 let solicitudAprobada: { id: string; id_adoptante: string } | null = null;
@@ -73,13 +76,22 @@ if (pet && user && esDueno) {
   solicitudAprobada = ((ap?.[0] ?? null) as { id: string; id_adoptante: string } | null);
 }
 if (pet) {
-  const [{ data: persona }, { data: org }] = await Promise.all([
-    supabase.from('personas').select('nombre').eq('id', pet.id_publicador).maybeSingle(),
-    supabase.from('organizaciones').select('nombre_oficial, verificada').eq('id', pet.id_publicador).maybeSingle(),
-  ]);
-  publicador = persona?.nombre ?? org?.nombre_oficial ?? 'Publicador';
-  verificada = Boolean(org?.verificada);
+  // La ficha es pública (se ve sin sesión), así que el nombre del publicador sale del
+  // RPC `perfil_publico`: es lo único legible sin estar autenticado.
+  const pub = (await perfilesPublicos(supabase, [pet.id_publicador])).get(pet.id_publicador);
+  publicador = pub?.nombre ?? 'Publicador';
+  verificada = Boolean(pub?.verificada);
+  // Solo llegan si la organización está verificada: son datos declarados por ella.
+  sitioWeb = pub?.sitio_web ?? null;
+  redes = pub?.redes ?? null;
 }
+
+// [clave dentro de `redes`, etiqueta visible, constructor de la URL]
+const REDES: [string, string, (v: string) => string][] = [
+  ['instagram', 'Instagram', (v) => `https://instagram.com/${v.replace(/^@/, '')}`],
+  ['facebook', 'Facebook', (v) => (v.startsWith('http') ? v : `https://${v}`)],
+  ['whatsapp', 'WhatsApp', (v) => `https://wa.me/${v.replace(/[^\d]/g, '')}`],
+];
 const fecha = pet
   ? new Date(pet.fecha_publicacion).toLocaleDateString('es-PA', { day: 'numeric', month: 'short', year: 'numeric' })
   : '';
@@ -171,7 +183,7 @@ const datos = pet
                         data-dot={i}
                         aria-label={`Ir a foto ${i + 1}`}
                         class="dot-nav w-2.5 h-2.5 rounded-full"
-                        style={`background:${i === 0 ? '#FF7A29' : 'rgba(255,255,255,.75)'}`}
+                        style={`background:${i === 0 ? '#FF6B35' : 'rgba(255,255,255,.75)'}`}
                       />
                     ))}
                   </div>
@@ -245,6 +257,37 @@ const datos = pet
                 </a>
               )}
             </div>
+
+            {/* Canales de contacto declarados por una organización verificada */}
+            {verificada && (sitioWeb || Object.values(redes ?? {}).some(Boolean)) && (
+              <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-faint">Canales del refugio:</span>
+                {sitioWeb && (
+                  <a
+                    href={sitioWeb.startsWith('http') ? sitioWeb : `https://${sitioWeb}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-ghost px-3 py-1.5"
+                  >
+                    Sitio web
+                  </a>
+                )}
+                {REDES.map(([clave, etiqueta, url]) => {
+                  const valor = redes?.[clave];
+                  if (!valor) return null;
+                  return (
+                    <a
+                      href={url(valor)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="btn-ghost px-3 py-1.5"
+                    >
+                      {etiqueta}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
             <p class="text-xs mt-2 text-faint">
               El chat interno nunca muestra teléfonos personales.
             </p>
@@ -439,7 +482,7 @@ const datos = pet
       const mostrar = (n) => {
         actual = (n + slides.length) % slides.length;
         slides.forEach((s, i) => (s.style.display = i === actual ? 'block' : 'none'));
-        dots.forEach((d, i) => (d.style.background = i === actual ? '#FF7A29' : 'rgba(255,255,255,.75)'));
+        dots.forEach((d, i) => (d.style.background = i === actual ? '#FF6B35' : 'rgba(255,255,255,.75)'));
         if (counter) counter.textContent = `Foto ${actual + 1} / ${slides.length}`;
       };
       document.getElementById('prev')?.addEventListener('click', () => mostrar(actual - 1));
@@ -510,7 +553,7 @@ const datos = pet
       transform 0.15s ease;
   }
   .carousel-btn:hover {
-    background: #ff7a29;
+    background: #ff6b35;
     color: #fff;
   }
   .dot-nav {

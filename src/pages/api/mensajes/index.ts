@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { mensajeSchema } from '../../../lib/validation/message';
 import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { nombresPublicos, SIN_CUENTA } from '../../../lib/perfil';
 
 export const prerender = false;
 
@@ -59,29 +60,15 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     }
   }
 
-  // Nombres de la otra parte (personas/orgs)
+  // Nombres de la otra parte. Fase A: vienen del RPC público, no de `personas`.
   const otrasIds = [...hilos.values()].map((h) => h.otra_parte);
-  const [personas, orgs] = await Promise.all([
-    supabase
-      .from('personas')
-      .select('id,nombre')
-      .in('id', otrasIds.length ? otrasIds : ['00000000-0000-0000-0000-000000000000']),
-    supabase
-      .from('organizaciones')
-      .select('id,nombre_oficial')
-      .in('id', otrasIds.length ? otrasIds : ['00000000-0000-0000-0000-000000000000']),
-  ]);
-  const nombres = new Map<string, string>();
-  for (const p of (personas.data ?? []) as { id: string; nombre: string }[])
-    nombres.set(p.id, p.nombre);
-  for (const o of (orgs.data ?? []) as { id: string; nombre_oficial: string }[])
-    nombres.set(o.id, o.nombre_oficial);
+  const nombres = await nombresPublicos(supabase, otrasIds);
 
   const items = [...hilos.entries()].map(([key, h]) => ({
     key,
     id_mascota: h.id_mascota,
     otra_parte: h.otra_parte,
-    nombre_otra: nombres.get(h.otra_parte) ?? 'Usuario',
+    nombre_otra: nombres.get(h.otra_parte) ?? SIN_CUENTA,
     ultima: h.ultimo,
     no_leidos: h.no_leidos,
     mascota: h.mascota ? { ...h.mascota, foto: h.mascota.fotos_mascota?.[0]?.url_foto } : null,

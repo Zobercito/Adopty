@@ -72,3 +72,52 @@ export async function borrarFotosStorage(supabase: SupabaseClient, paths: string
   const objetos = paths.filter((p) => p && !p.startsWith('/') && !p.startsWith('http'));
   if (objetos.length) await supabase.storage.from('mascotas').remove(objetos);
 }
+
+const PERFIL_MAX = 300 * 1024; // ≤300 KB tras conversión
+
+/**
+ * Sube la foto de perfil al bucket `perfiles` como WebP cuadrada (512×512) ≤300KB.
+ * Devuelve la ruta relativa (`userId/uuid.webp`), nunca una URL.
+ *
+ * El bucket `mascotas` no se reutiliza: su INSERT no limita la ruta, así que
+ * cualquier autenticado podía escribir sobre la carpeta de otro.
+ */
+export async function subirFotoPerfil(
+  supabase: SupabaseClient,
+  userId: string,
+  file: File,
+): Promise<string> {
+  const buf = await validar(file);
+  // `position: 'attention'` usa el recorte central del EXIF: mismo look que las
+  // fotos de mascota sin tener que pedirle recorte manual al usuario.
+  const webp = await sharp(buf)
+    .rotate()
+    .resize(512, 512, { fit: 'cover', position: 'attention', withoutEnlargement: false })
+    .webp({ quality: 82 })
+    .toBuffer();
+  const salida =
+    webp.length <= PERFIL_MAX
+      ? webp
+      : await sharp(buf)
+          .rotate()
+          .resize(512, 512, { fit: 'cover' })
+          .webp({ quality: 60 })
+          .toBuffer();
+
+  const path = `${userId}/${crypto.randomUUID()}.webp`;
+  const { error } = await supabase.storage.from('perfiles').upload(path, salida, {
+    contentType: 'image/webp',
+    upsert: false,
+  });
+  if (error) throw new Error(`No se pudo subir tu foto: ${error.message}`);
+  return path;
+}
+
+/** Borra la foto de perfil (ignora rutas que no viven en storage). */
+export async function borrarFotoPerfilStorage(
+  supabase: SupabaseClient,
+  path: string,
+): Promise<void> {
+  if (!path || path.startsWith('/') || path.startsWith('http')) return;
+  await supabase.storage.from('perfiles').remove([path]);
+}

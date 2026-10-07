@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  borrarCuentaSchema,
+  cambiarCorreoSchema,
   cambiarPasswordSchema,
   loginSchema,
   organizacionSchema,
@@ -56,11 +58,36 @@ describe('loginSchema', () => {
 });
 
 describe('personaSchema / organizacionSchema', () => {
-  it('persona: nombre 2-80, teléfono y descripción opcionales', () => {
-    expect(personaSchema.safeParse({ nombre: 'Fran', telefono: '', descripcion: '' }).success).toBe(
+  it('persona: nombre 2-80; experiencia, motivación y descripción opcionales', () => {
+    expect(
+      personaSchema.safeParse({
+        nombre: 'Fran',
+        descripcion: '',
+        experiencia: '',
+        motivacion: '',
+      }).success,
+    ).toBe(true);
+    expect(personaSchema.safeParse({ nombre: 'F' }).success).toBe(false);
+  });
+  it('persona: el teléfono ya no forma parte del perfil', () => {
+    // Se eliminó el campo: mandarlo no debe cambiar nada ni romper la validación.
+    const r = personaSchema.safeParse({ nombre: 'Fran', telefono: '6000-0000' });
+    expect(r.success).toBe(true);
+    expect(r.data).not.toHaveProperty('telefono');
+  });
+  it('persona: experiencia solo admite los tres valores del enum', () => {
+    for (const v of ['primera_vez', 'alguna_vez', 'experimentada']) {
+      expect(personaSchema.safeParse({ nombre: 'Fran', experiencia: v }).success).toBe(true);
+    }
+    expect(personaSchema.safeParse({ nombre: 'Fran', experiencia: 'experto' }).success).toBe(false);
+  });
+  it('persona: la motivación no pasa de 300 caracteres', () => {
+    expect(personaSchema.safeParse({ nombre: 'Fran', motivacion: 'a'.repeat(300) }).success).toBe(
       true,
     );
-    expect(personaSchema.safeParse({ nombre: 'F' }).success).toBe(false);
+    expect(personaSchema.safeParse({ nombre: 'Fran', motivacion: 'a'.repeat(301) }).success).toBe(
+      false,
+    );
   });
   it('organización: exige nombre oficial y dirección, web opcional válida', () => {
     expect(
@@ -77,6 +104,36 @@ describe('personaSchema / organizacionSchema', () => {
         sitio_web: '',
       }).success,
     ).toBe(true);
+  });
+  it('organización: contacto_visible es opcional y por defecto falso', () => {
+    const r = organizacionSchema.safeParse({
+      nombre_oficial: 'Refugio',
+      direccion: 'Panamá',
+    });
+    expect(r.success).toBe(true);
+    expect(r.data?.contacto_visible).toBeUndefined();
+  });
+});
+
+describe('cambiarCorreoSchema / borrarCuentaSchema', () => {
+  it('cambio de correo: exige correo válido', () => {
+    expect(cambiarCorreoSchema.safeParse({ correo: 'nuevo@adopty.pa' }).success).toBe(true);
+    expect(cambiarCorreoSchema.safeParse({ correo: 'no-es-correo' }).success).toBe(false);
+  });
+  it('baja: contraseña y la palabra ELIMINAR son obligatorias', () => {
+    expect(borrarCuentaSchema.safeParse({ password: 'x', confirmacion: 'ELIMINAR' }).success).toBe(
+      true,
+    );
+    // toleramos minúsculas y espacios, pero no otra palabra
+    expect(
+      borrarCuentaSchema.safeParse({ password: 'x', confirmacion: ' eliminar ' }).success,
+    ).toBe(true);
+    expect(borrarCuentaSchema.safeParse({ password: 'x', confirmacion: 'borrar' }).success).toBe(
+      false,
+    );
+    expect(borrarCuentaSchema.safeParse({ password: '', confirmacion: 'ELIMINAR' }).success).toBe(
+      false,
+    );
   });
 });
 
