@@ -14,10 +14,19 @@ const oauthMsg = Astro.url.searchParams.get('msg') ?? '';
   <Navbar />
   <main class="max-w-md mx-auto px-4 mt-8">
     <div class="soft-card p-7 sm:p-8">
-      <h1 class="font-display font-extrabold text-2xl">Entrar a Adopty</h1>
-      <p class="text-sm mt-1 text-muted">
-        ¿Sin cuenta? <a href="/register" class="link">Regístrate</a>
-      </p>
+      <div class="text-center mb-6">
+        <img
+          src="/brand/adopty-logo-full-sm.png"
+          alt="Adopty"
+          width="433"
+          height="460"
+          class="h-32 w-auto mx-auto"
+        />
+        <h1 class="font-display font-extrabold text-2xl mt-3">Inicia sesión</h1>
+        <p class="text-sm mt-1 text-muted">
+          ¿Sin cuenta? <a href="/register?tipo=persona" class="link">Regístrate</a>
+        </p>
+      </div>
 
       {errorParam === 'callback' && (
         <p class="alert alert-error mt-4" role="alert">
