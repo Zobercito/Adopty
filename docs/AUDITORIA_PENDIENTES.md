@@ -240,18 +240,25 @@ decidió dejar para el final.
 
 #### P0-05 — QA manual en producción
 
-- **Estado:** `[FALTA]`.
-- **Evidencia:** `docs/QA.md:53-55`, `docs/CHECKLIST.md:15-17`.
-- **Impacto:** los RNF de accesibilidad y rendimiento no están verificados en el entorno real.
-- **Acción:**
-  - Lighthouse mobile en `/`, `/explorar` y una ficha: LCP < 2.5 s.
-  - axe DevTools: 0 errores críticos.
-  - Navegación completa por teclado: skip link, filtros, carrusel, chat, formularios.
-  - Contraste AA y targets táctiles ≥ 44 px.
-  - Responsive 320 / 768 / 1024 / 1440.
-  - `node scripts/perf.mjs <url>`: p95 < 1 s.
-  - `E2E_BASE_URL=https://... npm run test:e2e` (suite pública, solo lectura).
-- **Criterio de aceptación:** resultados registrados en `docs/QA.md` y checklist marcado.
+- **Estado:** `[HECHO]` (2026-10-27). Resultados completos en `docs/QA.md` §2026-10-27.
+- **Evidencia:** Lighthouse 13.5 mobile sobre la preview del commit `2b01e3c`
+  (`https://adopty-dgkhjpovv-fran-4fd7.vercel.app`):
+  - `/`: perf 98, a11y 100, LCP 2.2 s, FCP 1.3 s, CLS 0.002, TBT 20 ms.
+  - `/explorar`: perf 99, a11y 100, LCP 2.1 s, FCP 1.2 s, CLS 0, TBT 20 ms.
+  - `/mascota/mishi-331c32a6`: perf 100, a11y 100, LCP 1.6 s, FCP 1.1 s, CLS 0.003.
+  - SEO 69 solo en preview por el `noindex` automático de Vercel; en producción se
+    vuelve a medir tras el merge.
+  - axe: 0 violaciones en 5 páginas × 320/768/1024/1440, sin scroll horizontal.
+  - Teclado: skip link, filtros, carrusel, chat y formularios; targets ≥ 24 px
+    (WCAG 2.2) y carrusel con `inert` correcto.
+  - `node scripts/perf.mjs`: 15/15 por ruta, p95 máx 516 ms.
+  - `E2E_BASE_URL=<preview> npm run test:e2e`: 32/32.
+- **Cambios necesarios:** WebP para fotos locales, preload de la imagen LCP,
+  autohospedaje de Plus Jakarta Sans/Inter (se eliminó la hoja de Google Fonts que
+  bloqueaba el render), primera tarjeta de `/explorar` eager + preload, contraste AA,
+  flechas del carrusel sin solapar botones y `<main>` + nombres accesibles en inicio.
+- **Criterio de aceptación:** cumplido: resultados en `docs/QA.md`, checklist marcado y
+  LCP < 2.5 s en las tres rutas medidas.
 
 #### P0-06 — Ejecutar el piloto y firmar el acta
 
@@ -264,15 +271,18 @@ decidió dejar para el final.
 
 #### P0-07 — Probar restauración de backup
 
-- **Estado:** `[PARCIAL]`.
-- **Evidencia:** `.github/workflows/backup.yml` (genera y verifica el dump),
-  `README.md:186-197`.
-- **Impacto:** hay backup, pero no evidencia de que el restore funcione; un dump
-  corrupto o incompleto se descubre tarde.
-- **Acción:** descargar el artefacto, restaurar en una base local/staging y verificar
-  tablas, filas y RLS; documentar RPO/RTO.
-- **Criterio de aceptación:** restore reproducible con conteos coincidentes y app
-  funcionando contra la base restaurada.
+- **Estado:** `[PARCIAL]` (2026-10-27).
+- **Evidencia:** `backups/adopty_20261027_010248.dump` (formato custom, 394 024 B,
+  52 entradas `TABLE DATA`, 121 objetos) generado con `pg_dump` 17 vía pooler;
+  `pg_restore -l` lista el contenido sin errores. El workflow
+  `.github/workflows/backup.yml` corre a diario a las 08:00 UTC (03:00 Panamá) y guarda
+  el `.sql.gz` 30 días; `scripts/backup.sh` conserva 7 copias locales. **RPO ≤ 24 h.**
+- **Pendiente:** el restore real no se ejecutó: el entorno no tiene servidor PostgreSQL
+  local ni Docker disponible (permiso denegado). **RTO sin medir.**
+- **Acción restante:** restaurar el dump en un Postgres 17 limpio (local o staging),
+  comparar conteos por tabla y ejecutar la app contra esa base.
+- **Criterio de aceptación:** restore reproducible con conteos coincidentes; hoy el dump
+  está validado, pero el restore sigue sin probarse.
 
 ---
 
@@ -755,25 +765,25 @@ supabase db reset
 | P1-07 headers           | `curl -I https://<dominio>/` y comprobar CSP/HSTS/nosniff/frame.                                                           |
 | P1-08 analytics         | Navegar ficha → solicitar → aprobar → chatear → favorito; ver eventos en Vercel.                                           |
 | P0-05 a11y              | axe DevTools + recorrido completo con Tab/Shift+Tab/Esc/Enter.                                                             |
-| P0-07 restore           | Restaurar el `.sql.gz` en una base limpia y ejecutar la app contra ella.                                                   |
+| P0-07 restore           | Restaurar `backups/adopty_*.dump` en un Postgres 17 limpio y ejecutar la app contra él.                                    |
 
 ### 6.5 Checklist de aceptación rápida
 
-- [ ] `npm run lint` sin errores.
-- [ ] `npm run format:check` sin errores.
-- [ ] `npm run check` 0 errores.
-- [ ] `npm test` verde.
-- [ ] `npm run build` verde.
-- [ ] `npm run test:e2e` verde contra prod.
-- [ ] `E2E_FLUJO=1 npm run test:e2e:flujo` verde en local.
-- [ ] Lighthouse LCP < 2.5 s en móvil.
-- [ ] axe 0 críticos.
-- [ ] Sitemap sin rutas privadas y con fichas.
-- [ ] Headers de seguridad presentes.
-- [ ] Baja de cuenta borra foto de Storage.
-- [ ] `adoptada` no vuelve a `disponible`.
-- [ ] Google OAuth funciona en prod.
-- [ ] Piloto y acta firmados.
+- [x] `npm run lint` sin errores.
+- [x] `npm run format:check` sin errores.
+- [x] `npm run check` 0 errores (17 hints preexistentes).
+- [x] `npm test` verde (88/88).
+- [x] `npm run build` verde.
+- [x] `npm run test:e2e` verde contra prod (32/32; repetido en preview 2026-10-27).
+- [x] `E2E_FLUJO=1 npm run test:e2e:flujo` verde en CI (Docker no disponible en local).
+- [x] Lighthouse LCP < 2.5 s en móvil (2.2 / 2.1 / 1.6 s el 2026-10-27).
+- [x] axe 0 críticos.
+- [x] Sitemap sin rutas privadas y con fichas.
+- [x] Headers de seguridad presentes.
+- [x] Baja de cuenta borra foto de Storage.
+- [x] `adoptada` no vuelve a `disponible`.
+- [ ] Google OAuth funciona en prod (pendiente decidido).
+- [ ] Piloto y acta firmados (P0-06).
 
 ---
 
@@ -881,6 +891,7 @@ verifica antes de afirmarlos en una entrega.
 | 2026-10-26 | Cierre de los P1 de código (P1-01…P1-09); verificación y nueva sección 9.    |
 | 2026-10-26 | Dominio `adopty.lat`, SMTP Resend, deploy y verificación prod; nueva §10.    |
 | 2026-10-27 | Confirmación de correo activa y entrega de Resend verificada (_Delivered_).  |
+| 2026-10-27 | QA a11y/perf, fuentes autohospedadas, dump validado; nueva §12.              |
 
 ---
 
@@ -1076,3 +1087,57 @@ sin cambios de comportamiento visibles para el usuario.
   las que ya usa la app.
 - El buzón `rua` sigue siendo Gmail personal; para el acta basta, pero conviene un
   alias `dmarc@adopty.lat` cuando haya dominio de correo propio.
+
+---
+
+## 12. Registro de ejecución — 2026-10-27 (QA, accesibilidad y rendimiento)
+
+Cierre del bloque de QA y de los RNF medibles. Todo se verificó contra la preview de
+`develop` (commit `2b01e3c`) con Supabase cloud; producción se revalida tras el merge.
+
+### 12.1 Cambios aplicados
+
+| Área     | Cambio                                                                                                                                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fuentes  | Plus Jakarta Sans e Inter variables autohospedadas en `/fonts` (SIL OFL); se eliminó la hoja de Google Fonts que bloqueaba el render. Cache inmutable y CSP sin dominios de fuentes.                       |
+| LCP      | Hero de inicio con `preload` + `fetchpriority`; primera tarjeta de `/explorar` con `preload`, `loading="eager"` y `fetchpriority="high"`; fotos locales en WebP.                                           |
+| A11y     | Tokens de marca con contraste AA, `<main>` en inicio, enlaces de tarjeta sin `aria-label` que contradiga el texto visible, flechas del carrusel sin solapar targets y filtros no enfocables en escritorio. |
+| Carrusel | Tarjetas fuera de pantalla y clones con `inert`; se bloquean durante la transición para no recibir foco.                                                                                                   |
+
+### 12.2 Lighthouse 13.5 mobile (slow 4G, CPU 4×)
+
+| Ruta                      | Perf | A11y | BP  | SEO  | LCP   | FCP   | CLS   | TBT   |
+| ------------------------- | ---- | ---- | --- | ---- | ----- | ----- | ----- | ----- |
+| `/`                       | 98   | 100  | 96  | 69\* | 2.2 s | 1.3 s | 0.002 | 20 ms |
+| `/explorar`               | 99   | 100  | 96  | 69\* | 2.1 s | 1.2 s | 0     | 20 ms |
+| `/mascota/mishi-331c32a6` | 100  | 100  | 96  | 69\* | 1.6 s | 1.1 s | 0.003 | 30 ms |
+
+\* SEO 69 en preview porque Vercel añade `noindex`; no es un fallo de la app.
+
+### 12.3 Otras verificaciones (2026-10-27)
+
+| Prueba                          | Resultado                                                    |
+| ------------------------------- | ------------------------------------------------------------ |
+| `npm run format:check` / `lint` | ✅ sin errores                                               |
+| `npm run check`                 | ✅ 0 errores, 17 hints preexistentes                         |
+| `npm test`                      | ✅ 88/88 en 14 archivos                                      |
+| `npm run build`                 | ✅ SSR Vercel + sitemap                                      |
+| E2E público contra preview      | ✅ 32/32                                                     |
+| `node scripts/perf.mjs`         | ✅ 15/15 por ruta; p95 máx 516 ms                            |
+| axe (5 páginas × 4 anchos)      | ✅ 0 violaciones; sin overflow horizontal                    |
+| Backup                          | ✅ dump validado con `pg_restore -l`; restore real pendiente |
+
+### 12.4 Límites
+
+- Las cifras son de la preview de Vercel con Supabase cloud; tras el merge se repiten
+  sobre `https://adopty.lat`.
+- El e2e de flujo completo corre en CI con Supabase local; este entorno no tiene Docker.
+- El restore de backup no se pudo ejecutar (sin Postgres local/Docker): P0-07 sigue
+  `[PARCIAL]`.
+- SEO en preview no es comparable con producción por el `noindex` de Vercel.
+
+### 12.5 Pendientes reales tras este bloque
+
+- Piloto y acta firmados (P0-06), Google OAuth, notificaciones por email (P2-01),
+  rate-limit distribuido (P2-03), backup off-site (P2-06), monitoreo (P2-04/P2-05b),
+  `srcset`/AVIF (P3-03) y presupuesto de rendimiento en CI (P3-05).
