@@ -40,6 +40,8 @@ el `noindex` automático de Vercel.
 | Migración cloud                  | ✅ 22 migraciones; `rate_limits` con RLS y sin ACL para anon/authenticated |
 | Cobertura                        | ✅ 69,5 % statements / 57,3 % branches / 67,1 % functions / 73,2 % lines   |
 | axe automatizado                 | ✅ 10/10 (5 páginas × 360/1280 px)                                         |
+| RLS por REST (anon)              | ✅ `rate_limits` 401; `usuarios`/`mensajes` `[]`; `mascotas` pública       |
+| Uptime                           | ✅ `uptime.yml` manual: `/`, `/explorar`, `/login`, `/terminos` → 200      |
 | `format:check`/`lint`/`check`    | ✅ 0 errores                                                               |
 | `npm run build`                  | ✅ SSR Vercel + sitemap                                                    |
 

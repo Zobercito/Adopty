@@ -579,12 +579,12 @@ decidió dejar para el final.
 - **Criterio de aceptación:** cumplido: PR con vulnerabilidad alta falla; e2e público y
   axe corren en CI; la cobertura se reporta y rompe el job si baja del umbral.
 
-#### P2-06 — Backup fuera del artefacto de 30 días
+#### P2-06 — Backup fuera de GitHub
 
 - **Estado:** `[PARCIAL]` (2026-10-27).
 - **Evidencia:** `.github/workflows/backup.yml` sube el `.sql.gz` con retención de
-  **90 días** (máximo de GitHub) y abre un issue si el dump o la verificación fallan.
-  El restore está probado (P0-07).
+  **90 días** (verificado en el artefacto: vence 2027-01-25) y abre un issue si el dump o
+  la verificación fallan. El restore está probado (P0-07).
 - **Pendiente:** copia off-site real (S3/R2/Drive) con lifecycle y cifrado. Requiere
   credenciales y un bucket del responsable; no se implementó a medias.
 - **Criterio de aceptación:** copia off-site >30 días con restore probado. La alerta y
@@ -687,21 +687,21 @@ decidió dejar para el final.
 
 ## 4. Matriz de aceptación §13
 
-| Criterio del plan              | Estado      | Evidencia                                                              | Qué falta                                   |
-| ------------------------------ | ----------- | ---------------------------------------------------------------------- | ------------------------------------------- |
-| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local                              | Repetir a mano en prod (P0-06)              |
-| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                                                 | Revalidar tras cambios                      |
-| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                                       | E2E completo sujeto a cuota de email        |
-| Búsqueda p95 < 1 s             | `[HECHO]`   | `scripts/perf.mjs`: 15/15, p95 máx 608 ms en prod                      | —                                           |
-| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload                                    | —                                           |
-| RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol + triggers P1-10/P1-11 + restore drill P0-07 | Repetir bypass por REST tras nuevos cambios |
-| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                                           | Revisar antes de cada push                  |
-| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                                            | —                                           |
-| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                                                    | —                                           |
-| axe 0 críticos / teclado / AA  | `[HECHO]`   | 0 violaciones en 5 páginas × 4 anchos + smoke axe en CI (10/10)        | —                                           |
-| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                                       | P0-06                                       |
-| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                                                     | P0-01                                       |
-| Backup y restore               | `[HECHO]`   | dump diario RPO ≤ 24 h + restore drill 0 errores, conteos idénticos    | Copia off-site (P2-06)                      |
+| Criterio del plan              | Estado      | Evidencia                                                                                                     | Qué falta                            |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local                                                                     | Repetir a mano en prod (P0-06)       |
+| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                                                                                        | Revalidar tras cambios               |
+| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                                                                              | E2E completo sujeto a cuota de email |
+| Búsqueda p95 < 1 s             | `[HECHO]`   | `scripts/perf.mjs`: 15/15, p95 máx 608 ms en prod                                                             | —                                    |
+| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload                                                                           | —                                    |
+| RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol + triggers P1-10/P1-11 + bypass REST anon (rate_limits 401; usuarios/mensajes `[]`) | —                                    |
+| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                                                                                  | Revisar antes de cada push           |
+| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                                                                                   | —                                    |
+| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                                                                                           | —                                    |
+| axe 0 críticos / teclado / AA  | `[HECHO]`   | 0 violaciones en 5 páginas × 4 anchos + smoke axe en CI (10/10)                                               | —                                    |
+| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                                                                              | P0-06                                |
+| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                                                                                            | P0-01                                |
+| Backup y restore               | `[HECHO]`   | dump diario RPO ≤ 24 h + restore drill 0 errores, conteos idénticos                                           | Copia off-site (P2-06)               |
 
 ---
 
@@ -1221,9 +1221,9 @@ verde. El flujo e2e con escrituras y el job de CI se validan al pushear a `devel
   con CLS 0, Perf 100 y LCP 0,4/0,5 s en `/` y `/explorar`.
 - **Node 22.23.4:** Astro 7.4.2 subió el mínimo por el parche de seguridad de octubre
   2026; `engines` y CI se alinearon (PR #12). Con eso pasó Dependabot #6.
-- **Actions v7:** `checkout`, `setup-node` y `upload/download-artifact` quedaron en v7
-  (PR #13); el backup manual (run 40557334115) generó el artefacto de 74 KB con caducidad
-  a 90 días.
+- **Actions al día:** `checkout`, `setup-node` y `upload-artifact` en v7,
+  `download-artifact` en v8 y `github-script` en v9 (PR #13 y #17). Validado con corridas
+  reales: backup 40577892028 (artefacto de 74 KB, 90 días) y uptime 40577896603.
 - **TypeScript 7:** Dependabot ignorará majors de TS hasta que `@astrojs/check` acepte el
   peer (`npm ci` falla con ERESOLVE).
 - **RLS tras los últimos cambios:** con la anon key, `rate_limits` responde 401 (42501),
