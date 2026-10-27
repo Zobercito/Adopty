@@ -336,7 +336,7 @@ const spec: { val: string; label: string }[] = [
       const url = p.slug ? `/mascota/${esc(p.slug)}` : `/mascota/${esc(p.id)}`;
       const etiqueta = [edadLabel(p.edad_meses), p.sexo, p.tamano, p.ubicacion].filter(Boolean).map(esc).join(' · ');
       return `<article class="soft-card overflow-hidden card-link">
-        <a href="${url}" aria-label="Ver perfil de ${esc(p.nombre)}" class="block relative">
+        <a href="${url}" class="block relative">
           <div class="pet-photo ${gradFor(p.id)} w-full h-52">${foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)} - ${esc(p.raza)}" loading="lazy" decoding="async" width="640" height="416" class="absolute inset-0 w-full h-full object-cover" style="object-position:center" onerror="this.remove()">` : ''}${
             extra > 0
               ? `<span class="absolute bottom-3 right-3 text-xs font-bold text-white bg-ink/70 backdrop-blur px-2.5 py-1 rounded-full">+${extra} ${extra === 1 ? 'foto' : 'fotos'}</span>`
