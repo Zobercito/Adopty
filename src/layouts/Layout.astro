@@ -55,6 +55,15 @@ const canonical = new URL(rutaCanonica, base).toString();
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageAbs} />
+    <!-- La fuente del texto visible pesa 27 KB y con `swap` provoca CLS si llega
+         después del primer pintado; precargarla la adelanta al parseo del HTML. -->
+    <link
+      rel="preload"
+      href="/fonts/plus-jakarta-sans-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     {preloadImage && (
       <link
         rel="preload"
