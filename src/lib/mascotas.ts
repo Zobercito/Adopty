@@ -60,6 +60,11 @@ export function fotoUrl(path: string | null | undefined): string {
   return `${base}/storage/v1/object/public/mascotas/${path}`;
 }
 
+/** Variante WebP pregenerada para fotos locales; el resto de URLs no cambia. */
+export function fotoRender(path: string | null | undefined): string {
+  return fotoUrl(path).replace(/^(\/assets\/[^?#]+)\.(jpe?g|png)$/i, '$1.webp');
+}
+
 export function estadoLabel(estado: Estado | string): 'Disponible' | 'En proceso' | 'Adoptada' {
   return estado === 'en_proceso' ? 'En proceso' : estado === 'adoptada' ? 'Adoptada' : 'Disponible';
 }

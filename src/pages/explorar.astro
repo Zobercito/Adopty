@@ -4,7 +4,14 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import { supabaseServer } from '../lib/supabase';
-import { buscarMascotas, edadLabel, paramsFrom, type ResultadoBusqueda } from '../lib/mascotas';
+import {
+  buscarMascotas,
+  edadLabel,
+  fotoRender,
+  fotosOrdenadas,
+  paramsFrom,
+  type ResultadoBusqueda,
+} from '../lib/mascotas';
 import { afinidad, type PerfilEstilo } from '../lib/match';
 
 // Fase 3: SSR con DB (URL compartible reproduce resultados) + refetch client-side
@@ -50,6 +57,10 @@ if (enMatch && perfil && resultado) {
     .sort((a, b) => b.afinidad - a.afinidad);
 }
 
+// Primera tarjeta visible = imagen LCP: se precarga y se sirve sin lazy.
+const primera = enMatch ? matchItems[0]?.p : resultado?.items[0];
+const primeraFoto = fotoRender(fotosOrdenadas(primera?.fotos)[0]?.url_foto);
+
 const { especie = '', tamano = '', sexo = '', q = '', orden = 'recientes' } = b;
 const pagina = resultado?.page ?? 1;
 const paginacionVisible = !!resultado && resultado.totalPages > 1 && !enMatch;
@@ -70,7 +81,11 @@ const spec: { val: string; label: string }[] = [
   { val: 'otro', label: 'Otros' },
 ];
 ---
-<Layout title="Adopty — Explorar mascotas en Panamá" description="Busca perros, gatos y otras mascotas en adopción por especie, tamaño, ubicación o nombre.">
+<Layout
+  title="Adopty — Explorar mascotas en Panamá"
+  description="Busca perros, gatos y otras mascotas en adopción por especie, tamaño, ubicación o nombre."
+  preloadImage={primeraFoto || undefined}
+>
   <Navbar active="explorar" />
   {
     user && !tieneEstilo && (
@@ -104,7 +119,7 @@ const spec: { val: string; label: string }[] = [
         </div>
 
         <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-5">
-          {matchItems.map(({ p, afinidad: af }) => (
+          {matchItems.map(({ p, afinidad: af }, i) => (
             <PetCard
               id={p.id}
               nombre={p.nombre}
@@ -116,6 +131,7 @@ const spec: { val: string; label: string }[] = [
               edadLabel={edadLabel(p.edad_meses)}
               fotos={p.fotos}
               afinidad={af}
+              prioridad={i === 0}
             />
           ))}
         </div>
@@ -231,7 +247,7 @@ const spec: { val: string; label: string }[] = [
       </div>
 
       <div id="grid" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 mt-4" aria-busy="false">
-        {(resultado?.items ?? []).map((p) => (
+        {(resultado?.items ?? []).map((p, i) => (
           <PetCard
             id={p.id}
             nombre={p.nombre}
@@ -242,6 +258,7 @@ const spec: { val: string; label: string }[] = [
             estado={p.estado}
             edadLabel={edadLabel(p.edad_meses)}
             fotos={p.fotos}
+            prioridad={i === 0}
           />
         ))}
       </div>
@@ -302,7 +319,10 @@ const spec: { val: string; label: string }[] = [
     } else {
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const fotoUrl = (p) => (!p ? '' : p.startsWith('/') || p.startsWith('http') ? p : `${supabaseUrl}/storage/v1/object/public/mascotas/${p}`);
+    const fotoUrl = (p) => {
+      const u = !p ? '' : p.startsWith('/') || p.startsWith('http') ? p : `${supabaseUrl}/storage/v1/object/public/mascotas/${p}`;
+      return u.replace(/^(\/assets\/[^?#]+)\.(jpe?g|png)$/i, '$1.webp');
+    };
     const gradFor = (id) => { let n = 0; for (let i = 0; i < id.length; i++) n = (n + id.charCodeAt(i)) % 6; return `pet-grad-${n + 1}`; };
     const edadLabel = (m) => (m <= 0 ? 'Recién nacido' : m < 12 ? `${m} ${m === 1 ? 'mes' : 'meses'}` : `${Math.floor(m / 12)} ${Math.floor(m / 12) === 1 ? 'año' : 'años'}, ${m % 12 ? `${m % 12} meses` : ''}`.trim());
     const badge = (e) => {
@@ -316,7 +336,7 @@ const spec: { val: string; label: string }[] = [
       const url = p.slug ? `/mascota/${esc(p.slug)}` : `/mascota/${esc(p.id)}`;
       const etiqueta = [edadLabel(p.edad_meses), p.sexo, p.tamano, p.ubicacion].filter(Boolean).map(esc).join(' · ');
       return `<article class="soft-card overflow-hidden card-link">
-        <a href="${url}" aria-label="Ver perfil de ${esc(p.nombre)}" class="block relative">
+        <a href="${url}" class="block relative">
           <div class="pet-photo ${gradFor(p.id)} w-full h-52">${foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)} - ${esc(p.raza)}" loading="lazy" decoding="async" width="640" height="416" class="absolute inset-0 w-full h-full object-cover" style="object-position:center" onerror="this.remove()">` : ''}${
             extra > 0
               ? `<span class="absolute bottom-3 right-3 text-xs font-bold text-white bg-ink/70 backdrop-blur px-2.5 py-1 rounded-full">+${extra} ${extra === 1 ? 'foto' : 'fotos'}</span>`
@@ -456,6 +476,9 @@ const spec: { val: string; label: string }[] = [
     background: #f8fafc;
   }
   @media (min-width: 1024px) {
+    /* En escritorio el toggle no existe: sin esto el checkbox sr-only seguía
+       siendo enfocable con una etiqueta oculta (fallo de accesibilidad). */
+    #filtros-abrir,
     .barra-filtros {
       display: none;
     }
@@ -476,7 +499,7 @@ const spec: { val: string; label: string }[] = [
   }
   /* El foco del checkbox (sr-only) debe verse en la barra, no desaparecer */
   #filtros-abrir:focus-visible + .barra-filtros {
-    outline: 3px solid #00a8e8;
+    outline: 3px solid var(--color-teal);
     outline-offset: -3px;
   }
 </style>

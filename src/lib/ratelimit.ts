@@ -1,9 +1,13 @@
 /**
- * Rate-limit en memoria por (clave) — primera capa anti-abuso en API routes (Fase 7).
+ * Rate-limit por clave en API routes (Fase 7).
+ *
+ * `rateLimitDistribuido` usa la RPC atómica `consumir_rate_limit` (tabla
+ * `public.rate_limits`), compartida por todas las instancias serverless.
+ * `rateLimit` es el fallback en memoria para desarrollo o si la RPC falla.
  * Segunda capa: los límites propios de Supabase Auth (`sign_in_sign_ups`, etc.).
- * Nota: en serverless cada instancia lleva su contador; suficiente para frenar
- * abuso casual. Para producción multi-instancia se migraría a Upstash/KV.
  */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Cubeta {
   marcas: number[];
@@ -30,6 +34,32 @@ export function rateLimit(
   cubeta.marcas.push(ahora);
   if (cubetas.size > 5000) cubetas.clear();
   return { ok: true };
+}
+
+/**
+ * Límite compartido en Postgres con fallback en memoria. Fail-open deliberado:
+ * si la RPC falla, se aplica el contador local en vez de tumbar la petición.
+ */
+export async function rateLimitDistribuido(
+  supabase: SupabaseClient,
+  clave: string,
+  max: number,
+  ventanaMs: number,
+): Promise<{ ok: boolean; reintentoEn?: number }> {
+  try {
+    const { data, error } = await supabase.rpc('consumir_rate_limit', {
+      p_clave: clave,
+      p_max: max,
+      p_ventana_ms: ventanaMs,
+    });
+    if (error) return rateLimit(clave, max, ventanaMs);
+    const r = data as { ok?: unknown; reintento_en?: unknown } | null;
+    if (!r || typeof r.ok !== 'boolean') return rateLimit(clave, max, ventanaMs);
+    if (r.ok) return { ok: true };
+    return { ok: false, reintentoEn: Math.max(1, Number(r.reintento_en) || 1) };
+  } catch {
+    return rateLimit(clave, max, ventanaMs);
+  }
 }
 
 /** IP del cliente en API routes (Vercel pone x-forwarded-for). */

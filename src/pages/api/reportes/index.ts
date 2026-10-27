@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { z } from 'zod';
-import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
   // Un usuario no puede inundar la cola de moderación: 10 reportes por hora.
-  const rl = rateLimit(`reporte:${user.id}`, 10, 60 * 60_000);
+  const rl = await rateLimitDistribuido(supabase, `reporte:${user.id}`, 10, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const parsed = reporteSchema.safeParse(await request.json().catch(() => null));

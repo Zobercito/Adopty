@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import { supabaseServer } from '../lib/supabase';
-import { buscarMascotas, edadLabel, fotoUrl, gradFor, type MascotaRow, type FotoRow } from '../lib/mascotas';
+import { buscarMascotas, edadLabel, fotoRender, gradFor, type MascotaRow, type FotoRow } from '../lib/mascotas';
 import { PETS } from '../data/mockPets';
 
 type Card = {
@@ -71,7 +71,7 @@ if (!conDb) {
 
 const user = Astro.locals.user ?? null;
 
-const heroFoto = hero[0] ? fotoUrl(hero[0].fotos[0]?.url_foto) : '';
+const heroFoto = hero[0] ? fotoRender(hero[0].fotos[0]?.url_foto) : '';
 const heroGrad = hero[0] ? gradFor(hero[0].id) : 'pet-grad-1';
 
 const PASOS = [
@@ -117,9 +117,10 @@ const jsonLd = [
 ];
 ---
 
-<Layout title="Adopty — Adopta con amor en Panamá" jsonLd={jsonLd}>
+<Layout title="Adopty — Adopta con amor en Panamá" jsonLd={jsonLd} preloadImage={heroFoto}>
   <Navbar active="inicio" />
 
+  <main>
   <!-- ============ HERO ============ -->
   <section id="inicio" class="snap-sec relative overflow-hidden pt-10 pb-16 lg:pt-16 lg:pb-24">
     <div class="absolute top-0 right-0 w-96 h-96 blob-sky rounded-full -z-10 translate-x-1/3 -translate-y-1/3 blur-3xl" aria-hidden="true"></div>
@@ -131,17 +132,19 @@ const jsonLd = [
           <!-- Marca en el hero (se queda fija, no se mueve) -->
           <div id="heroLogo" class="flex items-center justify-center lg:justify-start gap-5 lg:w-full">
             <img
-              src="/brand/adopty-logo-icon-sm.png"
+              src="/brand/adopty-logo-icon-sm.webp"
               alt=""
               width="376"
               height="300"
+              loading="eager"
               class="h-24 lg:h-[13rem] w-auto shrink-0"
             />
             <img
-              src="/brand/adopty-logo-text-sm.png"
+              src="/brand/adopty-logo-text-sm.webp"
               alt="Adopty"
               width="642"
               height="180"
+              loading="eager"
               class="h-8 w-auto lg:h-auto lg:min-w-0 lg:w-full lg:flex-1 lg:object-contain lg:object-left"
             />
           </div>
@@ -181,6 +184,7 @@ const jsonLd = [
                     src={heroFoto}
                     alt={hero[0] ? `Foto de ${hero[0].nombre}` : 'Mascota en adopción'}
                     loading="eager"
+                    fetchpriority="high"
                     decoding="async"
                     width="800"
                     height="840"
@@ -374,6 +378,8 @@ const jsonLd = [
     )
   }
 
+  </main>
+
   <!-- El CTA final vive ahora dentro del pie (misma pantalla) -->
 </Layout>
 
@@ -391,6 +397,13 @@ const jsonLd = [
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
+  }
+  @media (min-width: 768px) {
+    /* Deja un carril para las flechas: si no, la flecha derecha tapa el
+       botón de favoritos de la última tarjeta (objetivo táctil < 24px). */
+    .carousel-viewport {
+      padding-inline: 3rem;
+    }
   }
   /* Con JS activo el movimiento lo controla el carrusel: sin scroll manual */
   .carousel.is-listo .carousel-viewport {
@@ -465,11 +478,13 @@ const jsonLd = [
     right: 0.25rem;
   }
   @media (min-width: 768px) {
+    /* No más de -0.75rem: el contenedor tiene 1rem de padding y un desplome
+       mayor hacía que la flecha derecha desbordara el viewport (4px). */
     .carousel-arrow--prev {
-      left: -1.25rem;
+      left: -0.75rem;
     }
     .carousel-arrow--next {
-      right: -1.25rem;
+      right: -0.75rem;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -496,14 +511,34 @@ const jsonLd = [
     for (let i = 0; i < copias; i++) {
       const clon = track.children[i].cloneNode(true);
       clon.setAttribute('aria-hidden', 'true');
+      clon.inert = true;
       clon.querySelectorAll('a, button, input').forEach((n) => n.setAttribute('tabindex', '-1'));
       track.appendChild(clon);
     }
 
     let index = 0;
     let stride = 0;
+    const viewport = root.querySelector('.carousel-viewport');
     const medir = () => {
       stride = track.children[1].offsetLeft - track.children[0].offsetLeft;
+    };
+    // Las tarjetas que quedan fuera (o a medias) no deben ser clicables ni
+    // enfocables: si no, el tabulador entra en tarjetas invisibles y una
+    // tarjeta recortada incumple el tamaño mínimo de objetivo (WCAG 2.2).
+    const sincronizarInertes = () => {
+      if (!viewport) return;
+      const vp = viewport.getBoundingClientRect();
+      for (const el of track.children) {
+        if (el.getAttribute('aria-hidden') === 'true') {
+          el.inert = true; // copias de bucle: solo decorativas
+          continue;
+        }
+        const r = el.getBoundingClientRect();
+        el.inert = !(r.left >= vp.left - 1 && r.right <= vp.right + 1);
+      }
+    };
+    const bloquearTarjetas = () => {
+      for (const el of track.children) el.inert = true;
     };
     const aplicar = (animar) => {
       if (!animar) track.style.transition = 'none';
@@ -515,7 +550,11 @@ const jsonLd = [
     };
     const ir = (i, animar = true) => {
       index = i;
+      // Durante el movimiento no hay tarjeta "segura" que pulsar: se bloquean
+      // todas y se rehabilitan las visibles al terminar la transición.
+      if (animar) bloquearTarjetas();
       aplicar(animar);
+      if (!animar) sincronizarInertes();
     };
     const siguiente = () => ir(index + 1);
     const anterior = () => {
@@ -529,14 +568,18 @@ const jsonLd = [
 
     // Al caer en la zona de copias, se vuelve sin animación al inicio real.
     track.addEventListener('transitionend', (e) => {
-      if (e.propertyName === 'transform' && index >= total) ir(0, false);
+      if (e.propertyName !== 'transform') return;
+      if (index >= total) ir(0, false);
+      sincronizarInertes();
     });
 
     medir();
     aplicar(false);
+    sincronizarInertes();
     window.addEventListener('resize', () => {
       medir();
       aplicar(false);
+      sincronizarInertes();
     });
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
-import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { cambiarCorreoSchema } from '../../../lib/validation/user';
 
 export const prerender = false;
@@ -23,7 +23,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
 
   // 5 intentos por hora: un usuario que recibe correos de confirmación no debe
   // poder usarlos para spamming.
-  const rl = rateLimit(`cambiar-email:${user.id}`, 5, 60 * 60_000);
+  const rl = await rateLimitDistribuido(supabase, `cambiar-email:${user.id}`, 5, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const body = await request.json().catch(() => null);

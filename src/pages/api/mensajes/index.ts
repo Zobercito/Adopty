@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { mensajeSchema } from '../../../lib/validation/message';
-import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { nombresPublicos, SIN_CUENTA } from '../../../lib/perfil';
 
 export const prerender = false;
@@ -94,7 +94,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
   // Anti-spam: 30 mensajes por minuto y usuario.
-  const rl = rateLimit(`mensaje:${user.id}`, 30, 60_000);
+  const rl = await rateLimitDistribuido(supabase, `mensaje:${user.id}`, 30, 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
 
   const parsed = mensajeSchema.safeParse(await request.json().catch(() => null));

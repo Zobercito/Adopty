@@ -9,6 +9,8 @@ interface Props {
   ogImage?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   noindex?: boolean;
+  /** Imagen crítica (LCP) que conviene precargar. */
+  preloadImage?: string;
 }
 const {
   title = 'Adopty — Adopta con amor en Panamá',
@@ -16,6 +18,7 @@ const {
   ogImage,
   jsonLd,
   noindex = false,
+  preloadImage,
 } = Astro.props as Props;
 
 const user = Astro.locals.user ?? null;
@@ -52,6 +55,24 @@ const canonical = new URL(rutaCanonica, base).toString();
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageAbs} />
+    <!-- La fuente del texto visible pesa 27 KB y con `swap` provoca CLS si llega
+         después del primer pintado; precargarla la adelanta al parseo del HTML. -->
+    <link
+      rel="preload"
+      href="/fonts/plus-jakarta-sans-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    {preloadImage && (
+      <link
+        rel="preload"
+        as="image"
+        href={preloadImage}
+        type={preloadImage.endsWith('.webp') ? 'image/webp' : undefined}
+        fetchpriority="high"
+      />
+    )}
     {jsonLd && <script type="application/ld+json" set:html={jsonLdSeguro(jsonLd)} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -61,13 +82,7 @@ const canonical = new URL(rutaCanonica, base).toString();
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Adopty" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#FF6B35" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="theme-color" content="#c2410c" />
     <title>{title}</title>
   </head>
   <body>
@@ -83,7 +98,7 @@ const canonical = new URL(rutaCanonica, base).toString();
           esInicio && (
             <div
               class="rounded-[2rem] p-8 sm:p-10 text-center text-white relative overflow-hidden mb-10"
-              style="background:linear-gradient(120deg,#FF6B35,#00A8E8)"
+              style="background:linear-gradient(120deg,#c2410c,#0077a8)"
             >
               <h2 class="font-display font-extrabold text-2xl sm:text-3xl">
                 ¿Listo para conocer a tu nuevo mejor amigo?
@@ -133,8 +148,8 @@ const canonical = new URL(rutaCanonica, base).toString();
             <ul class="space-y-2 text-xs text-slate-400 font-medium list-none p-0 m-0">
               <li><strong class="text-slate-300">Universidad de Panamá</strong></li>
               <li>Facultad de Informática, Electrónica y Comunicación</li>
-              <li class="pt-1 text-slate-500">Materia: Ingeniería de Software II</li>
-              <li class="text-slate-500">Francisco Gonzalez · Eira Arrocha</li>
+              <li class="pt-1 text-slate-400">Materia: Ingeniería de Software II</li>
+              <li class="text-slate-400">Francisco Gonzalez · Eira Arrocha</li>
             </ul>
           </div>
 
@@ -157,13 +172,13 @@ const canonical = new URL(rutaCanonica, base).toString();
         </div>
 
         <div
-          class="pt-8 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3"
+          class="pt-8 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3"
         >
           <p>© {anio} Adopty Panamá. Todos los derechos reservados.</p>
           <p class="flex flex-wrap items-center gap-x-4 gap-y-1 justify-center">
             <a href="/terminos" class="link-suave">Términos</a>
             <a href="/privacidad" class="link-suave">Privacidad</a>
-            <span class="text-slate-600">Diseñado con amor para salvar vidas 🐾</span>
+            <span class="text-slate-400">Diseñado con amor para salvar vidas 🐾</span>
           </p>
         </div>
       </div>

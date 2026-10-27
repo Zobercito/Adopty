@@ -2,17 +2,20 @@
 
 ## Pre-prod (hacer en orden)
 
-- [ ] `main` fusionado desde `develop`, CI verde (jobs `calidad` y `e2e`)
+- [x] `main` fusionado desde `develop`, CI verde (jobs `calidad` y `e2e`): PR #8 → `e6169b5`
 - [x] Vercel: env `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SITE_URL=https://adopty.lat`
 - [x] Supabase → Auth → URL Configuration: Site URL + Redirects (`/api/auth/callback` del dominio)
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
 - [x] Supabase → Auth: **Secure email change** activo (cambio de correo del perfil)
-- [x] Migraciones aplicadas en cloud (las 21 de `supabase/migrations/`, hasta `20261027020000`) y anotadas en `supabase_migrations.schema_migrations`
+- [x] Migraciones aplicadas en cloud (las 22 de `supabase/migrations/`, hasta `20261027030000`) y anotadas en `supabase_migrations.schema_migrations`
+- [x] Rate-limit distribuido (tabla + RPC `consumir_rate_limit`) aplicado a las mutaciones autenticadas
+- [x] CI: cobertura con umbral, e2e público, smoke de axe y presupuesto Lighthouse semanal
 - [x] Seed **limpio** en cloud: la clave `Adopty123!` ya no abre ninguna cuenta (P0-03)
 - [x] Al menos un administrador dado de alta (`docs/ADMIN.md`)
 - [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
-- [ ] `pg_dump`/CSV previo al piloto (`docs/QA.md` §4)
-- [ ] Lighthouse (LCP < 2.5 s) + axe (0 críticos) en la URL prod
+- [x] `pg_dump` previo al piloto: `backups/adopty_20261027_010248.dump` (385 KB, 52 tablas) validado con `pg_restore -l`; workflow diario (RPO ≤ 24 h) con retención de 90 días y alerta por issue
+- [x] Restore drill en PostgreSQL 17 limpio: 0 errores, conteos idénticos y RLS activa sobre la copia (RTO del restore 0,28 s)
+- [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 en prod → LCP 1.9 / 1.7 / 1.6 s; a11y 100 y axe 0
 - [x] `/terminos`, `/privacidad`, `/404`, `/500`, sitemap, robots
 - [x] `E2E_BASE_URL=<url prod> npm run test:e2e` en verde (32/32 contra `https://adopty.lat`)
 - [x] Dominio `adopty.lat` + `www` con redirect 308 y TLS
@@ -28,14 +31,16 @@
 | Preview deploy verificado      | ✅ 2026-10-26: prod `adopty.lat` con páginas/API/DB/login/guards/sitemap               |
 | Redirects preview en Supabase  | ✅ signup con `emailRedirectTo` al preview aceptado                                    |
 | Register con `emailRedirectTo` | ✅ fix deployado; E2E completo pendiente de cuota email/hora                           |
-| Búsqueda p95 < 1 s (1k)        | ✅ local 28 filas; ⏳ repetir en prod                                                  |
+| Búsqueda p95 < 1 s (1k)        | ✅ 15/15 por ruta, p95 máx 608 ms en producción (2026-10-27)                           |
+| Lighthouse LCP < 2.5 s móvil   | ✅ 1.9 s `/`, 1.7 s `/explorar`, 1.6 s ficha (Lighthouse 13.5, 2026-10-27)             |
 | Imágenes ≤ 500 KB WebP         | ✅ enforced en app y en Storage (`file_size_limit` + MIME)                             |
 | Headers de seguridad           | ✅ verificados en prod (HSTS, nosniff, XFO, referrer, permissions, CSP Report-Only)    |
-| RLS tests 100%                 | ✅ E2E por rol + 13 pruebas de bypass REST (P1-10/P1-11 y transiciones en triggers)    |
+| RLS tests 100%                 | ✅ E2E por rol + 13 pruebas de bypass REST + RLS validada en el restore drill          |
 | Sin secretos en git            | ✅ verificado                                                                          |
 | Validación server total        | ✅ Zod en todas las mutaciones                                                         |
 | Tipos TS/Astro                 | ✅ `npm run check` 0 errores, en el CI                                                 |
-| axe 0 críticos / teclado / AA  | ⏳ manual en prod                                                                      |
+| Cobertura y CI                 | ✅ Umbrales en `vitest.config.ts`, e2e público y axe en CI; Lighthouse semanal         |
+| axe 0 críticos / teclado / AA  | ✅ axe 0 en 5 páginas × 4 anchos; teclado y targets ≥ 24 px verificados (2026-10-27)   |
 | Piloto ≥5 / ≥3 / ≥1 + feedback | ⏳ `PILOTO.md` + `ACTA_ENTREGA.md`                                                     |
 | Google OAuth                   | ⏳ pendiente decidido (F8)                                                             |
 

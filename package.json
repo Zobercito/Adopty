@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.8.0",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.23.4"
   },
   "scripts": {
     "dev": "astro dev",
@@ -15,8 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:flujo": "E2E_FLUJO=1 playwright test"
+    "test:e2e:flujo": "E2E_FLUJO=1 playwright test e2e/flujo.e2e.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
@@ -24,7 +25,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.0",
     "@vercel/analytics": "^2.0.1",
-    "astro": "^7.3.4",
+    "astro": "^7.4.2",
     "sharp": "^0.35.4",
     "zod": "^4.6.7"
   },
@@ -36,12 +37,14 @@
     "esbuild": true
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.12.0",
     "prettier": "^3.9.8",
-    "supabase": "^2.117.0",
+    "supabase": "^2.122.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vitest": "^5.0.2"

@@ -78,7 +78,9 @@ jobs:
         with:
           name: adopty-backup
           path: backups/*.sql.gz
-          retention-days: 30
+          # 90 días es el máximo de GitHub; la copia off-site sigue pendiente
+          # (requiere credenciales S3/R2, ver docs/AUDITORIA_PENDIENTES.md P2-06).
+          retention-days: 90
           if-no-files-found: error
 
       - name: Resumen
@@ -121,3 +123,35 @@ jobs:
             echo "- $(wc -l < /tmp/dump.sql) líneas, $(du -h /tmp/dump.sql | cut -f1)"
             echo "- Tablas `usuarios`, `mascotas`, `solicitudes`, `personas` y `organizaciones` presentes"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Alerta visible sin depender de servicios externos: issue en el repo.
+  alertar:
+    name: Alertar si el backup falla
+    runs-on: ubuntu-latest
+    needs: [dump, verificar]
+    if: always() && (needs.dump.result == 'failure' || needs.verificar.result == 'failure')
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const titulo = 'Backup de base de datos falló';
+            const { owner, repo } = context.repo;
+            const abiertos = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'backup',
+            });
+            if (abiertos.data.some((i) => i.title === titulo)) return;
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: titulo,
+              labels: ['backup'],
+              body: [
+                'El workflow diario de backup falló.',
+                '',
+                `Ejecución: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+                '',
+                'Revisa el secreto `DATABASE_URL`, la cuota de Supabase y el estado del proyecto.',
+              ].join('\n'),
+            });
