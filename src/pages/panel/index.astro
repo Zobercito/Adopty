@@ -30,7 +30,7 @@ const stats = resumen
   : [];
 ---
 
-<Layout title="Adopty — Mi panel de publicador">
+<Layout title="Adopty — Mi panel de publicador" noindex>
   <Navbar />
   <main class="max-w-6xl mx-auto px-4 mt-6">
     <div class="flex items-start justify-between flex-wrap gap-3">
@@ -140,7 +140,9 @@ const stats = resumen
                   <select
                     id={`estado-${p.id}`}
                     data-estado={p.id}
-                    class="input-soft text-xs py-2 w-auto"
+                    disabled={p.estado === 'adoptada'}
+                    title={p.estado === 'adoptada' ? 'Una adopción confirmada es definitiva' : undefined}
+                    class="input-soft text-xs py-2 w-auto disabled:opacity-60"
                     aria-label={`Estado de ${p.nombre}`}
                   >
                     <option value="disponible" selected={p.estado === 'disponible'}>

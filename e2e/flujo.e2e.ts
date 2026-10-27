@@ -176,6 +176,20 @@ test('el publicador aprueba y la mascota pasa a en_proceso', async () => {
   expect(otra.status()).toBe(409);
 });
 
+test('una mascota adoptada es terminal', async () => {
+  const entrega = await publicador.patch(`/api/mascotas/${mascotaId}`, {
+    data: { estado: 'adoptada' },
+  });
+  expect(entrega.status(), await entrega.text()).toBe(200);
+
+  const retroceso = await publicador.patch(`/api/mascotas/${mascotaId}`, {
+    data: { estado: 'disponible' },
+  });
+  expect(retroceso.status()).toBe(409);
+  const detalle = await publicador.get(`/api/mascotas/${mascotaId}`);
+  expect(((await detalle.json()) as { estado: string }).estado).toBe('adoptada');
+});
+
 test('con la solicitud aprobada, ambos chatean y cuentan no-leídos', async () => {
   const ida = await adoptante.post('/api/mensajes', {
     data: { id_mascota: mascotaId, contenido: '¡Gracias! ¿Cuándo puedo visitarla?' },
