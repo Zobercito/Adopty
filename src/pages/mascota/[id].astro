@@ -155,6 +155,7 @@ const jsonLdPet =
   description={pet ? `${pet.nombre}: ${pet.descripcion.slice(0, 150)}` : undefined}
   ogImage={ogImage}
   jsonLd={jsonLdPet}
+  noindex={noExiste || pet?.estado !== 'disponible'}
 >
   <Navbar active="explorar" />
   <main class="max-w-6xl mx-auto px-4 mt-6 mb-4">

@@ -29,13 +29,29 @@ test.describe('páginas públicas', () => {
     expect(res?.status()).toBe(404);
   });
 
-  test('robots.txt y sitemap existen', async ({ request }) => {
+  test('canonical limpio en públicas y noindex en privadas', async ({ page }) => {
+    await page.goto('/explorar?especie=gato');
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/explorar$/);
+    await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+
+    await page.goto('/login');
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  });
+
+  test('robots.txt y sitemap estático existen', async ({ request }) => {
     expect((await request.get('/robots.txt')).ok()).toBe(true);
     const sitemap = await request.get('/sitemap-index.xml');
-    // En dev el sitemap no se genera: solo se exige en un build/deploy.
+    // En dev el sitemap estático no se genera: solo se exige en un build/deploy.
     if (!process.env.E2E_BASE_URL)
-      test.skip(sitemap.status() === 404, 'sitemap solo existe en build');
+      test.skip(sitemap.status() === 404, 'sitemap estático solo existe en build');
     expect(sitemap.ok()).toBe(true);
+  });
+
+  test('el sitemap de fichas es dinámico y responde XML', async ({ request }) => {
+    const fichas = await request.get('/sitemap-mascotas.xml');
+    expect(fichas.ok()).toBe(true);
+    expect(fichas.headers()['content-type']).toContain('xml');
+    expect(await fichas.text()).toContain('<urlset');
   });
 });
 

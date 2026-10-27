@@ -12,7 +12,7 @@ const tipo = Astro.url.searchParams.get('tipo') === 'organizacion' ? 'organizaci
 const esOrg = tipo === 'organizacion';
 ---
 
-<Layout title="Adopty — Crear cuenta">
+<Layout title="Adopty — Crear cuenta" noindex>
   <Navbar />
   <main class="max-w-md mx-auto px-4 mt-8">
     <div class="soft-card p-7 sm:p-8">

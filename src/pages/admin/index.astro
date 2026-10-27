@@ -96,7 +96,7 @@ const tabRe = (estado: EstadoReporte) => ({ href: `/admin?re=${estado}&ve=${ve}`
 const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${estado}`, activo: ve === estado });
 ---
 
-<Layout title={esAdminUser ? 'Adopty — Panel de administración' : 'Adopty — No encontrado'}>
+<Layout title={esAdminUser ? 'Adopty — Panel de administración' : 'Adopty — No encontrado'} noindex>
   <Navbar />
   <main class="max-w-5xl mx-auto px-4 mt-6 mb-8">
     {

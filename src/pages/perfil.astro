@@ -81,7 +81,7 @@ const ESTADO_VERIF: Record<string, string> = {
 const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) ?? user.email?.split('@')[0] ?? 'Usuario';
 ---
 
-<Layout title="Adopty — Mi perfil">
+<Layout title="Adopty — Mi perfil" noindex>
   <Navbar />
   <main class="max-w-xl mx-auto px-4 mt-8">
     <div class="soft-card p-6 sm:p-8">

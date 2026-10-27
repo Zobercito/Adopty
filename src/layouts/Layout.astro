@@ -8,12 +8,14 @@ interface Props {
   description?: string;
   ogImage?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
 }
 const {
   title = 'Adopty — Adopta con amor en Panamá',
   description = 'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatee y solicita sin exponer tu número.',
   ogImage,
   jsonLd,
+  noindex = false,
 } = Astro.props as Props;
 
 const user = Astro.locals.user ?? null;
@@ -23,6 +25,9 @@ const esInicio = (Astro.url.pathname.replace(/\/+$/, '') || '/') === '/';
 const base = Astro.site ?? new URL(Astro.url.origin);
 const ogImageAbs = new URL(ogImage ?? '/og-default.png', base).toString();
 const ogEsDefault = !ogImage;
+// Sin query ni hash: los filtros de /explorar no crean URLs canónicas distintas.
+const rutaCanonica = Astro.url.pathname.replace(/\/+$/, '') || '/';
+const canonical = new URL(rutaCanonica, base).toString();
 ---
 
 <!DOCTYPE html>
@@ -31,11 +36,14 @@ const ogEsDefault = !ogImage;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_PA" />
     <meta property="og:site_name" content="Adopty" />
+    <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImageAbs} />
     {ogEsDefault && <meta property="og:image:width" content="1200" />}
     {ogEsDefault && <meta property="og:image:height" content="630" />}

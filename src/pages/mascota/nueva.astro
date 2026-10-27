@@ -7,7 +7,7 @@ import PetForm from '../../components/PetForm.astro';
 if (!Astro.locals.user) return Astro.redirect('/login?next=/mascota/nueva');
 ---
 
-<Layout title="Adopty — Publicar mascota" description="Publica una mascota en adopción en Adopty.">
+<Layout title="Adopty — Publicar mascota" description="Publica una mascota en adopción en Adopty." noindex>
   <Navbar />
   <main class="max-w-3xl mx-auto px-4 mt-6">
     <div class="soft-card p-6 sm:p-8">
