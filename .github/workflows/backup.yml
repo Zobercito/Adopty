@@ -4,7 +4,7 @@ name: Backup base de datos
 # Corre cada noche a las 3:00 a. m. de Panamá (08:00 UTC) y también a mano
 # desde la pestaña Actions → "Run workflow".
 #
-# Guarda el .sql.gz como artefacto (retención 30 días). Para una copia de
+# Guarda el .sql.gz como artefacto (retención 90 días). Para una copia de
 # largo plazo fuera del repo, añade un paso con aws s3 cp (ver README).
 
 on:
@@ -74,13 +74,13 @@ jobs:
           ls -lh backups/
 
       - name: Subir artefacto
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: adopty-backup
           path: backups/*.sql.gz
-          # 90 días es el máximo de GitHub; la copia off-site sigue pendiente
-          # (requiere credenciales S3/R2, ver docs/AUDITORIA_PENDIENTES.md P2-06).
           retention-days: 90
+          # La copia off-site sigue pendiente (requiere credenciales S3/R2,
+          # ver docs/AUDITORIA_PENDIENTES.md P2-06).
           if-no-files-found: error
 
       - name: Resumen
@@ -102,7 +102,7 @@ jobs:
     needs: dump
     timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: adopty-backup
       - name: El dump debe contener esquema y datos
