@@ -4,7 +4,7 @@ audit_date: 2026-10-26
 last_update: 2026-10-26
 branch_audited: develop
 scope: adopty/
-status: vigente — nivel fácil ejecutado (ver sección 8)
+status: vigente — P1 y producción verificados (secciones 9 y 10)
 sources:
   - README.md
   - AGENTS.md
@@ -67,18 +67,18 @@ relativas a la raíz del repositorio `adopty/` salvo que se indique lo contrario
 
 ### 1.1 Ficha del proyecto
 
-| Dimensión     | Estado                                                                   |
-| ------------- | ------------------------------------------------------------------------ |
-| Stack         | Astro v7 + TypeScript strict + Tailwind v4 + Supabase + Zod + Vercel     |
-| Persistencia  | Postgres/Supabase con 19 migraciones en `supabase/migrations/`           |
-| Backend       | API routes de Astro + RPC SQL; sin service role                          |
-| Auth          | Email/contraseña + recuperación; Google OAuth codificado pero apagado    |
-| Páginas       | Aproximadamente 20 vistas `.astro` (públicas, privadas, admin, legales)  |
-| API           | 28 archivos de rutas en `src/pages/api/`                                 |
-| Tests         | 86 unitarios (14 archivos, vitest) + 2 suites Playwright                 |
-| CI            | 2 jobs (`calidad`, `e2e`) + `npm audit`; Dependabot semanal              |
-| Backups       | `pg_dump` diario por GitHub Actions, artefacto 30 días                   |
-| Estado global | Fases 0–7 completas; nivel fácil de la auditoría ejecutado el 2026-10-26 |
+| Dimensión     | Estado                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| Stack         | Astro v7 + TypeScript strict + Tailwind v4 + Supabase + Zod + Vercel                              |
+| Persistencia  | Postgres/Supabase con 20 migraciones en `supabase/migrations/`                                    |
+| Backend       | API routes de Astro + RPC SQL; sin service role                                                   |
+| Auth          | Email/contraseña + recuperación; Google OAuth codificado pero apagado                             |
+| Páginas       | Aproximadamente 20 vistas `.astro` (públicas, privadas, admin, legales)                           |
+| API           | 28 archivos de rutas en `src/pages/api/`                                                          |
+| Tests         | 86 unitarios (14 archivos, vitest) + 2 suites Playwright                                          |
+| CI            | 2 jobs (`calidad`, `e2e`) + `npm audit`; Dependabot semanal                                       |
+| Backups       | `pg_dump` diario por GitHub Actions, artefacto 30 días                                            |
+| Estado global | Fases 0–7 completas; P1 de código/config cerrados; prod en `adopty.lat`; quedan P1-10/P1-11 (RLS) |
 
 ### 1.2 Veredicto
 
@@ -91,20 +91,24 @@ piloto abierto.
 ### 1.3 Riesgos principales (ordenados)
 
 1. ~~**Open redirect** en el callback de autenticación~~ — **resuelto 2026-10-26** (P1-01).
-2. **La máquina de estados de mascota no se aplica en servidor**: una mascota
-   `adoptada` puede volver a `disponible` (P1-02, pendiente).
-3. **La foto de perfil sobrevive a la baja de cuenta** en un bucket público (P1-03,
-   pendiente).
+2. ~~**La máquina de estados de mascota no se aplica en servidor**~~ — **resuelto
+   2026-10-26** (P1-02).
+3. ~~**La foto de perfil sobrevive a la baja de cuenta**~~ — **resuelto 2026-10-26**
+   (P1-03).
 4. ~~**El service worker cachea HTML de rutas privadas**~~ — **resuelto 2026-10-26**
    (P1-04).
-5. **Sitemap publica rutas privadas** — filtrado resuelto 2026-10-26; **las fichas de
-   mascotas siguen fuera** del sitemap (P1-05b). Canonical/noindex siguen pendientes
-   (P1-06).
-6. **Sin headers de seguridad** (CSP, HSTS, etc.) (P1-07, pendiente).
-7. **Sin notificaciones por email**: una solicitud o aprobación puede pasar inadvertida
-   (P2-01, pendiente).
-8. **Sin monitoreo de errores/uptime**; el CI ya ejecuta `npm audit` y Dependabot está
-   configurado, pero faltan axe/Lighthouse (P2-04, P2-05b, P3-05).
+5. ~~**Sitemap sin fichas y con rutas privadas**~~ — **resuelto 2026-10-26** (P1-05);
+   canonical/noindex/OG también (P1-06).
+6. ~~**Sin headers de seguridad**~~ — **resuelto y verificado en producción**
+   (P1-07): HSTS, `nosniff`, frame policy, referrer, permissions y CSP Report-Only.
+7. ~~**Buckets de fotos sin límite de tamaño/MIME ni ruta del dueño**~~ — **resuelto
+   2026-10-26** (P1-09).
+8. **Dos policies siguen permitiendo saltarse reglas de negocio por REST**:
+   `solicitudes` (P1-10) y `mensajes` (P1-11). La app las respeta, pero la capa RLS no.
+9. **Sin notificaciones por email** propios de la app: una solicitud o aprobación puede
+   pasar inadvertida (P2-01, pendiente). Supabase Auth ya usa SMTP de Resend.
+10. **Sin monitoreo de errores/uptime**; el CI ya ejecuta `npm audit` y Dependabot está
+    configurado, pero faltan axe/Lighthouse (P2-04, P2-05b, P3-05).
 
 ---
 
@@ -181,21 +185,23 @@ piloto abierto.
 
 #### P0-02 — Configuración de Supabase y Vercel para producción
 
-- **Estado:** `[PARCIAL]` (documentado en checklist, no verificable desde el repo).
-- **Evidencia:** `docs/CHECKLIST.md:5-17`, `README.md:166-178`, `astro.config.mjs:11`.
-- **Impacto:** sin esto, el sitemap apunta a un dominio equivocado, los correos de
-  confirmación/recuperación fallan y el cambio de correo no funciona.
-- **Acción:**
-  - `SITE_URL` con el dominio final en Vercel.
-  - Supabase Auth → Site URL y Redirect URLs del dominio (`/api/auth/callback`).
-  - Activar **Secure email change**.
-  - Confirmar buckets `mascotas` y `perfiles` públicos.
-  - Confirmar Realtime en `mensajes`.
-  - Verificar que las 19 migraciones estén aplicadas y registradas en
+- **Estado:** `[HECHO]` (verificado 2026-10-26 contra el proyecto cloud).
+- **Evidencia:** proyecto Supabase `dvebieysgnhmimmxjwjc` (Adopty, East US Ohio) y
+  proyecto Vercel `adopty` (org `fran-4fd7`); verificación completa en §10.
+- **Configuración aplicada:**
+  - `SITE_URL=https://adopty.lat` en Vercel (Production y Preview).
+  - Auth → Site URL `https://adopty.lat`; Redirect URLs con apex, `www`, previews,
+    `localhost:4321` y `localhost:3000`.
+  - **Secure email change** activo; buckets `mascotas` y `perfiles` públicos; Realtime
+    solo en `mensajes`; 20 migraciones registradas en
     `supabase_migrations.schema_migrations`.
-  - Definir `PUBLIC_SUPABASE_URL` y `PUBLIC_SUPABASE_ANON_KEY` en Vercel.
-- **Criterio de aceptación:** checklist completo; registro con confirmación de correo,
-  recuperación, cambio de correo y chat Realtime funcionan en prod.
+  - SMTP de Resend (`smtp.resend.com:465`, remitente `no-reply@adopty.lat`), dominio
+    verificado con DKIM y DMARC.
+- **Pendiente operativo:** probar un correo real de recuperación (bandeja del usuario) y
+  decidir `mailer_autoconfirm` (hoy `true`).
+- **Criterio de aceptación:** checklist de `docs/CHECKLIST.md` al día; registro,
+  recuperación, cambio de correo y chat Realtime funcionando en prod (el flujo e2e
+  público pasó 32/32 contra `https://adopty.lat`).
 
 #### P0-03 — Limpiar el seed y rotar credenciales demo
 
@@ -280,47 +286,42 @@ piloto abierto.
 
 #### P1-02 — La máquina de estados de mascota no se aplica en servidor
 
-- **Estado:** `[FALTA]`.
+- **Estado:** `[HECHO]` (2026-10-26).
 - **Tipo:** regla de negocio.
-- **Evidencia:**
-  - `src/lib/transiciones.ts:54` define `transicionMascota`, pero no se usa en `src/`
-    (solo en tests).
-  - `src/pages/api/mascotas/[id].ts:46-56` valida con `petUpdateSchema` y actualiza
-    `estado` directamente.
-  - `src/pages/panel/index.astro:141-152` ofrece `disponible`, `en_proceso` y
-    `adoptada` sin restringir transiciones.
-- **Impacto:** una mascota `adoptada` puede volver a `disponible`; se rompe la regla
-  “`adoptada` es terminal” y la trazabilidad del historial. También se puede crear una
-  mascota directamente como `adoptada` si se envía el campo.
-- **Acción:**
-  - En `PATCH`, leer el estado actual y, si viene `estado`, validar con
-    `transicionMascota(actual, nuevo)`; responder 409 si no es válida.
-  - En `POST`, forzar `disponible` o restringir la creación a `disponible`.
-  - En `/panel`, deshabilitar/ocultar opciones inválidas.
-  - Añadir tests unitarios y un e2e de `adoptada -> disponible` rechazado.
-- **Criterio de aceptación:** todas las transiciones inválidas devuelven 409; la UI no
-  ofrece opciones imposibles; los tests existentes de `transiciones.ts` se usan también
-  en integración.
+- **Evidencia (original):** `transicionMascota` solo se usaba en tests; el `PATCH`
+  actualizaba `estado` sin mirar el actual; el `POST` aceptaba el estado entrante.
+- **Cambio:**
+  - `src/pages/api/mascotas/[id].ts` lee `id_publicador, estado` y, si el `PATCH`
+    incluye `estado`, valida con `transicionMascota(actual, nuevo)`; una transición
+    inválida responde **409** con el estado actual intacto.
+  - `src/pages/api/mascotas/index.ts` fuerza `estado: 'disponible'` al crear, incluso
+    si el cliente envía otro valor.
+  - `src/pages/panel/index.astro` y `src/components/PetForm.astro` deshabilitan el
+    selector cuando la mascota ya está `adoptada`; el formulario omite `estado` en ese
+    caso para no disparar un PATCH inválido.
+  - `e2e/flujo.e2e.ts` añade la regresión: `en_proceso → adoptada` (200) y
+    `adoptada → disponible` (409, sigue `adoptada`).
+- **Criterio de aceptación:** cumplido; los tests unitarios de `transiciones.ts`
+  (5/5) siguen verdes y el e2e cubre el caso terminal (se ejecuta en CI con Supabase
+  local).
 
 #### P1-03 — La baja de cuenta deja la foto de perfil en Storage
 
-- **Estado:** `[FALTA]`.
+- **Estado:** `[HECHO]` (2026-10-26).
 - **Tipo:** privacidad.
-- **Evidencia:** `src/pages/api/cuenta/borrar.ts:44` llama al RPC; el RPC
-  `eliminar_mi_cuenta` anula `foto_perfil` en
-  `supabase/migrations/20261006030000_cuenta.sql:124`, pero no hay
-  `storage.remove` para el bucket `perfiles` ni reutilización de
-  `borrarFotosStorage` (`src/lib/storage.ts:71`).
-- **Impacto:** el bucket es público; la URL de la foto sigue resolviendo después de la
-  baja, contradiciendo `/privacidad` (“se borran tu foto y tus textos”).
-- **Acción:**
-  - Antes del RPC, obtener la ruta de `foto_perfil` y borrar el objeto del bucket
-    `perfiles` después de una baja exitosa.
-  - Evaluar si las fotos de mascotas despublicadas también deben borrarse; si se
-    conservan por restauración/historial, documentarlo explícitamente.
-  - Añadir un helper `borrarFotoPerfil` análogo a `borrarFotosStorage`.
-- **Criterio de aceptación:** tras la baja, la URL de la foto devuelve 404; no quedan
-  objetos huérfanos en `perfiles`; la política de privacidad coincide con el comportamiento.
+- **Evidencia (original):** el RPC anulaba `personas.foto_perfil` /
+  `organizaciones.logo`, pero el objeto seguía en el bucket público `perfiles`.
+- **Cambio:** `src/pages/api/cuenta/borrar.ts` lee `tipo_usuario` y la ruta de la foto
+  (`foto_perfil` o `logo`) **antes** del RPC (después ya estaría a `NULL`); tras una
+  baja exitosa llama a `borrarFotoPerfilStorage()` y solo entonces cierra la sesión.
+  El borrado usa la política de carpeta del dueño (`auth.uid()`), por eso ocurre antes
+  de `signOut`.
+- **Decisión sobre fotos de mascotas:** las de mascotas despublicadas se conservan por
+  la restauración administrativa y el historial de adopciones; `/privacidad` habla de
+  la foto de perfil, que es la que ahora se elimina.
+- **Criterio de aceptación:** implementado y tipado; la prueba de URL 404 requiere
+  ejecutar una baja real contra Supabase (local o piloto) y queda en la lista manual
+  del §6. El `remove` es best-effort: si Storage falla, la baja lógica no se revierte.
 
 #### P1-04 — El service worker cachea HTML de rutas privadas
 
@@ -337,63 +338,61 @@ piloto abierto.
 
 #### P1-05 — Sitemap incorrecto y `robots.txt` con URL relativa
 
-- **Estado:** `[PARCIAL]` (2026-10-26): filtro y robots resueltos; falta el sitemap
-  dinámico de fichas (P1-05b).
+- **Estado:** `[HECHO]` (2026-10-26): P1-05a (filtro + robots) y P1-05b (fichas).
 - **Tipo:** SEO.
 - **Evidencia:**
   - `astro.config.mjs` filtra `/admin`, `/panel`, `/mensajes`, `/perfil`,
     `/favoritos`, `/mis-solicitudes`, `/mascota/nueva`, `/login`, `/register`,
     `/recuperar`, `/offline`, `/404` y `/500`.
-  - `src/pages/robots.txt.ts` genera el archivo con `Astro.site`; el build produce
-    `Sitemap: https://adopty-fran-4fd7.vercel.app/sitemap-index.xml`.
-  - `dist/client/sitemap-0.xml` solo contiene `/`, `/explorar`, `/privacidad` y
-    `/terminos`.
-  - El sitemap sigue sin fichas de mascotas porque son SSR (`prerender = false`).
-- **Impacto (original):** se indexaban rutas privadas y no se descubrían las fichas.
-- **Pendiente (P1-05b):** endpoint SSR que consulte Supabase (o prerender de la lista)
-  y se enlace desde `sitemap-index.xml`.
-- **Criterio de aceptación restante:** las fichas públicas aparecen en el sitemap sin
-  exponer rutas privadas.
+  - `src/pages/robots.txt.ts` genera el archivo con `Astro.site` y anuncia **dos**
+    sitemaps: el índice estático y el dinámico de fichas.
+  - `src/pages/sitemap-mascotas.xml.ts` (`prerender = false`) consulta Supabase con
+    paginación de 1000 (tope de 50 000 URLs del protocolo), filtra
+    `estado = 'disponible' AND deleted_at IS NULL`, escapa XML y cachea 1 hora.
+  - Verificado en dev: `/sitemap-mascotas.xml` responde `200 application/xml` con
+    `<urlset>` y fichas reales; `/robots.txt` muestra ambas líneas `Sitemap:`.
+- **Decisión:** el sitemap dinámico se descubre por `robots.txt` en lugar de editar el
+  índice generado por `@astrojs/sitemap`; así no se parchea salida de la integración.
+- **Criterio de aceptación:** las fichas públicas aparecen sin exponer rutas privadas.
 
 #### P1-06 — Faltan canonical, noindex y OG por defecto
 
-- **Estado:** `[FALTA]`.
+- **Estado:** `[HECHO]` (2026-10-26).
 - **Tipo:** SEO/privacidad.
-- **Evidencia:** `src/layouts/Layout.astro:27-36` define `description`, OG y Twitter,
-  pero no `canonical` ni `robots`; no se encontró `noindex` en `src/`. Solo la ficha de
-  mascota pasa `ogImage` (`src/pages/mascota/[id].astro:111-114`).
-- **Impacto:** URLs con filtros (`/explorar?especie=...`) pueden indexarse como
-  duplicados; las rutas privadas no declaran `noindex`; compartir el inicio en redes no
-  muestra imagen.
-- **Acción:**
-  - Añadir a `Layout.astro` un prop `canonical` (por defecto `Astro.site + pathname`).
-  - Para `/explorar`, canonicalizar a `/explorar` sin query o marcar filtros como
-    `noindex, follow`.
-  - Añadir prop `noindex` y aplicarlo en `/login`, `/register`, `/recuperar`, `/perfil`,
-    `/panel`, `/mensajes`, `/favoritos`, `/mis-solicitudes`, `/admin`, `/mascota/nueva`,
-    `/mascota/[id]/editar`.
-  - Crear `public/og-default.png` (1200×630) y usarlo cuando no haya `ogImage`.
-- **Criterio de aceptación:** todas las páginas tienen canonical; privadas tienen
-  `noindex`; el inicio y explorar muestran OG image al compartir.
+- **Cambio:**
+  - `src/layouts/Layout.astro` calcula `canonical` con `Astro.site + pathname`, **sin
+    query ni hash** (los filtros de `/explorar` no crean duplicados), y emite
+    `link rel="canonical"` + `og:url`.
+  - Nueva prop `noindex` que emite `noindex, follow`; se aplica a `/login`, `/register`,
+    `/recuperar`, `/perfil`, `/panel/*`, `/mensajes`, `/favoritos`,
+    `/mis-solicitudes`, `/admin`, `/mascota/nueva`, `/mascota/[id]/editar`, `/offline`,
+    `/404`, `/500` y a la ficha cuando no es pública (404 lógico o estado distinto de
+    `disponible`).
+  - El OG por defecto (`/og-default.png`) ya existía del nivel fácil.
+- **Verificación en dev:** `/login` → canonical absoluto + `noindex, follow`;
+  `/terminos` → canonical absoluto y sin `robots`.
+- **Criterio de aceptación:** cumplido; el e2e público comprueba canonical limpio en
+  `/explorar?especie=gato` y `noindex` en `/login`.
 
 #### P1-07 — Sin headers de seguridad
 
-- **Estado:** `[FALTA]`.
+- **Estado:** `[HECHO]` (2026-10-26); verificado con `curl -I` en producción.
 - **Tipo:** seguridad.
-- **Evidencia:** no existe `vercel.json`; no se encontraron `Content-Security-Policy`,
-  `Strict-Transport-Security`, `X-Frame-Options`, `Referrer-Policy` ni
-  `Permissions-Policy` en `src/` ni en configuración.
-- **Impacto:** menor defensa en profundidad contra XSS, clickjacking y filtrado de
-  referrer; HSTS depende de la configuración de Vercel/Supabase.
-- **Acción:**
-  - Añadir `vercel.json` con headers para `/(.*)` o implementarlos en middleware.
-  - Empezar con CSP en `Content-Security-Policy-Report-Only` por los scripts inline de
-    Astro; luego migrar a nonces/hashes.
-  - Incluir `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` o
-    `frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin` y
-    `Permissions-Policy` mínima.
-- **Criterio de aceptación:** headers presentes en prod; app sin errores de CSP;
-  `curl -I` muestra HSTS, nosniff y frame policy.
+- **Cambio:** `vercel.json` aplica headers a `/(.*)`:
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+  - `Content-Security-Policy-Report-Only` con `default-src 'self'`, Supabase
+    (`https://*.supabase.co`, `wss://*.supabase.co`), Google Fonts, Vercel Analytics y
+    `frame-ancestors 'none'`. Se deja en **Report-Only** por los scripts inline de
+    Astro; el objetivo siguiente es migrar a nonces/hashes y pasar a enforcing.
+- **Por qué `vercel.json`:** las páginas estáticas (`/terminos`, `/privacidad`, 404) y
+  los assets no pasan por el middleware de Astro en producción.
+- **Criterio de aceptación:** cumplido: `https://adopty.lat/` responde con HSTS,
+  `nosniff`, `X-Frame-Options: DENY`, referrer, permissions y CSP Report-Only; la app no
+  registra violaciones que rompan la UI.
 
 #### P1-08 — Analytics de embudo incompleto
 
@@ -411,6 +410,55 @@ piloto abierto.
 - **Criterio de aceptación:** los 6 eventos aparecen en Vercel Analytics; no se rompe la
   app si analytics está bloqueado. Verificado por tipos/lint; la aparición en el panel
   de Vercel requiere tráfico real.
+
+#### P1-09 — Buckets de fotos sin límite de tamaño/MIME ni carpeta del dueño
+
+- **Estado:** `[HECHO]` (2026-10-26).
+- **Tipo:** seguridad/privacidad.
+- **Evidencia (original):** `storage.buckets` no tenía `file_size_limit` ni
+  `allowed_mime_types`; la policy `storage_mascotas_insert` solo exigía bucket y
+  `authenticated`, así que un usuario con sesión podía subir archivos de cualquier
+  tamaño/tipo a la carpeta de otro. El comentario de `src/lib/storage.ts` ya lo
+  advertía para `perfiles`, pero `mascotas` seguía abierto.
+- **Cambio:** migración `20261027010000_endurecer_storage.sql`:
+  - Ambos buckets: `file_size_limit = 512000` y `allowed_mime_types = {image/webp}`.
+  - INSERT/UPDATE/DELETE de `mascotas`: `(storage.foldername(name))[1] = auth.uid()::text`.
+- **Verificación:** aplicada y registrada en cloud; consulta a `storage.buckets` y a
+  `pg_policies` confirma límites y las tres policies por carpeta.
+- **Criterio de aceptación:** una subida directa fuera de la carpeta propia o con MIME
+  distinto de WebP falla; la app sigue subiendo porque ya convierte a WebP ≤ 500 KB.
+
+#### P1-10 — RLS de `solicitudes` permite saltarse las reglas desde REST
+
+- **Estado:** `[FALTA]` (detectado en la verificación cloud del 2026-10-26).
+- **Tipo:** seguridad/regla de negocio.
+- **Evidencia:** políticas actuales `sol_insert` (`auth.uid() = id_adoptante`) y
+  `sol_update` (`adoptante` o `soy_publicador`). Con la anon key y una sesión, un
+  adoptante puede insertar una solicitud sobre una mascota `adoptada/en_proceso` o
+  duplicada (la UI/API lo impiden, pero la policy no) y puede cambiar `estado` a
+  `aprobada` sin pasar por la RPC `aprobar_solicitud`.
+- **Impacto:** se pueden crear estados imposibles y saltarse la transacción que
+  auto-rechaza al resto.
+- **Acción sugerida:** retirar INSERT/UPDATE directos y mover altas y transiciones a
+  RPC `SECURITY DEFINER` (o triggers) que validen disponibilidad, duplicado y
+  transición; conservar SELECT. Añadir e2e negativos por REST.
+- **Criterio de aceptación:** un intento directo de insertar/actualizar fuera de las
+  reglas falla; el flujo de la app sigue verde.
+
+#### P1-11 — RLS de `mensajes` permite DMs no solicitados y edición del destinatario
+
+- **Estado:** `[FALTA]` (detectado en la verificación cloud del 2026-10-26).
+- **Tipo:** privacidad/seguridad.
+- **Evidencia:** `msg_insert` solo comprueba `auth.uid() = id_emisor`; no exige una
+  solicitud aprobada ni un hilo previo. `msg_update` permite al receptor modificar
+  cualquier columna (incluido `contenido`), no solo `leido`.
+- **Impacto:** spam directo a cualquier usuario vía REST y alteración del historial por
+  la otra parte.
+- **Acción sugerida:** INSERT con `EXISTS` de solicitud `aprobada` entre emisor,
+  receptor y mascota (o hilo previo); UPDATE solo para marcar `leido` (trigger o RPC).
+  Mantener SELECT actual.
+- **Criterio de aceptación:** un tercero sin solicitud aprobada recibe 403 al insertar;
+  el receptor no puede cambiar el texto; chat y contador de no leídos siguen verdes.
 
 ---
 
@@ -564,8 +612,9 @@ piloto abierto.
 #### P4-02 — Registro de decisiones (ADR breve)
 
 - **Estado:** `[HECHO]` (2026-10-26).
-- **Evidencia:** `docs/DECISIONES.md` con 16 ADR (contexto, decisión y consecuencias),
-  incluidas las nuevas de service worker, SEO/JSON-LD, analytics y dependencias.
+- **Evidencia:** `docs/DECISIONES.md` con 19 ADR (contexto, decisión y consecuencias),
+  incluidas las nuevas de service worker, SEO/JSON-LD, analytics, dependencias, headers,
+  Storage y dominio/correo.
 - **Criterio de aceptación:** cada decisión tiene contexto y consecuencia; las
   alternativas descartadas se explican dentro de cada entrada.
 
@@ -579,32 +628,32 @@ piloto abierto.
 
 #### P4-04 — Actualizar documentos tras cerrar P0/P1
 
-- **Estado:** `[PARCIAL]` (2026-10-26): este documento, `AGENTS.md`, `README.md` y
-  `docs/DECISIONES.md` están alineados con el nivel fácil; `docs/QA.md` se actualizará
-  cuando se ejecuten los e2e y la QA manual.
+- **Estado:** `[HECHO]` (2026-10-26): este documento, `AGENTS.md`, `README.md`,
+  `docs/DECISIONES.md`, `docs/CHECKLIST.md` y `docs/QA.md` reflejan los P1, el dominio,
+  el SMTP y el endurecimiento de Storage.
 - **Acción:** al cerrar cada ítem, actualizar `docs/CHECKLIST.md`, `docs/QA.md`,
-  `README.md` y este documento (sección 8).
+  `README.md` y este documento (secciones 8, 9 y 10).
 - **Criterio de aceptación:** ningún documento promete algo que el código no hace.
 
 ---
 
 ## 4. Matriz de aceptación §13
 
-| Criterio del plan              | Estado      | Evidencia                                 | Qué falta                            |
-| ------------------------------ | ----------- | ----------------------------------------- | ------------------------------------ |
-| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local | Repetir en prod (P0-05)              |
-| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                    | Revalidar tras cambios               |
-| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`          | E2E completo sujeto a cuota de email |
-| Búsqueda p95 < 1 s             | `[PARCIAL]` | `scripts/perf.mjs`, `docs/QA.md`          | Medir en prod con datos reales       |
-| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload       | —                                    |
-| RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol                 | Mantener al añadir tablas            |
-| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`              | Revisar antes de cada push           |
-| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones               | —                                    |
-| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                       | —                                    |
-| axe 0 críticos / teclado / AA  | `[FALTA]`   | `docs/QA.md:53-55`                        | P0-05                                |
-| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                          | P0-06                                |
-| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                        | P0-01                                |
-| Backup y restore               | `[PARCIAL]` | `.github/workflows/backup.yml`            | P0-07 / P2-06                        |
+| Criterio del plan              | Estado      | Evidencia                                           | Qué falta                                    |
+| ------------------------------ | ----------- | --------------------------------------------------- | -------------------------------------------- |
+| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local           | Repetir en prod (P0-05)                      |
+| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                              | Revalidar tras cambios                       |
+| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                    | E2E completo sujeto a cuota de email         |
+| Búsqueda p95 < 1 s             | `[PARCIAL]` | `scripts/perf.mjs`, `docs/QA.md`                    | Medir en prod con datos reales               |
+| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload                 | —                                            |
+| RLS 100 %                      | `[PARCIAL]` | Migraciones + e2e por rol; todas las tablas con RLS | P1-10/P1-11 (reglas en solicitudes/mensajes) |
+| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                        | Revisar antes de cada push                   |
+| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                         | —                                            |
+| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                                 | —                                            |
+| axe 0 críticos / teclado / AA  | `[FALTA]`   | `docs/QA.md:53-55`                                  | P0-05                                        |
+| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                    | P0-06                                        |
+| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                                  | P0-01                                        |
+| Backup y restore               | `[PARCIAL]` | `.github/workflows/backup.yml`                      | P0-07 / P2-06                                |
 
 ---
 
@@ -612,14 +661,16 @@ piloto abierto.
 
 ### Fase A — Cerrar riesgos de código (1–2 días)
 
-| Orden | Ítem                                                                                         | Dependencias       |
-| ----- | -------------------------------------------------------------------------------------------- | ------------------ |
-| 1     | P0-04 (commit del trabajo) — hecho                                                           | —                  |
-| 2     | P1-01 (open redirect) — hecho                                                                | —                  |
-| 3     | P1-02 (transiciones de mascota)                                                              | —                  |
-| 4     | P1-03 (Storage en baja)                                                                      | —                  |
-| 5     | P1-04 (service worker) — hecho                                                               | —                  |
-| 6     | P1-05a + P1-06 (sitemap/canonical/noindex/OG); P1-05a y OG hechos, P1-06 y P1-05b pendientes | P0-02 (`SITE_URL`) |
+| Orden | Ítem                                                            | Dependencias       |
+| ----- | --------------------------------------------------------------- | ------------------ |
+| 1     | P0-04 (commit del trabajo) — hecho                              | —                  |
+| 2     | P1-01 (open redirect) — hecho                                   | —                  |
+| 3     | P1-02 (transiciones de mascota) — hecho                         | —                  |
+| 4     | P1-03 (Storage en baja) — hecho                                 | —                  |
+| 5     | P1-04 (service worker) — hecho                                  | —                  |
+| 6     | P1-05 + P1-06 (sitemap dinámico, canonical/noindex/OG) — hechos | P0-02 (`SITE_URL`) |
+| 7     | P1-09 (límites y policies de Storage) — hecho                   | —                  |
+| 8     | P1-10/P1-11 (RLS de solicitudes y mensajes) — pendientes        | —                  |
 
 ### Fase B — Endurecimiento (2–3 días)
 
@@ -817,6 +868,8 @@ verifica antes de afirmarlos en una entrega.
 | ---------- | ---------------------------------------------------------------------------- |
 | 2026-10-26 | Auditoría inicial: estado, hallazgos P0–P4, matriz §13, roadmap y checklist. |
 | 2026-10-26 | Cierre del nivel fácil; verificación y nueva sección 8.                      |
+| 2026-10-26 | Cierre de los P1 de código (P1-01…P1-09); verificación y nueva sección 9.    |
+| 2026-10-26 | Dominio `adopty.lat`, SMTP Resend, deploy y verificación prod; nueva §10.    |
 
 ---
 
@@ -839,7 +892,7 @@ Los ítems de nivel medio/difícil siguen en sus secciones de la parte 3.
 | P3-02  | `[HECHO]`    | JSON-LD `WebSite`/`Organization` y `Pet`/`BreadcrumbList` con escape seguro.      |
 | P3-04  | `[HECHO]`    | `src/pages/offline.astro` + fallback del service worker + e2e público.            |
 | P4-01  | `[HECHO]`    | `AGENTS.md` con reglas operativas para agentes.                                   |
-| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR.                                                  |
+| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 19; ver §9/§10).                             |
 | P4-03  | `[HECHO]`    | Tag anotado `v0.8.0`.                                                             |
 
 No se ejecutó P0-03 (rotar seed/administrador cloud) porque requiere acceso al
@@ -869,5 +922,97 @@ proyecto Supabase de producción; queda documentado como tarea operativa.
   para el flujo, Supabase local con Docker). Siguen cubiertos por el CI.
 - La preview real de OG en redes y el Rich Results Test necesitan el dominio de
   producción y tráfico real.
-- P1-05b (sitemap dinámico de fichas), P1-06 (canonical/noindex), P1-02, P1-03,
-  P1-07, P0-03 y el resto de P0/P2/P3 no forman parte de este cierre.
+- P0-03 y el resto de P0/P2/P3 no forman parte de este cierre. Los P1 se cerraron en
+  una segunda pasada; ver §9.
+
+---
+
+## 9. Registro de ejecución — 2026-10-26 (nivel P1)
+
+Segunda pasada de la auditoría: se cerraron los P1 de código/configuración
+(P1-01…P1-09). En la verificación cloud aparecieron dos huecos de RLS que se
+documentan como P1-10 y P1-11, **pendientes**. Los cambios se commitearon y se
+desplegaron en `https://adopty.lat` (ver §10).
+
+### 9.1 Ítems cerrados
+
+| ID     | Estado final | Cambio principal                                                                                   |
+| ------ | ------------ | -------------------------------------------------------------------------------------------------- |
+| P1-02  | `[HECHO]`    | Transiciones validadas en API (409), `POST` fuerza `disponible`, UI bloquea `adoptada`; e2e nuevo. |
+| P1-03  | `[HECHO]`    | La baja de cuenta borra la foto/logo de `perfiles` antes de cerrar la sesión.                      |
+| P1-05b | `[HECHO]`    | `/sitemap-mascotas.xml` SSR paginado; `robots.txt` anuncia índice + fichas.                        |
+| P1-06  | `[HECHO]`    | Canonical sin query, `og:url`, prop `noindex` en privadas y fichas no públicas.                    |
+| P1-07  | `[HECHO]`    | `vercel.json` con HSTS, nosniff, frame policy, referrer, permissions y CSP Report-Only.            |
+| P1-09  | `[HECHO]`    | Buckets a 500 KB/WebP y policies de `mascotas` por carpeta del dueño.                              |
+
+### 9.2 Verificación ejecutada
+
+| Comando / prueba                         | Resultado                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `npm run format:check`                   | ✅ pasa                                                                                           |
+| `npm run lint`                           | ✅ sin errores                                                                                    |
+| `npm run check`                          | ✅ 0 errores, 0 warnings (17 hints preexistentes de Zod/Supabase)                                 |
+| `npm test`                               | ✅ 86/86 (14 archivos)                                                                            |
+| `npm run build`                          | ✅ completa; genera sitemap estático y funciones SSR                                              |
+| `node -e JSON.parse(vercel.json)`        | ✅ JSON válido                                                                                    |
+| `curl /login` (dev)                      | ✅ canonical absoluto + `noindex, follow`                                                         |
+| `curl /terminos` (dev)                   | ✅ canonical absoluto, sin `robots`                                                               |
+| `curl /robots.txt` (dev)                 | ✅ anuncia `sitemap-index.xml` y `sitemap-mascotas.xml`                                           |
+| `curl /sitemap-mascotas.xml`             | ✅ `200 application/xml`, `<urlset>` con fichas reales                                            |
+| `npx playwright test e2e/publico.e2e.ts` | ✅ 31/32 (1 skip esperado: sitemap estático en dev); canonical, noindex y sitemap dinámico verdes |
+
+### 9.3 Límites de esta verificación
+
+- La suite e2e pública se ejecutó completa (31 pasan, 1 skip esperado: el sitemap
+  estático no se genera en dev); el flujo `flujo.e2e.ts` no se ejecutó porque exige
+  Supabase local con Docker. El caso `adoptada → disponible` (409) queda cubierto por
+  el CI.
+- Los headers de P1-07 solo se aplican en Vercel; en `astro dev` no se ven. Ya se
+  verificaron con `curl -I` en producción (§10).
+- La baja real de una cuenta con foto no se ejecutó contra Supabase; el flujo lógico
+  está cubierto por tipos y por las políticas de Storage, pero la comprobación de que
+  la URL devuelve 404 es manual.
+- El build avisa que Node 26 local no es soportado por Vercel Functions (usará Node
+  24). Es preexistente y no afecta al artefacto.
+
+---
+
+## 10. Producción — dominio, correo y verificación (2026-10-26)
+
+### 10.1 Infraestructura activa
+
+| Pieza       | Estado                                                                                   |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| App         | Vercel proyecto `adopty`, prod **https://adopty.lat** (alias del deploy de `main`)       |
+| `www`       | `www.adopty.lat` con redirect 308 al apex (`vercel.json`)                                |
+| TLS         | Let's Encrypt automático (apex y `www`)                                                  |
+| DNS         | GoDaddy: A `@` → `216.198.79.1` y `64.29.17.1`; CNAME `www` → Vercel                     |
+| Supabase    | `dvebieysgnhmimmxjwjc` (Ohio); 20 migraciones registradas; RLS en las 13 tablas          |
+| Auth URLs   | Site URL apex; redirects para apex, `www`, previews y `localhost`                        |
+| Correo Auth | Resend SMTP (`smtp.resend.com:465`, `no-reply@adopty.lat`), DKIM + DMARC `p=none`        |
+| Storage     | Buckets públicos `mascotas`/`perfiles`, 500 KB, solo `image/webp`, escritura por carpeta |
+| Realtime    | Solo tabla `mensajes`                                                                    |
+
+### 10.2 Verificación ejecutada en producción
+
+| Prueba                                             | Resultado                                                                           |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `curl -I https://adopty.lat/`                      | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions, CSP Report-Only |
+| `curl -I https://www.adopty.lat/`                  | ✅ redirige al apex; canonical apunta al apex                                       |
+| Canonical en `/` y `/explorar?especie=gato`        | ✅ absoluto y sin query                                                             |
+| `noindex` en `/login`                              | ✅ `noindex, follow`                                                                |
+| `/sitemap-mascotas.xml`                            | ✅ `200 application/xml` con fichas reales; `robots.txt` anuncia ambos sitemaps     |
+| `E2E_BASE_URL=https://adopty.lat npm run test:e2e` | ✅ 32/32                                                                            |
+| `storage.buckets` / `pg_policies`                  | ✅ límites 512 000 + `{image/webp}`; policies por `auth.uid()`                      |
+
+### 10.3 Pendientes operativos de este bloque
+
+- **Probar entrega real de correo** con `/recuperar` y confirmar _Delivered_ en Resend
+  (requiere acceso a la bandeja del destinatario).
+- **Decidir `mailer_autoconfirm`** (hoy `true`, sesión inmediata). Con confirmación
+  activa, el alta depende de la cuota de correo.
+- **Modelo de moderación P2-02** y revisión del buzón `rua` de DMARC (hoy Gmail
+  personal).
+- **P0-03**: las cuentas demo con clave conocida siguen en cloud; rotarlas antes del
+  piloto abierto.
+- Repetir Lighthouse/axe y la búsqueda p95 con datos de producción (P0-05, P3-05).

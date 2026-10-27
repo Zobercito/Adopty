@@ -1,5 +1,35 @@
 # Informe QA — Adopty
 
+## Actualización 2026-10-26 — producción en `adopty.lat`
+
+Entorno: **https://adopty.lat** (Vercel) + Supabase cloud `dvebieysgnhmimmxjwjc`.
+
+| Capa / prueba                         | Resultado                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| Unitarios (vitest)                    | ✅ 86/86 en 14 archivos                                                              |
+| Tipos (`astro check`)                 | ✅ 0 errores                                                                         |
+| Build (`npm run build`)               | ✅ completo (SSR Vercel + sitemap estático)                                          |
+| E2E público contra prod               | ✅ 32/32 (`E2E_BASE_URL=https://adopty.lat npm run test:e2e`)                        |
+| Headers de seguridad                  | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions y CSP Report-Only |
+| Canonical / `noindex` / sitemap       | ✅ canonical sin query, privadas `noindex`, fichas en `/sitemap-mascotas.xml`        |
+| Dominio y TLS                         | ✅ apex y `www` con Let's Encrypt; `www` redirige 308 al apex                        |
+| Storage                               | ✅ buckets 500 KB + `image/webp`; escritura limitada a `auth.uid()`                  |
+| Correo Auth (Resend SMTP)             | ✅ configurado y dominio verificado; ⏳ falta confirmar un envío real (_Delivered_)  |
+| Búsqueda p95 < 1 s / Lighthouse / axe | ⏳ pendientes en prod (P0-05, P3-05)                                                 |
+| E2E de flujo completo (escritura)     | ✅ en CI con Supabase local; ⏳ repetir en prod tras el piloto                       |
+
+**Hallazgos abiertos detectados al verificar RLS en cloud:** P1-10 (un adoptante puede
+insertar/actualizar solicitudes por REST saltándose disponibilidad y transiciones) y
+P1-11 (mensajes directos sin solicitud aprobada y edición del contenido por el
+receptor). La app respeta las reglas; la policy no. Ver
+`docs/AUDITORIA_PENDIENTES.md` §3.2.
+
+**Operación pendiente:** rotar las cuentas demo con clave conocida (P0-03), decidir
+`mailer_autoconfirm`, revisar el buzón `rua` de DMARC y ejecutar un `pg_dump` antes
+del piloto.
+
+---
+
 ## Actualización 2026-10-14
 
 Rama `develop`. Comandos: `npm run lint`, `npm run format:check`, `npm run check`,

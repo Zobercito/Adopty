@@ -38,9 +38,10 @@ Las tareas pendientes derivadas viven en `docs/AUDITORIA_PENDIENTES.md`.
   ejecuta con `eliminar_mi_cuenta`: anonimiza nombre y textos, despublica mascotas
   disponibles, cancela solicitudes pendientes y conserva mensajes. Se bloquea si
   hay una adopción aprobada sin resolver.
-- **Consecuencias:** no se liberan de inmediato los objetos de Storage de la foto
-  de perfil (pendiente P1-03); las sesiones abiertas se cortan en la siguiente
-  petición.
+- **Consecuencias:** la API guarda la ruta de la foto/logo antes del RPC y borra el
+  objeto de `perfiles` antes de cerrar la sesión (la política de Storage exige seguir
+  autenticado). Las fotos de mascotas se conservan por restauración/historial. Las
+  sesiones abiertas se cortan en la siguiente petición.
 
 ## ADR-004 — Privacidad de perfiles mediante RPC
 
@@ -140,13 +141,17 @@ Las tareas pendientes derivadas viven en `docs/AUDITORIA_PENDIENTES.md`.
 - **Fecha:** 2026-10-26.
 - **Estado:** aceptada.
 - **Contexto:** compartir el inicio no mostraba imagen, no había datos
-  estructurados y el sitemap incluía rutas privadas.
+  estructurados, el sitemap incluía rutas privadas y las fichas SSR no aparecían.
 - **Decisión:** `Layout.astro` usa `/og-default.png` (1200×630) cuando la página no
   pasa una imagen; acepta JSON-LD serializado con escape seguro; el inicio declara
-  `WebSite`/`Organization` y la ficha `Pet`/`BreadcrumbList`. El sitemap excluye
-  rutas privadas y `robots.txt` se genera desde `Astro.site`.
-- **Consecuencias:** las fichas SSR todavía no aparecen en el sitemap (P1-05b).
-  Los campos JSON-LD deben ser públicos y no incluir PII.
+  `WebSite`/`Organization` y la ficha `Pet`/`BreadcrumbList`. El sitemap estático
+  excluye rutas privadas y `robots.txt` anuncia el índice más
+  `/sitemap-mascotas.xml`, un endpoint SSR paginado que lista solo mascotas
+  `disponible` no borradas. `Layout.astro` emite canonical sin query/hash y `noindex,
+follow` en páginas privadas o fichas no públicas.
+- **Consecuencias:** el sitemap dinámico se descubre por `robots.txt` y no se parchea
+  la salida de `@astrojs/sitemap`; se cachea 1 hora. Los campos JSON-LD deben ser
+  públicos y no incluir PII.
 
 ## ADR-013 — Analytics de embudo con Vercel Analytics
 
@@ -195,3 +200,48 @@ Las tareas pendientes derivadas viven en `docs/AUDITORIA_PENDIENTES.md`.
   con verificación de integridad y retención de 30 días en Actions.
 - **Consecuencias:** la retención es limitada y depende de GitHub; para producción
   real, mover a almacenamiento off-site con cifrado y alertas (P2-06).
+
+## ADR-017 — Headers de seguridad en Vercel con CSP en Report-Only
+
+- **Fecha:** 2026-10-26.
+- **Estado:** aceptada.
+- **Contexto:** faltaban HSTS, `nosniff`, frame policy, referrer y CSP. Las páginas
+  estáticas y los assets no pasan por el middleware de Astro en producción.
+- **Decisión:** `vercel.json` aplica los headers a `/(.*)`. La CSP se emite como
+  `Content-Security-Policy-Report-Only` con orígenes explícitos para Supabase,
+  Google Fonts y Vercel Analytics; Astro usa scripts inline, así que endurecerla
+  exige nonces/hashes.
+- **Consecuencias:** la protección contra clickjacking/MIME sniffing/referrer es
+  efectiva desde el deploy; la CSP solo reporta en consola por ahora. Pasar a
+  enforcing cuando se migre a nonces y se valide en un preview. No mover estos
+  headers al middleware: dejaría sin cobertura los archivos estáticos.
+
+## ADR-018 — Límites de Storage y escritura por carpeta del dueño
+
+- **Fecha:** 2026-10-26.
+- **Estado:** aceptada.
+- **Contexto:** la conversión a WebP ≤ 500 KB ocurre en el servidor, pero el bucket
+  `mascotas` aceptaba subidas directas: sin `file_size_limit`, sin
+  `allowed_mime_types` y con una policy que no comprobaba la carpeta del usuario.
+- **Decisión:** migración `20261027010000_endurecer_storage.sql`: ambos buckets de
+  fotos limitados a 512 000 bytes y `image/webp`; INSERT/UPDATE/DELETE de
+  `mascotas` exigen `(storage.foldername(name))[1] = auth.uid()::text`. La app no
+  cambia porque `src/lib/storage.ts` ya sube WebP y usa `userId/uuid.webp`.
+- **Consecuencias:** la defensa en profundidad no depende de la UI ni de la API.
+  Queda una defensa en Storage para `perfiles` ya existente desde su creación; si se
+  añade otro bucket de usuario, replicar el patrón de carpeta y límites.
+
+## ADR-019 — Dominio propio y correo transaccional con Resend
+
+- **Fecha:** 2026-10-26.
+- **Estado:** aceptada.
+- **Contexto:** el SMTP integrado de Supabase limita a 2 correos/hora, insuficiente
+  para registro y recuperación, y `SITE_URL` apuntaba a la URL de Vercel.
+- **Decisión:** dominio `adopty.lat` en Vercel (apex + `www` con redirect 308 al
+  apex, TLS de Let's Encrypt) y DNS en GoDaddy (A/CNAME de Vercel; registros de
+  Resend intactos). Supabase Auth usa SMTP de Resend con remitente
+  `no-reply@adopty.lat`; DKIM y DMARC (`p=none`) quedan configurados en GoDaddy.
+- **Consecuencias:** `SITE_URL=https://adopty.lat` fija canónicas, sitemap y enlaces
+  de Auth. El DNS sigue en GoDaddy (no se delega a Vercel) para no tocar los
+  registros de Resend. Revisar el `rua` de DMARC y endurecer la política cuando haya
+  buzón de operación.

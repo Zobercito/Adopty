@@ -80,8 +80,7 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
 ## Flujo de trabajo
 
 1. Lee `docs/AUDITORIA_PENDIENTES.md` y el código afectado antes de editar.
-2. Verifica el estado de Git; hay trabajo previo sin commitear que no debes
-   descartar.
+2. Verifica el estado de Git; no descartes cambios ajenos sin revisarlos.
 3. Haz cambios pequeños y enfocados; añade o ajusta tests unitarios/e2e.
 4. Ejecuta la verificación completa del apartado anterior.
 5. Actualiza la documentación afectada (`README.md`, `docs/…`, este archivo).
@@ -95,12 +94,23 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
 - El chat exige solicitud `aprobada`; el publicador elige destinatario si hay más
   de uno.
 - La baja de cuenta se bloquea con una adopción aprobada sin resolver; los
-  mensajes se conservan y el nombre se anonimiza.
+  mensajes se conservan y el nombre se anonimiza. La foto/logo del bucket
+  `perfiles` se borra antes de cerrar la sesión (la policy exige `auth.uid()`).
+- El estado `adoptada` de una mascota es terminal: la API devuelve 409 y la UI
+  deshabilita el selector. No añadir atajos que lo reabran.
 - El rate-limit actual es en memoria y no se comparte entre instancias.
 - El service worker debe ignorar `/api`, `/panel`, `/admin`, `/perfil`,
   `/mensajes`, `/favoritos`, `/mis-solicitudes` y cualquier navegación privada.
 - `SITE_URL` define el dominio del sitemap y de los metadatos absolutos; en local
-  se usa el fallback de `astro.config.mjs`.
+  se usa el fallback de `astro.config.mjs`. El sitemap de fichas es SSR
+  (`/sitemap-mascotas.xml`) y se descubre por `robots.txt`.
+- Los headers de seguridad viven en `vercel.json` para cubrir también estáticos y
+  assets; no los muevas al middleware. La CSP está en Report-Only.
+- Producción es `https://adopty.lat`; `www` redirige 308 al apex. El correo de Auth
+  sale por Resend (`no-reply@adopty.lat`), no por el SMTP integrado de Supabase.
+- La app valida disponibilidad/transiciones, pero las policies de `solicitudes`
+  (P1-10) y `mensajes` (P1-11) todavía permiten saltárselas con REST directo. No
+  asumas que RLS cubre esas reglas hasta que se cierren.
 
 ## Documentos de referencia
 
