@@ -2,24 +2,25 @@
 
 ## Actualización 2026-10-27 — accesibilidad y rendimiento
 
-Entorno: preview de `develop` commit `2b01e3c`
-(`https://adopty-dgkhjpovv-fran-4fd7.vercel.app`) con Supabase cloud.
+Entorno: **https://adopty.lat** (producción, merge `e6169b5`) con Supabase cloud.
 Lighthouse 13.5 mobile (slow 4G simulado, CPU 4×):
 
-| Ruta                      | Perf | A11y | BP  | SEO  | LCP   | FCP   | CLS   | TBT   |
-| ------------------------- | ---- | ---- | --- | ---- | ----- | ----- | ----- | ----- |
-| `/`                       | 98   | 100  | 96  | 69\* | 2.2 s | 1.3 s | 0.002 | 20 ms |
-| `/explorar`               | 99   | 100  | 96  | 69\* | 2.1 s | 1.2 s | 0     | 20 ms |
-| `/mascota/mishi-331c32a6` | 100  | 100  | 96  | 69\* | 1.6 s | 1.1 s | 0.003 | 30 ms |
+| Ruta                      | Perf | A11y | BP  | SEO | LCP   | FCP   | CLS   | TBT   |
+| ------------------------- | ---- | ---- | --- | --- | ----- | ----- | ----- | ----- |
+| `/`                       | 99   | 100  | 96  | 100 | 1.9 s | 1.3 s | 0.002 | 0 ms  |
+| `/explorar`               | 100  | 100  | 96  | 100 | 1.7 s | 1.1 s | 0     | 20 ms |
+| `/mascota/mishi-331c32a6` | 100  | 100  | 96  | 100 | 1.6 s | 1.0 s | 0.003 | 10 ms |
 
-\* SEO 69 solo en preview por el `noindex` automático de Vercel; se revalida en prod.
+La preview previa al merge (commit `2b01e3c`) dio LCP 2.2 / 2.1 / 1.6 s y SEO 69 por
+el `noindex` automático de Vercel.
 
 - **axe:** 0 violaciones en `/`, `/explorar`, `/login`, `/register` y una ficha ×
   320/768/1024/1440; sin scroll horizontal.
 - **Teclado:** skip link, filtros, carrusel, chat y formularios; targets ≥ 24 px
   (WCAG 2.2) y tarjetas fuera de pantalla con `inert`.
-- **Búsqueda:** `node scripts/perf.mjs` 15/15 por ruta, p95 máx 516 ms.
-- **E2E público contra preview:** 32/32.
+- **Búsqueda:** `node scripts/perf.mjs https://adopty.lat` 15/15 por ruta, p95 máx
+  608 ms.
+- **E2E público contra producción:** 32/32.
 - **Unitarios:** 88/88 en 14 archivos.
 - **Cambios:** fuentes autohospedadas (se eliminó la hoja de Google Fonts que bloqueaba
   el render), WebP + preload del LCP, primera tarjeta de `/explorar` eager, contraste
@@ -48,7 +49,7 @@ Entorno: **https://adopty.lat** (Vercel) + Supabase cloud `dvebieysgnhmimmxjwjc`
 | Storage                           | ✅ buckets 500 KB + `image/webp`; escritura limitada a `auth.uid()`                        |
 | Correo Auth (Resend SMTP)         | ✅ confirmación y recuperación _Delivered_; plantillas en español; alta confirmada en 30 s |
 | Logout                            | ✅ visible en navbar de escritorio, menú móvil y pestaña Cuenta del perfil                 |
-| Búsqueda p95 / Lighthouse / axe   | ✅ 2026-10-27: p95 516 ms máx; LCP 2.2/2.1/1.6 s; axe 0 (ver arriba)                       |
+| Búsqueda p95 / Lighthouse / axe   | ✅ 2026-10-27 en prod: p95 608 ms máx; LCP 1.9/1.7/1.6 s; axe 0 (ver arriba)               |
 | E2E de flujo completo (escritura) | ✅ en CI con Supabase local; ⏳ repetir en prod tras el piloto                             |
 
 **RLS cerrado el 2026-10-27:** P1-10 y P1-11 se corrigieron con la migración

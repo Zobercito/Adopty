@@ -2,7 +2,7 @@
 
 ## Pre-prod (hacer en orden)
 
-- [ ] `main` fusionado desde `develop`, CI verde (jobs `calidad` y `e2e`)
+- [x] `main` fusionado desde `develop`, CI verde (jobs `calidad` y `e2e`): PR #8 → `e6169b5`
 - [x] Vercel: env `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SITE_URL=https://adopty.lat`
 - [x] Supabase → Auth → URL Configuration: Site URL + Redirects (`/api/auth/callback` del dominio)
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
@@ -12,7 +12,7 @@
 - [x] Al menos un administrador dado de alta (`docs/ADMIN.md`)
 - [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
 - [x] `pg_dump` previo al piloto: `backups/adopty_20261027_010248.dump` (385 KB, 52 tablas) validado con `pg_restore -l`; workflow diario (RPO ≤ 24 h)
-- [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 → LCP 2.2 / 2.1 / 1.6 s; a11y 100 y axe 0
+- [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 en prod → LCP 1.9 / 1.7 / 1.6 s; a11y 100 y axe 0
 - [x] `/terminos`, `/privacidad`, `/404`, `/500`, sitemap, robots
 - [x] `E2E_BASE_URL=<url prod> npm run test:e2e` en verde (32/32 contra `https://adopty.lat`)
 - [x] Dominio `adopty.lat` + `www` con redirect 308 y TLS
@@ -28,8 +28,8 @@
 | Preview deploy verificado      | ✅ 2026-10-26: prod `adopty.lat` con páginas/API/DB/login/guards/sitemap               |
 | Redirects preview en Supabase  | ✅ signup con `emailRedirectTo` al preview aceptado                                    |
 | Register con `emailRedirectTo` | ✅ fix deployado; E2E completo pendiente de cuota email/hora                           |
-| Búsqueda p95 < 1 s (1k)        | ✅ 15/15 por ruta, p95 máx 516 ms en preview (2026-10-27)                              |
-| Lighthouse LCP < 2.5 s móvil   | ✅ 2.2 s `/`, 2.1 s `/explorar`, 1.6 s ficha (Lighthouse 13.5, 2026-10-27)             |
+| Búsqueda p95 < 1 s (1k)        | ✅ 15/15 por ruta, p95 máx 608 ms en producción (2026-10-27)                           |
+| Lighthouse LCP < 2.5 s móvil   | ✅ 1.9 s `/`, 1.7 s `/explorar`, 1.6 s ficha (Lighthouse 13.5, 2026-10-27)             |
 | Imágenes ≤ 500 KB WebP         | ✅ enforced en app y en Storage (`file_size_limit` + MIME)                             |
 | Headers de seguridad           | ✅ verificados en prod (HSTS, nosniff, XFO, referrer, permissions, CSP Report-Only)    |
 | RLS tests 100%                 | ✅ E2E por rol + 13 pruebas de bypass REST (P1-10/P1-11 y transiciones en triggers)    |

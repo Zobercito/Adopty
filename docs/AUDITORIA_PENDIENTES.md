@@ -241,18 +241,20 @@ decidió dejar para el final.
 #### P0-05 — QA manual en producción
 
 - **Estado:** `[HECHO]` (2026-10-27). Resultados completos en `docs/QA.md` §2026-10-27.
-- **Evidencia:** Lighthouse 13.5 mobile sobre la preview del commit `2b01e3c`
-  (`https://adopty-dgkhjpovv-fran-4fd7.vercel.app`):
-  - `/`: perf 98, a11y 100, LCP 2.2 s, FCP 1.3 s, CLS 0.002, TBT 20 ms.
-  - `/explorar`: perf 99, a11y 100, LCP 2.1 s, FCP 1.2 s, CLS 0, TBT 20 ms.
-  - `/mascota/mishi-331c32a6`: perf 100, a11y 100, LCP 1.6 s, FCP 1.1 s, CLS 0.003.
-  - SEO 69 solo en preview por el `noindex` automático de Vercel; en producción se
-    vuelve a medir tras el merge.
+- **Evidencia:** Lighthouse 13.5 mobile en producción (`https://adopty.lat`,
+  2026-10-27):
+  - `/`: perf 99, a11y 100, BP 96, SEO 100, LCP 1.9 s, FCP 1.3 s, CLS 0.002, TBT 0 ms.
+  - `/explorar`: perf 100, a11y 100, BP 96, SEO 100, LCP 1.7 s, FCP 1.1 s, CLS 0,
+    TBT 20 ms.
+  - `/mascota/mishi-331c32a6`: perf 100, a11y 100, BP 96, SEO 100, LCP 1.6 s,
+    FCP 1.0 s, CLS 0.003, TBT 10 ms.
+  - Antes del merge, la preview del commit `2b01e3c` daba LCP 2.2 / 2.1 / 1.6 s y
+    SEO 69 por el `noindex` automático de Vercel.
   - axe: 0 violaciones en 5 páginas × 320/768/1024/1440, sin scroll horizontal.
   - Teclado: skip link, filtros, carrusel, chat y formularios; targets ≥ 24 px
     (WCAG 2.2) y carrusel con `inert` correcto.
-  - `node scripts/perf.mjs`: 15/15 por ruta, p95 máx 516 ms.
-  - `E2E_BASE_URL=<preview> npm run test:e2e`: 32/32.
+  - `node scripts/perf.mjs https://adopty.lat`: 15/15 por ruta, p95 máx 608 ms.
+  - `E2E_BASE_URL=https://adopty.lat npm run test:e2e`: 32/32.
 - **Cambios necesarios:** WebP para fotos locales, preload de la imagen LCP,
   autohospedaje de Plus Jakarta Sans/Inter (se eliminó la hoja de Google Fonts que
   bloqueaba el render), primera tarjeta de `/explorar` eager + preload, contraste AA,
@@ -774,9 +776,9 @@ supabase db reset
 - [x] `npm run check` 0 errores (17 hints preexistentes).
 - [x] `npm test` verde (88/88).
 - [x] `npm run build` verde.
-- [x] `npm run test:e2e` verde contra prod (32/32; repetido en preview 2026-10-27).
+- [x] `npm run test:e2e` verde contra prod (32/32 el 2026-10-27).
 - [x] `E2E_FLUJO=1 npm run test:e2e:flujo` verde en CI (Docker no disponible en local).
-- [x] Lighthouse LCP < 2.5 s en móvil (2.2 / 2.1 / 1.6 s el 2026-10-27).
+- [x] Lighthouse LCP < 2.5 s en móvil (1.9 / 1.7 / 1.6 s en prod el 2026-10-27).
 - [x] axe 0 críticos.
 - [x] Sitemap sin rutas privadas y con fichas.
 - [x] Headers de seguridad presentes.
@@ -1092,8 +1094,9 @@ sin cambios de comportamiento visibles para el usuario.
 
 ## 12. Registro de ejecución — 2026-10-27 (QA, accesibilidad y rendimiento)
 
-Cierre del bloque de QA y de los RNF medibles. Todo se verificó contra la preview de
-`develop` (commit `2b01e3c`) con Supabase cloud; producción se revalida tras el merge.
+Cierre del bloque de QA y de los RNF medibles. Se verificó en producción
+(`https://adopty.lat`, merge `e6169b5`) con Supabase cloud; la preview previa del
+commit `2b01e3c` sirvió para ajustar antes del merge.
 
 ### 12.1 Cambios aplicados
 
@@ -1106,13 +1109,13 @@ Cierre del bloque de QA y de los RNF medibles. Todo se verificó contra la previ
 
 ### 12.2 Lighthouse 13.5 mobile (slow 4G, CPU 4×)
 
-| Ruta                      | Perf | A11y | BP  | SEO  | LCP   | FCP   | CLS   | TBT   |
-| ------------------------- | ---- | ---- | --- | ---- | ----- | ----- | ----- | ----- |
-| `/`                       | 98   | 100  | 96  | 69\* | 2.2 s | 1.3 s | 0.002 | 20 ms |
-| `/explorar`               | 99   | 100  | 96  | 69\* | 2.1 s | 1.2 s | 0     | 20 ms |
-| `/mascota/mishi-331c32a6` | 100  | 100  | 96  | 69\* | 1.6 s | 1.1 s | 0.003 | 30 ms |
+| Ruta                      | Perf | A11y | BP  | SEO | LCP   | FCP   | CLS   | TBT   |
+| ------------------------- | ---- | ---- | --- | --- | ----- | ----- | ----- | ----- |
+| `/`                       | 99   | 100  | 96  | 100 | 1.9 s | 1.3 s | 0.002 | 0 ms  |
+| `/explorar`               | 100  | 100  | 96  | 100 | 1.7 s | 1.1 s | 0     | 20 ms |
+| `/mascota/mishi-331c32a6` | 100  | 100  | 96  | 100 | 1.6 s | 1.0 s | 0.003 | 10 ms |
 
-\* SEO 69 en preview porque Vercel añade `noindex`; no es un fallo de la app.
+En preview el SEO era 69 por el `noindex` automático de Vercel; en producción es 100.
 
 ### 12.3 Otras verificaciones (2026-10-27)
 
@@ -1122,19 +1125,18 @@ Cierre del bloque de QA y de los RNF medibles. Todo se verificó contra la previ
 | `npm run check`                 | ✅ 0 errores, 17 hints preexistentes                         |
 | `npm test`                      | ✅ 88/88 en 14 archivos                                      |
 | `npm run build`                 | ✅ SSR Vercel + sitemap                                      |
-| E2E público contra preview      | ✅ 32/32                                                     |
-| `node scripts/perf.mjs`         | ✅ 15/15 por ruta; p95 máx 516 ms                            |
+| E2E público contra producción   | ✅ 32/32                                                     |
+| `node scripts/perf.mjs` (prod)  | ✅ 15/15 por ruta; p95 máx 608 ms                            |
 | axe (5 páginas × 4 anchos)      | ✅ 0 violaciones; sin overflow horizontal                    |
 | Backup                          | ✅ dump validado con `pg_restore -l`; restore real pendiente |
 
 ### 12.4 Límites
 
-- Las cifras son de la preview de Vercel con Supabase cloud; tras el merge se repiten
-  sobre `https://adopty.lat`.
+- Las cifras son de producción con Supabase cloud; la preview previa dio LCP
+  2.2 / 2.1 / 1.6 s.
 - El e2e de flujo completo corre en CI con Supabase local; este entorno no tiene Docker.
 - El restore de backup no se pudo ejecutar (sin Postgres local/Docker): P0-07 sigue
   `[PARCIAL]`.
-- SEO en preview no es comparable con producción por el `noindex` de Vercel.
 
 ### 12.5 Pendientes reales tras este bloque
 
