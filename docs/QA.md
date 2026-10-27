@@ -25,9 +25,13 @@ P1-11 (mensajes directos sin solicitud aprobada y edición del contenido por el
 receptor). La app respeta las reglas; la policy no. Ver
 `docs/AUDITORIA_PENDIENTES.md` §3.2.
 
-**Operación pendiente:** rotar las cuentas demo con clave conocida (P0-03), revisar el
-buzón `rua` de DMARC y ejecutar un `pg_dump` antes del piloto. La entrega de correo de
-confirmación y recuperación ya está verificada.
+**P0-03 verificado el 2026-10-27:** la clave `Adopty123!` devuelve 400 en las cinco
+cuentas del seed; ninguna credencial del repositorio abre producción. Las cuentas demo
+siguen existiendo con contraseña rotada y dos cuentas de prueba vacías se pueden borrar
+sin pérdida (ver `docs/AUDITORIA_PENDIENTES.md` P0-03).
+
+**Operación pendiente:** revisar el buzón `rua` de DMARC y ejecutar un `pg_dump` antes
+del piloto. La entrega de correo de confirmación y recuperación ya está verificada.
 
 ---
 

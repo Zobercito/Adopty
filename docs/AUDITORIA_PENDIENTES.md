@@ -207,17 +207,22 @@ piloto abierto.
 
 #### P0-03 — Limpiar el seed y rotar credenciales demo
 
-- **Estado:** `[PARCIAL]` (operativo; requiere acceso a Supabase cloud).
-- **Evidencia:** `README.md:56-80`, `supabase/seed.sql`, `docs/CHECKLIST.md:11-12`.
-- **Impacto:** la clave `Adopty123!` del seed local no debe servir en producción;
-  publicar una organización `verificada` con clave conocida es un riesgo.
-- **Acción:**
-  - Rotar o eliminar las cuentas demo en la nube.
-  - Confirmar que `patitas@adopty.pa` y `rescatista@adopty.pa` no usan la clave del seed.
-  - Dar de alta al menos un administrador real (`docs/ADMIN.md`).
-  - Mantener la regla del seed: tokens de `auth.users` en `''`, nunca `NULL`.
-- **Criterio de aceptación:** ninguna credencial pública permite entrar a prod; existe
-  al menos un admin; el seed local sigue funcionando.
+- **Estado:** `[HECHO]` (verificado 2026-10-27 contra el proyecto cloud).
+- **Evidencia:** prueba de login con `Adopty123!` contra `patitas@adopty.pa`,
+  `rescatista@adopty.pa`, `admin@adopty.me` y las dos cuentas de prueba: **400 en todas**
+  (la clave del seed ya no sirve). Existe `admin@adopty.me` en `administradores`.
+- **Situación actual de las 7 cuentas:**
+  - `patitas@adopty.pa` (org verificada, 19 mascotas) y `rescatista@adopty.pa`
+    (13 mascotas): son el catálogo de demostración; **se conservan** hasta tener los
+    refugios reales del piloto.
+  - `prueba.demo@adopty.pa` y `revision.responsive@adopty.pa`: cuentas de prueba, sin
+    mascotas, solicitudes ni mensajes; **se pueden eliminar** sin pérdida.
+  - `admin@adopty.me`: único administrador; no borrar sin transferir el rol.
+  - `franciscogonzalezmoralez@gmail.com` y `arrocha.pineda17@gmail.com`: cuentas reales.
+- **Impacto residual:** bajo; ninguna credencial del repo abre producción. Las cuentas
+  demo siguen existiendo con contraseña rotada.
+- **Criterio de aceptación:** cumplido: ninguna credencial pública permite entrar a prod;
+  existe al menos un admin; el seed local sigue funcionando.
 
 #### P0-04 — Versionar el trabajo pendiente
 
@@ -898,8 +903,9 @@ Los ítems de nivel medio/difícil siguen en sus secciones de la parte 3.
 | P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 20; ver §9/§10).                             |
 | P4-03  | `[HECHO]`    | Tag anotado `v0.8.0`.                                                             |
 
-No se ejecutó P0-03 (rotar seed/administrador cloud) porque requiere acceso al
-proyecto Supabase de producción; queda documentado como tarea operativa.
+No se ejecutó P0-03 (rotar seed/administrador cloud) en esa pasada porque requiere
+acceso al proyecto Supabase de producción; se cerró después al verificar el cloud
+(ver §10 y el detalle en P0-03).
 
 ### 8.2 Verificación ejecutada
 
@@ -1018,6 +1024,8 @@ desplegaron en `https://adopty.lat` (ver §10).
   Resend las marca _Delivered_; las plantillas están en español.
 - **Modelo de moderación P2-02** y revisión del buzón `rua` de DMARC (hoy Gmail
   personal).
-- **P0-03**: las cuentas demo con clave conocida siguen en cloud; rotarlas antes del
-  piloto abierto.
+- **P0-03 cerrado:** la clave del seed ya no abre ninguna cuenta. Las cuentas demo
+  (`patitas`, `rescatista`) se conservan como catálogo y las dos cuentas de prueba
+  vacías se pueden borrar cuando se quiera; sustituir las demo por refugios reales
+  antes del piloto abierto.
 - Repetir Lighthouse/axe y la búsqueda p95 con datos de producción (P0-05, P3-05).

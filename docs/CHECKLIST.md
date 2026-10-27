@@ -8,7 +8,7 @@
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
 - [x] Supabase → Auth: **Secure email change** activo (cambio de correo del perfil)
 - [x] Migraciones aplicadas en cloud (las 20 de `supabase/migrations/`, hasta `20261027010000`) y anotadas en `supabase_migrations.schema_migrations`
-- [ ] Seed **limpio** en cloud: sin las cuentas demo con la clave `Adopty123!` (o con la clave rotada) → **P0-03**
+- [x] Seed **limpio** en cloud: la clave `Adopty123!` ya no abre ninguna cuenta (P0-03)
 - [x] Al menos un administrador dado de alta (`docs/ADMIN.md`)
 - [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
 - [ ] `pg_dump`/CSV previo al piloto (`docs/QA.md` §4)
