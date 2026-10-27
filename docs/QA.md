@@ -21,15 +21,33 @@ el `noindex` automático de Vercel.
 - **Búsqueda:** `node scripts/perf.mjs https://adopty.lat` 15/15 por ruta, p95 máx
   608 ms.
 - **E2E público contra producción:** 32/32.
-- **Unitarios:** 88/88 en 14 archivos.
+- **Unitarios:** 92/92 en 14 archivos (incluye los 4 del rate-limit distribuido).
 - **Cambios:** fuentes autohospedadas (se eliminó la hoja de Google Fonts que bloqueaba
   el render), WebP + preload del LCP, primera tarjeta de `/explorar` eager, contraste
   AA, `<main>` en inicio y nombres accesibles de tarjetas.
 
 **Backup:** `backups/adopty_20261027_010248.dump` (custom, 394 024 B, 52 entradas
 `TABLE DATA`) validado con `pg_restore -l`. El workflow diario corre a las 08:00 UTC
-(03:00 Panamá), así que el RPO es ≤ 24 h. El restore real no se ejecutó por falta de
-Postgres local/Docker (P0-07 parcial).
+(03:00 Panamá), así que el RPO es ≤ 24 h. El restore real se ejecutó el 2026-10-27
+(ver la sección siguiente).
+
+## Actualización 2026-10-27 — cierre autónomo (restore, rate-limit y CI)
+
+| Prueba                           | Resultado                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| Restore drill (PostgreSQL 17.11) | ✅ 0 errores, 280 ms, conteos idénticos y RLS activa sobre la copia        |
+| Rate-limit distribuido           | ✅ RPC atómica en cloud; 30 concurrentes con `p_max=10` → 10/20            |
+| Migración cloud                  | ✅ 22 migraciones; `rate_limits` con RLS y sin ACL para anon/authenticated |
+| Cobertura                        | ✅ 69,5 % statements / 57,3 % branches / 67,1 % functions / 73,2 % lines   |
+| axe automatizado                 | ✅ 10/10 (5 páginas × 360/1280 px)                                         |
+| `format:check`/`lint`/`check`    | ✅ 0 errores                                                               |
+| `npm run build`                  | ✅ SSR Vercel + sitemap                                                    |
+
+- El smoke de axe y el e2e público quedaron como pasos separados del CI; el flujo con
+  escrituras sigue corriendo contra Supabase local.
+- `perf.yml` mide Lighthouse cada lunes contra producción con presupuesto (perf ≥ 90,
+  LCP ≤ 2,5 s, CLS ≤ 0,1, TBT ≤ 300 ms).
+- El backup ahora retiene 90 días y abre un issue si falla el dump o la verificación.
 
 ---
 
@@ -137,7 +155,8 @@ Fecha: 2026-09-26 · Rama: `develop` · Comandos: `npm run lint`, `npm run forma
 ## 3. Diferido con justificación
 
 - **k6 200 concurrentes + seed 10k**: contaminaría la DB cloud compartida del piloto y el tier free; sustituido por perf smoke sobre dataset real (criterio cumplido).
-- **LHCI/axe en CI**: el workflow corre lint + format + tests + build; Lighthouse/axe quedan como paso manual en preview (F8).
+- **LHCI/axe en CI**: cerrado el 2026-10-27: axe corre en el job e2e (10/10) y
+  `perf.yml` mide Lighthouse contra producción con presupuesto semanal.
 - **Analytics de embudo y emails transaccionales**: requieren proyecto Vercel prod + SMTP (F8).
 - **Google OAuth**: pospuesto a F8 por decisión (código listo, provider apagado).
 
@@ -148,10 +167,13 @@ Fecha: 2026-09-26 · Rama: `develop` · Comandos: `npm run lint`, `npm run forma
 - **2026-10-27:** `backups/adopty_20261027_010248.dump` (formato custom, 394 024 B,
   52 entradas `TABLE DATA`) generado con `pg_dump` 17 por el pooler y validado con
   `pg_restore -l`. `scripts/backup.sh` conserva 7 copias locales.
-- **Automático:** `.github/workflows/backup.yml` corre a diario (08:00 UTC) y guarda el
-  `.sql.gz` como artefacto 30 días. **RPO ≤ 24 h.**
-- **RTO sin medir:** el restore real no se ejecutó porque este entorno no tiene
-  Postgres local ni Docker; P0-07 sigue `[PARCIAL]`.
+- **Automático:** `.github/workflows/backup.yml` corre a diario (08:00 UTC), guarda el
+  `.sql.gz` 90 días y abre un issue si el dump o la verificación fallan. **RPO ≤ 24 h.**
+- **Restore probado (2026-10-27):** PostgreSQL 17.11 limpio, `pg_restore` en 280 ms,
+  0 errores; conteos idénticos en las 13 tablas de `public`, `auth.users`,
+  `storage.objects`, migraciones, triggers, policies e índices. **RTO del restore:
+  0,28 s** (sin aprovisionar el servidor). RLS sobre la copia: `anon` ve 28/32
+  mascotas y 0 usuarios/mensajes.
 
 ## 5. Artefactos
 

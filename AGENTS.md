@@ -98,7 +98,9 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
   `perfiles` se borra antes de cerrar la sesión (la policy exige `auth.uid()`).
 - El estado `adoptada` de una mascota es terminal: la API devuelve 409 y la UI
   deshabilita el selector. No añadir atajos que lo reabran.
-- El rate-limit actual es en memoria y no se comparte entre instancias.
+- El rate-limit usa la RPC `consumir_rate_limit` (tabla `rate_limits`) para compartirse
+  entre instancias; `rateLimit` en memoria es solo el fallback. No lo reemplaces por un
+  contador local sin conservar el fallback.
 - El service worker debe ignorar `/api`, `/panel`, `/admin`, `/perfil`,
   `/mensajes`, `/favoritos`, `/mis-solicitudes` y cualquier navegación privada.
 - `SITE_URL` define el dominio del sitemap y de los metadatos absolutos; en local

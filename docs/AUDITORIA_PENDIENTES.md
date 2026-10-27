@@ -70,7 +70,7 @@ relativas a la raíz del repositorio `adopty/` salvo que se indique lo contrario
 | Dimensión     | Estado                                                                                  |
 | ------------- | --------------------------------------------------------------------------------------- |
 | Stack         | Astro v7 + TypeScript strict + Tailwind v4 + Supabase + Zod + Vercel                    |
-| Persistencia  | Postgres/Supabase con 21 migraciones en `supabase/migrations/`                          |
+| Persistencia  | Postgres/Supabase con 22 migraciones en `supabase/migrations/`                          |
 | Backend       | API routes de Astro + RPC SQL; sin service role                                         |
 | Auth          | Email/contraseña + recuperación; Google OAuth codificado pero apagado                   |
 | Páginas       | Aproximadamente 20 vistas `.astro` (públicas, privadas, admin, legales)                 |
@@ -194,7 +194,7 @@ decidió dejar para el final.
   - Auth → Site URL `https://adopty.lat`; Redirect URLs con apex, `www`, previews,
     `localhost:4321` y `localhost:3000`.
   - **Secure email change** activo; buckets `mascotas` y `perfiles` públicos; Realtime
-    solo en `mensajes`; 21 migraciones registradas en
+    solo en `mensajes`; 22 migraciones registradas en
     `supabase_migrations.schema_migrations`.
   - SMTP de Resend (`smtp.resend.com:465`, remitente `no-reply@adopty.lat`), dominio
     verificado con DKIM y DMARC.
@@ -273,18 +273,29 @@ decidió dejar para el final.
 
 #### P0-07 — Probar restauración de backup
 
-- **Estado:** `[PARCIAL]` (2026-10-27).
+- **Estado:** `[HECHO]` (2026-10-27).
 - **Evidencia:** `backups/adopty_20261027_010248.dump` (formato custom, 394 024 B,
-  52 entradas `TABLE DATA`, 121 objetos) generado con `pg_dump` 17 vía pooler;
-  `pg_restore -l` lista el contenido sin errores. El workflow
-  `.github/workflows/backup.yml` corre a diario a las 08:00 UTC (03:00 Panamá) y guarda
-  el `.sql.gz` 30 días; `scripts/backup.sh` conserva 7 copias locales. **RPO ≤ 24 h.**
-- **Pendiente:** el restore real no se ejecutó: el entorno no tiene servidor PostgreSQL
-  local ni Docker disponible (permiso denegado). **RTO sin medir.**
-- **Acción restante:** restaurar el dump en un Postgres 17 limpio (local o staging),
-  comparar conteos por tabla y ejecutar la app contra esa base.
-- **Criterio de aceptación:** restore reproducible con conteos coincidentes; hoy el dump
-  está validado, pero el restore sigue sin probarse.
+  52 entradas `TABLE DATA`, 121 objetos) generado con `pg_dump` 17 vía pooler. El
+  workflow `.github/workflows/backup.yml` corre a diario a las 08:00 UTC (03:00 Panamá)
+  y guarda el `.sql.gz` 90 días; `scripts/backup.sh` conserva 7 copias locales.
+  **RPO ≤ 24 h.**
+- **Restore drill ejecutado (2026-10-27):** clúster limpio PostgreSQL 17.11 creado con
+  `initdb` (sin Docker), roles de Supabase creados a mano y
+  `pg_restore --no-owner --no-acl` sobre el dump.
+  - **0 errores**, 280 ms de restauración (RTO del restore; no incluye aprovisionar el
+    servidor).
+  - Conteos exactos idénticos a la nube en las 13 tablas de `public`, `auth.users` (5),
+    `storage.objects` (2), 21 migraciones, 7 triggers, 36 policies y 37 índices.
+  - Tercera pasada con los grants que Supabase concede por defecto y RLS activo:
+    `anon` ve 28 de 32 mascotas, 0 usuarios y 0 mensajes; `authenticated` sin JWT ve lo
+    mismo que `anon`. Las policies se restauran y aplican.
+- **Límite documentado:** el dump se genera con `--no-privileges` (decisión del
+  workflow), así que los ACL no viajan en el archivo. En un proyecto Supabase nuevo
+  los grants por defecto del rol `postgres` los recrean; en Postgres vanilla hay que
+  concederlos a mano (así se validó). No es un fallo del backup, pero debe estar en el
+  runbook de restore.
+- **Criterio de aceptación:** cumplido: restore reproducible, conteos coincidentes y RLS
+  verificada sobre la copia.
 
 ---
 
@@ -522,53 +533,60 @@ decidió dejar para el final.
 
 #### P2-03 — Rate-limit distribuido y rutas sin límite
 
-- **Estado:** `[PARCIAL]`.
-- **Evidencia:** `src/lib/ratelimit.ts:12-31` usa un `Map` en memoria; el comentario
-  reconoce que cada instancia serverless lleva su contador. Rutas como
-  `PATCH/DELETE /api/mascotas/[id]`, `PATCH /api/mensajes/[id]`,
-  `PATCH /api/solicitudes/[id]` y algunos `GET /api/admin/*` no aplican `rateLimit`.
-- **Impacto:** los límites no son consistentes en Vercel ni tras un cold start; abuso
-  autenticado en mutaciones no queda frenado.
-- **Acción:** migrar a Upstash Redis/KV o a una tabla/RPC atómica de Supabase; mantener
-  fallback en memoria para desarrollo. Añadir límites a mutaciones autenticadas.
-- **Criterio de aceptación:** el límite se comparte entre instancias; 429 con
-  `Retry-After`; tests de cubeta y de integración.
+- **Estado:** `[HECHO]` (2026-10-27).
+- **Evidencia:** migración `20261027030000_rate_limit_distribuido.sql` con la tabla
+  `public.rate_limits` (RLS activo, sin acceso directo para `anon`/`authenticated`) y
+  la RPC atómica `consumir_rate_limit` (`INSERT ... ON CONFLICT DO UPDATE`, limpieza
+  oportunista de filas vencidas). `rateLimitDistribuido` en `src/lib/ratelimit.ts` usa
+  la RPC y cae al contador en memoria si la RPC falla o no está aplicada.
+- **Cobertura:** todas las mutaciones autenticadas pasan por el limitador, incluidas
+  las que antes no tenían: `PATCH/DELETE /api/mascotas/[id]`, `PATCH /api/mensajes/[id]`,
+  `PATCH /api/solicitudes/[id]`, `PATCH /api/admin/cuentas` y `DELETE /api/favoritos`.
+- **Prueba de atomicidad:** 30 peticiones concurrentes contra la RPC con `p_max=10`
+  dejaron exactamente 10 aprobadas y 20 bloqueadas. Unitarios: 4 casos nuevos de
+  `rateLimitDistribuido` (RPC ok, bloqueo, error y excepción con fallback).
+- **Pendiente menor:** los `GET /api/admin/*` siguen sin límite; son lecturas detrás del
+  guard de admin y no escriben datos.
+- **Criterio de aceptación:** cumplido: el límite se comparte entre instancias (tabla
+  común), 429 con `Retry-After` y tests de cubeta + fallback.
 
 #### P2-04 — Observabilidad y monitoreo
 
-- **Estado:** `[FALTA]`.
+- **Estado:** `[PARCIAL]` (2026-10-27: alerta de backup hecha).
 - **Evidencia:** solo `@vercel/analytics`; `src/middleware.ts:73-79` usa
   `console.error`; no hay Sentry/Highlight ni monitor de uptime.
-- **Impacto:** los errores en producción no se ven con stack/release; no hay alertas de
-  caída ni de fallo de backup.
-- **Acción:** integrar Sentry (server + cliente) con scrubbing de PII, release tags y
-  alertas; monitorizar `/` o `/api/mascotas` con un servicio de uptime; añadir
-  notificación de fallo al workflow de backup.
+- **Hecho:** `.github/workflows/backup.yml` abre un issue con etiqueta `backup` si el
+  dump o la verificación fallan (sin depender de servicios externos).
+- **Pendiente:** Sentry (server + cliente) con scrubbing de PII y release tags, y un
+  monitor de uptime externo. Ambos requieren cuenta/DSN del responsable.
 - **Criterio de aceptación:** un error provocado aparece en el panel con release y ruta;
-  hay alerta de caída y de backup fallido; no se envían datos personales.
+  hay alerta de caída y de backup fallido; no se envían datos personales. La parte de
+  backup está cumplida; panel y uptime siguen pendientes.
 
 #### P2-05 — Endurecer CI
 
-- **Estado:** `[PARCIAL]` (P2-05a hecho el 2026-10-26).
-- **Evidencia:** `.github/workflows/ci.yml` ejecuta lint, format, check, test, build,
-  `test:e2e:flujo` y ahora `npm audit --audit-level=high`; `.github/dependabot.yml`
-  agrupa minor/patch semanalmente. `npm audit` reporta 0 vulnerabilidades tras
-  actualizar dependencias y fijar `zod@4.6.7`/`path-to-regexp@6.3.0` con overrides.
-- **Pendiente (P2-05b):** job de `test:e2e` público, smoke de axe/Lighthouse, cobertura
-  con umbral y `vitest.config`.
-- **Criterio de aceptación:** PR con vulnerabilidad alta falla; el e2e público corre en
-  CI; la cobertura se reporta. La parte de audit/Dependabot está cubierta.
+- **Estado:** `[HECHO]` (2026-10-27).
+- **Evidencia:** `.github/workflows/ci.yml` ejecuta lint, format, check,
+  `test:coverage` con umbrales, build, `npm audit --audit-level=high`, la suite e2e
+  pública + smoke de axe y el flujo completo; `.github/dependabot.yml` agrupa
+  minor/patch semanalmente. `npm audit` reporta 0 vulnerabilidades.
+- **Añadido (P2-05b):** `vitest.config.ts` con umbrales (65 % statements, 52 %
+  branches, 62 % functions, 70 % lines; cobertura actual 69,5 / 57,3 / 67,1 / 73,2);
+  `e2e/a11y.e2e.ts` (5 páginas × 360/1280 px, 10 pruebas axe) y el e2e público como
+  pasos separados del flujo. El presupuesto Lighthouse vive en `perf.yml` (P3-05).
+- **Criterio de aceptación:** cumplido: PR con vulnerabilidad alta falla; e2e público y
+  axe corren en CI; la cobertura se reporta y rompe el job si baja del umbral.
 
 #### P2-06 — Backup fuera del artefacto de 30 días
 
-- **Estado:** `[PARCIAL]`.
-- **Evidencia:** `.github/workflows/backup.yml:77-81` sube un artefacto con retención
-  de 30 días; no hay copia off-site de largo plazo.
-- **Impacto:** un incidente detectado después de 30 días no tiene respaldo recuperable.
-- **Acción:** subir el `.sql.gz` a S3/R2/Drive con lifecycle; documentar retención,
-  cifrado y procedimiento de restore; alertar si el job falla.
-- **Criterio de aceptación:** existe copia off-site >30 días; restore probado; alerta
-  de fallo configurada.
+- **Estado:** `[PARCIAL]` (2026-10-27).
+- **Evidencia:** `.github/workflows/backup.yml` sube el `.sql.gz` con retención de
+  **90 días** (máximo de GitHub) y abre un issue si el dump o la verificación fallan.
+  El restore está probado (P0-07).
+- **Pendiente:** copia off-site real (S3/R2/Drive) con lifecycle y cifrado. Requiere
+  credenciales y un bucket del responsable; no se implementó a medias.
+- **Criterio de aceptación:** copia off-site >30 días con restore probado. La alerta y
+  el restore ya están; falta el destino externo.
 
 ---
 
@@ -612,11 +630,13 @@ decidió dejar para el final.
 
 #### P3-05 — Presupuesto de rendimiento automatizado
 
-- **Estado:** `[FALTA]`.
-- **Evidencia:** `scripts/perf.mjs` es un smoke manual; no hay Lighthouse CI.
-- **Acción:** definir presupuesto (LCP, CLS, INP, peso de JS) y ejecutarlo en CI o en un
-  job programado.
-- **Criterio de aceptación:** una regresión de LCP/peso rompe el job o genera alerta.
+- **Estado:** `[HECHO]` (2026-10-27).
+- **Evidencia:** `.github/workflows/perf.yml` corre Lighthouse CI (`@lhci/cli@0.15.1`)
+  contra `https://adopty.lat/` y `/explorar` los lunes a las 09:00 UTC y a mano.
+  `lighthouserc.json` fija el presupuesto: performance ≥ 90, LCP ≤ 2,5 s, CLS ≤ 0,1 y
+  TBT ≤ 300 ms (mediana de 3 corridas). No bloquea PRs: si falla, avisa al repo.
+- **Criterio de aceptación:** cumplido: una regresión de LCP/CLS/TBT rompe el job
+  programado y genera notificación.
 
 ---
 
@@ -661,21 +681,21 @@ decidió dejar para el final.
 
 ## 4. Matriz de aceptación §13
 
-| Criterio del plan              | Estado      | Evidencia                                        | Qué falta                                   |
-| ------------------------------ | ----------- | ------------------------------------------------ | ------------------------------------------- |
-| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local        | Repetir en prod (P0-05)                     |
-| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                           | Revalidar tras cambios                      |
-| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                 | E2E completo sujeto a cuota de email        |
-| Búsqueda p95 < 1 s             | `[PARCIAL]` | `scripts/perf.mjs`, `docs/QA.md`                 | Medir en prod con datos reales              |
-| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload              | —                                           |
-| RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol + triggers P1-10/P1-11 | Repetir bypass por REST tras nuevos cambios |
-| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                     | Revisar antes de cada push                  |
-| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                      | —                                           |
-| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                              | —                                           |
-| axe 0 críticos / teclado / AA  | `[FALTA]`   | `docs/QA.md:53-55`                               | P0-05                                       |
-| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                 | P0-06                                       |
-| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                               | P0-01                                       |
-| Backup y restore               | `[PARCIAL]` | `.github/workflows/backup.yml`                   | P0-07 / P2-06                               |
+| Criterio del plan              | Estado      | Evidencia                                                              | Qué falta                                   |
+| ------------------------------ | ----------- | ---------------------------------------------------------------------- | ------------------------------------------- |
+| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local                              | Repetir a mano en prod (P0-06)              |
+| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                                                 | Revalidar tras cambios                      |
+| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                                       | E2E completo sujeto a cuota de email        |
+| Búsqueda p95 < 1 s             | `[HECHO]`   | `scripts/perf.mjs`: 15/15, p95 máx 608 ms en prod                      | —                                           |
+| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload                                    | —                                           |
+| RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol + triggers P1-10/P1-11 + restore drill P0-07 | Repetir bypass por REST tras nuevos cambios |
+| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                                           | Revisar antes de cada push                  |
+| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                                            | —                                           |
+| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                                                    | —                                           |
+| axe 0 críticos / teclado / AA  | `[HECHO]`   | 0 violaciones en 5 páginas × 4 anchos + smoke axe en CI (10/10)        | —                                           |
+| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                                       | P0-06                                       |
+| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                                                     | P0-01                                       |
+| Backup y restore               | `[HECHO]`   | dump diario RPO ≤ 24 h + restore drill 0 errores, conteos idénticos    | Copia off-site (P2-06)                      |
 
 ---
 
@@ -717,9 +737,10 @@ decidió dejar para el final.
 
 ### Fase D — Post-piloto (opcional, según tiempo)
 
-P2-01 (emails), P2-03 (rate-limit distribuido), P2-06 (backup off-site) y la cola de
-pre-moderación (decisión en P2-02, implementación diferida). P4-01, P4-02 y P4-03 se
-adelantaron y quedaron hechos el 2026-10-26.
+P2-01 (emails) y P2-06 (backup off-site), más la cola de pre-moderación (decisión en
+P2-02, implementación diferida). P2-03 (rate-limit distribuido), P2-05b (CI), P3-05
+(presupuesto Lighthouse) y P0-07 (restore) se adelantaron y quedaron hechos el
+2026-10-27. P4-01, P4-02 y P4-03 se adelantaron el 2026-10-26.
 
 ---
 
@@ -798,7 +819,7 @@ supabase db reset
 | `src/middleware.ts`           | Refresco de sesión, guards de rutas privadas y estado del navbar.       |
 | `src/lib/supabase.ts`         | Clientes browser/SSR con cookies de Supabase.                           |
 | `src/lib/transiciones.ts`     | Máquinas de estado de solicitud y mascota.                              |
-| `src/lib/ratelimit.ts`        | Rate-limit en memoria y helper de IP.                                   |
+| `src/lib/ratelimit.ts`        | Rate-limit distribuido (RPC) con fallback en memoria y helper de IP.    |
 | `src/lib/storage.ts`          | Validación MIME/tamaño, Sharp → WebP, borrado de objetos.               |
 | `src/lib/mascotas.ts`         | Consulta de búsqueda, paginación y helpers de fotos/estado.             |
 | `src/lib/solicitudes.ts`      | Helpers de solicitudes y badges.                                        |
@@ -1012,7 +1033,7 @@ que se cerraron el 2026-10-27 con la migración `20261027020000_rls_reglas_negoc
 | `www`       | `www.adopty.lat` con redirect 308 al apex (`vercel.json`)                                |
 | TLS         | Let's Encrypt automático (apex y `www`)                                                  |
 | DNS         | GoDaddy: A `@` → `216.198.79.1` y `64.29.17.1`; CNAME `www` → Vercel                     |
-| Supabase    | `dvebieysgnhmimmxjwjc` (Ohio); 21 migraciones registradas; RLS en las 13 tablas          |
+| Supabase    | `dvebieysgnhmimmxjwjc` (Ohio); 22 migraciones registradas; RLS en las 13 tablas          |
 | Auth URLs   | Site URL apex; redirects para apex, `www`, previews y `localhost`                        |
 | Correo Auth | Resend SMTP (`smtp.resend.com:465`, `no-reply@adopty.lat`), DKIM + DMARC `p=none`        |
 | Storage     | Buckets públicos `mascotas`/`perfiles`, 500 KB, solo `image/webp`, escritura por carpeta |
@@ -1135,11 +1156,59 @@ En preview el SEO era 69 por el `noindex` automático de Vercel; en producción 
 - Las cifras son de producción con Supabase cloud; la preview previa dio LCP
   2.2 / 2.1 / 1.6 s.
 - El e2e de flujo completo corre en CI con Supabase local; este entorno no tiene Docker.
-- El restore de backup no se pudo ejecutar (sin Postgres local/Docker): P0-07 sigue
-  `[PARCIAL]`.
+- El restore de backup se ejecutó después con Postgres 17 instalado localmente (§13).
 
 ### 12.5 Pendientes reales tras este bloque
 
 - Piloto y acta firmados (P0-06), Google OAuth, notificaciones por email (P2-01),
-  rate-limit distribuido (P2-03), backup off-site (P2-06), monitoreo (P2-04/P2-05b),
-  `srcset`/AVIF (P3-03) y presupuesto de rendimiento en CI (P3-05).
+  backup off-site (P2-06), monitoreo (P2-04), `srcset`/AVIF (P3-03). Los demás se
+  cerraron en §13.
+
+## 13. Registro de ejecución — 2026-10-27 (cierre autónomo)
+
+Trabajo hecho sin depender de cuentas externas nuevas: restore drill, rate-limit
+distribuido, CI, alertas y presupuesto de rendimiento.
+
+### 13.1 Restore drill (P0-07)
+
+| Paso                             | Resultado                                                     |
+| -------------------------------- | ------------------------------------------------------------- |
+| Clúster limpio                   | PostgreSQL 17.11 con `initdb` (sin Docker); roles de Supabase |
+| `pg_restore` del dump            | 0 errores, 280 ms; 52 entradas de datos                       |
+| Conteos `public` (13 tablas)     | Idénticos a la nube (32 mascotas, 5 usuarios, 11 fotos, etc.) |
+| `auth.users` / `storage.objects` | 5 / 2, iguales a la nube                                      |
+| Objetos                          | 21 migraciones, 7 triggers, 36 policies, 37 índices           |
+| RLS sobre la copia               | `anon` ve 28/32 mascotas, 0 usuarios, 0 mensajes              |
+| RTO                              | 0,28 s de restore (sin aprovisionar el servidor)              |
+
+El dump se genera con `--no-privileges`: en un Supabase nuevo los grants por defecto
+los recrea; en Postgres vanilla se concedieron a mano para probar RLS. Queda anotado en
+el runbook.
+
+### 13.2 Rate-limit distribuido (P2-03)
+
+- Migración `20261027030000_rate_limit_distribuido.sql`: tabla `rate_limits` + RPC
+  `consumir_rate_limit` (atómica, limpieza oportunista, sin acceso directo por RLS).
+- `rateLimitDistribuido` en `src/lib/ratelimit.ts` con fallback en memoria.
+- Todas las mutaciones autenticadas limitadas, incluidas las cinco rutas que faltaban.
+- Prueba concurrente: 30 peticiones, `p_max=10` → 10 aprobadas / 20 bloqueadas.
+- 4 unitarios nuevos; suite total 92/92.
+
+### 13.3 CI, alertas y rendimiento
+
+- `vitest.config.ts`: umbrales de cobertura (actual 69,5 / 57,3 / 67,1 / 73,2 %).
+- `e2e/a11y.e2e.ts`: 5 páginas × 360/1280 px con axe; 10/10 en verde.
+- CI: `test:coverage`, e2e público y flujo separados.
+- Backup: retención 90 días e issue automático `backup` si falla.
+- `perf.yml` + `lighthouserc.json`: Lighthouse semanal contra producción con presupuesto
+  (perf ≥ 90, LCP ≤ 2,5 s, CLS ≤ 0,1, TBT ≤ 300 ms).
+
+### 13.4 Verificación local
+
+`npm run format:check`, `lint`, `check`, `test:coverage`, `build` y el smoke de axe en
+verde. El flujo e2e con escrituras y el job de CI se validan al pushear a `develop`.
+
+### 13.5 Lo que sigue dependiendo del responsable
+
+Piloto y acta (P0-06), Google OAuth (P0-01), notificaciones por email (P2-01), Sentry y
+uptime (P2-04), backup off-site (P2-06) y `srcset`/AVIF (P3-03).

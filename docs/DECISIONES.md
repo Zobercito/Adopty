@@ -299,3 +299,20 @@ follow` en páginas privadas o fichas no públicas.
   mutación nueva debe revisar si necesita trigger o policy con `WITH CHECK`. El coste
   es que los errores de Postgres llegan al cliente como texto si se llama por REST;
   la app no cambia porque ya validaba lo mismo.
+
+## ADR-023 — Rate-limit distribuido en Postgres, sin servicio extra
+
+- **Fecha:** 2026-10-27.
+- **Estado:** aceptada.
+- **Contexto:** el contador en memoria no se comparte entre instancias serverless y
+  varias mutaciones autenticadas no tenían límite. Upstash/KV añade una cuenta y una
+  dependencia externa que el piloto no necesita.
+- **Decisión:** migración `20261027030000_rate_limit_distribuido.sql` con la tabla
+  `public.rate_limits` y la RPC `consumir_rate_limit`. La RPC es `SECURITY DEFINER`,
+  atómica (`INSERT ... ON CONFLICT DO UPDATE`) y no expone la tabla a `anon` ni a
+  `authenticated`. `rateLimitDistribuido` cae al contador en memoria si la RPC falla
+  (fail-open) para no tumbar la API por un problema del limitador.
+- **Consecuencias:** el límite se comparte entre instancias y el coste es una escritura
+  por petición limitada; las filas vencidas se limpian dentro de la propia RPC. Los
+  límites siguen siendo por clave (IP o usuario), no globales. Un cliente podría inflar
+  la cuota de otra clave si conoce su valor, pero no leer ni borrar la tabla.

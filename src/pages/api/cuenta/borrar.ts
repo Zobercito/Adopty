@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
-import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { borrarFotoPerfilStorage } from '../../../lib/storage';
 import { borrarCuentaSchema } from '../../../lib/validation/user';
 
@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
   // 3 intentos por hora: es una acción irreversible.
-  const rl = rateLimit(`borrar-cuenta:${user.id}`, 3, 60 * 60_000);
+  const rl = await rateLimitDistribuido(supabase, `borrar-cuenta:${user.id}`, 3, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const body = await request.json().catch(() => null);

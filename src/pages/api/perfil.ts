@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../lib/supabase';
-import { rateLimit, respuestaRateLimit } from '../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../lib/ratelimit';
 import { organizacionSchema, personaSchema, redesVacias } from '../../lib/validation/user';
 import { borrarFotoPerfilStorage, subirFotoPerfil } from '../../lib/storage';
 import { fotoUrl } from '../../lib/mascotas';
@@ -60,7 +60,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
 
   // 30 actualizaciones de perfil por hora y usuario (antes 20: ahora la subida
   // de foto va en la misma petición).
-  const rl = rateLimit(`perfil:${user.id}`, 30, 60 * 60_000);
+  const rl = await rateLimitDistribuido(supabase, `perfil:${user.id}`, 30, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const { data: perfil } = await supabase

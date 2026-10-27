@@ -7,7 +7,7 @@ import {
 } from '../../../lib/transiciones';
 import { solicitudAccionSchema } from '../../../lib/validation/request';
 import { registrarAuditoria } from '../../../lib/auditoria';
-import { ipCliente } from '../../../lib/ratelimit';
+import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -22,6 +22,10 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  const rl = await rateLimitDistribuido(supabase, `solicitud:accion:${user.id}`, 60, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
+
   const parsed = solicitudAccionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Acción inválida' }, { status: 400 });
 

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { supabaseServer } from '../../lib/supabase';
-import { rateLimit, respuestaRateLimit } from '../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -36,7 +36,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user)
     return Response.json({ error: 'No autenticado — inicia sesión para guardar' }, { status: 401 });
   // El corazón no debería fallar por spam: 60 escrituras por minuto.
-  const rl = rateLimit(`favoritos:${user.id}`, 60, 60_000);
+  const rl = await rateLimitDistribuido(supabase, `favoritos:${user.id}`, 60, 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
   const parsed = z.object({ id_mascota: uuid }).safeParse(await request.json().catch(() => null));
   if (!parsed.success)
@@ -60,6 +60,10 @@ export const DELETE: APIRoute = async ({ url, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  const rl = await rateLimitDistribuido(supabase, `favoritos:${user.id}`, 60, 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
+
   const parsed = uuid.safeParse(url.searchParams.get('id_mascota'));
   if (!parsed.success) return Response.json({ error: 'id_mascota debe ser UUID' }, { status: 400 });
   const { error } = await supabase

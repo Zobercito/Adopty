@@ -3,7 +3,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { buscarMascotas, paramsFrom } from '../../../lib/mascotas';
 import { petSchema } from '../../../lib/validation/pet';
 import { registrarAuditoria } from '../../../lib/auditoria';
-import { ipCliente, rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
   // Publicar es una acción pesada y escasa: 5 publicaciones por hora y usuario.
-  const rl = rateLimit(`mascota:crear:${user.id}`, 5, 60 * 60_000);
+  const rl = await rateLimitDistribuido(supabase, `mascota:crear:${user.id}`, 5, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const parsed = petSchema.safeParse(await request.json().catch(() => null));
