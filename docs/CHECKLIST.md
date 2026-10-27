@@ -17,8 +17,8 @@
 - [x] `E2E_BASE_URL=<url prod> npm run test:e2e` en verde (32/32 contra `https://adopty.lat`)
 - [x] Dominio `adopty.lat` + `www` con redirect 308 y TLS
 - [x] SMTP de Resend configurado y dominio verificado (DKIM + DMARC)
-- [ ] Correo real de recuperación entregado (confirmar _Delivered_ en Resend)
-- [ ] Decidir `mailer_autoconfirm` (hoy `true`)
+- [x] `mailer_autoconfirm=false`: el registro exige confirmar el correo antes de entrar
+- [ ] Correo real de confirmación y recuperación entregado (confirmar _Delivered_ en Resend)
 
 ## Aceptación global §13
 
@@ -39,11 +39,10 @@
 | Piloto ≥5 / ≥3 / ≥1 + feedback | ⏳ `PILOTO.md` + `ACTA_ENTREGA.md`                                                     |
 | Google OAuth                   | ⏳ pendiente decidido (F8)                                                             |
 
-> Nota registro en cloud: con "Confirm email" ON, el alta depende del email de
-> Supabase (cuota horaria del free tier). Para el piloto se recomienda OFF
-> (Dashboard → Auth → Providers → Email) = sesión inmediata como en local,
-> o confirmar manual: `UPDATE auth.users SET email_confirmed_at = now() WHERE email = '...'`.
+> Nota registro en cloud: **Confirm email está ON** (`mailer_autoconfirm=false`): el
+> alta envía un enlace por Resend y no hay sesión hasta abrirlo. En local,
+> `supabase/config.toml` lo mantiene OFF para que el e2e no dependa de correo.
 >
 > Nota correo: el SMTP integrado de Supabase queda sustituido por Resend
-> (`smtp.resend.com:465`, `no-reply@adopty.lat`). `mailer_autoconfirm` sigue en
-> `true`; cambiarlo exige probar antes la entrega real.
+> (`smtp.resend.com:465`, `no-reply@adopty.lat`). Falta confirmar la entrega real en
+> una bandeja y revisar la carpeta de spam.

@@ -108,6 +108,9 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
   assets; no los muevas al middleware. La CSP está en Report-Only.
 - Producción es `https://adopty.lat`; `www` redirige 308 al apex. El correo de Auth
   sale por Resend (`no-reply@adopty.lat`), no por el SMTP integrado de Supabase.
+- En cloud la confirmación de correo está activa (`mailer_autoconfirm=false`): el
+  registro no crea sesión hasta abrir el enlace. En local sigue desactivada para el
+  e2e. No redirijas a `/perfil` sin comprobar `confirmaEmail`.
 - La app valida disponibilidad/transiciones, pero las policies de `solicitudes`
   (P1-10) y `mensajes` (P1-11) todavía permiten saltárselas con REST directo. No
   asumas que RLS cubre esas reglas hasta que se cierren.

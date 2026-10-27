@@ -245,3 +245,19 @@ follow` en páginas privadas o fichas no públicas.
   de Auth. El DNS sigue en GoDaddy (no se delega a Vercel) para no tocar los
   registros de Resend. Revisar el `rua` de DMARC y endurecer la política cuando haya
   buzón de operación.
+
+## ADR-020 — Confirmación de correo obligatoria en producción
+
+- **Fecha:** 2026-10-27.
+- **Estado:** aceptada.
+- **Contexto:** con `mailer_autoconfirm=true` no se enviaba ningún correo al registrarse,
+  así que no se verificaba la dirección y no había forma de probar Resend en el alta.
+  El e2e local usa `enable_confirmations=false` para no depender de una bandeja.
+- **Decisión:** en cloud, `mailer_autoconfirm=false`. El registro devuelve
+  `confirmaEmail` y la UI pide revisar la bandeja y el spam. El login traduce
+  `email_not_confirmed` a un mensaje en español y responde 403. El enlace vuelve a
+  `/api/auth/callback?next=/perfil`, que canjea el código por sesión.
+- **Consecuencias:** el alta depende de Resend y de que el usuario abra el enlace en el
+  mismo navegador donde se registró (flujo PKCE). Los usuarios existentes ya están
+  confirmados. Si se necesita soportar otro dispositivo, habrá que añadir una ruta de
+  verificación por `token_hash`.

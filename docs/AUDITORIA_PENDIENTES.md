@@ -197,8 +197,9 @@ piloto abierto.
     `supabase_migrations.schema_migrations`.
   - SMTP de Resend (`smtp.resend.com:465`, remitente `no-reply@adopty.lat`), dominio
     verificado con DKIM y DMARC.
-- **Pendiente operativo:** probar un correo real de recuperación (bandeja del usuario) y
-  decidir `mailer_autoconfirm` (hoy `true`).
+- **Pendiente operativo:** probar un correo real de confirmación/recuperación (bandeja
+  del usuario). `mailer_autoconfirm` quedó en **`false`** el 2026-10-27: el alta envía
+  enlace de confirmación y no crea sesión hasta abrirlo.
 - **Criterio de aceptación:** checklist de `docs/CHECKLIST.md` al día; registro,
   recuperación, cambio de correo y chat Realtime funcionando en prod (el flujo e2e
   público pasó 32/32 contra `https://adopty.lat`).
@@ -612,7 +613,7 @@ piloto abierto.
 #### P4-02 — Registro de decisiones (ADR breve)
 
 - **Estado:** `[HECHO]` (2026-10-26).
-- **Evidencia:** `docs/DECISIONES.md` con 19 ADR (contexto, decisión y consecuencias),
+- **Evidencia:** `docs/DECISIONES.md` con 20 ADR (contexto, decisión y consecuencias),
   incluidas las nuevas de service worker, SEO/JSON-LD, analytics, dependencias, headers,
   Storage y dominio/correo.
 - **Criterio de aceptación:** cada decisión tiene contexto y consecuencia; las
@@ -892,7 +893,7 @@ Los ítems de nivel medio/difícil siguen en sus secciones de la parte 3.
 | P3-02  | `[HECHO]`    | JSON-LD `WebSite`/`Organization` y `Pet`/`BreadcrumbList` con escape seguro.      |
 | P3-04  | `[HECHO]`    | `src/pages/offline.astro` + fallback del service worker + e2e público.            |
 | P4-01  | `[HECHO]`    | `AGENTS.md` con reglas operativas para agentes.                                   |
-| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 19; ver §9/§10).                             |
+| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 20; ver §9/§10).                             |
 | P4-03  | `[HECHO]`    | Tag anotado `v0.8.0`.                                                             |
 
 No se ejecutó P0-03 (rotar seed/administrador cloud) porque requiere acceso al
@@ -1007,10 +1008,11 @@ desplegaron en `https://adopty.lat` (ver §10).
 
 ### 10.3 Pendientes operativos de este bloque
 
-- **Probar entrega real de correo** con `/recuperar` y confirmar _Delivered_ en Resend
-  (requiere acceso a la bandeja del destinatario).
-- **Decidir `mailer_autoconfirm`** (hoy `true`, sesión inmediata). Con confirmación
-  activa, el alta depende de la cuota de correo.
+- **Probar entrega real de correo** de confirmación y recuperación con `/register` y
+  `/recuperar`; confirmar _Delivered_ en Resend (requiere acceso a la bandeja).
+- **`mailer_autoconfirm` decidido y aplicado:** `false` desde el 2026-10-27. El registro
+  muestra “revisa tu correo” y el login distingue “correo sin confirmar”; en local sigue
+  desactivado para no romper el e2e.
 - **Modelo de moderación P2-02** y revisión del buzón `rua` de DMARC (hoy Gmail
   personal).
 - **P0-03**: las cuentas demo con clave conocida siguen en cloud; rotarlas antes del

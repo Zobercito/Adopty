@@ -68,7 +68,8 @@ los credenciales de prueba viven fuera del control de versiones.
 | `rescatista@adopty.pa` | Persona                 |
 
 Para poder entrar durante una demo o revisión, pídele la clave a quien administra el
-proyecto, o crea tu propia cuenta desde `/register` (funciona sin confirmación de correo).
+proyecto, o crea tu propia cuenta desde `/register` (en producción deberás confirmar el
+correo antes de entrar).
 
 > 🔐 **Por qué no está la clave aquí.** Con la clave publicada, cualquiera que lea el repo
 > entra como organización _verificada_. Si necesitas regenerar el seed para un entorno
@@ -191,7 +192,9 @@ redirige 308 al apex desde `vercel.json`.
 3. **Correo transaccional**: Supabase Auth usa SMTP de Resend
    (`smtp.resend.com:465`, usuario `resend`, remitente `no-reply@adopty.lat`), con
    dominio `adopty.lat` verificado (DKIM + DMARC). Sustituye el límite de 2 correos/hora
-   del SMTP integrado.
+   del SMTP integrado. **Confirm email está activo** (`mailer_autoconfirm=false`): al
+   registrarse se envía un enlace y no hay sesión hasta abrirlo. En local
+   `supabase/config.toml` mantiene `enable_confirmations=false` para el e2e.
 4. **Migraciones**: están en `supabase/migrations/` y ya aplicadas en la nube (20). Si
    añades una, aplícala (SQL Editor o `psql`) **y** anótala en
    `supabase_migrations.schema_migrations`, o el siguiente `db push` intentará
