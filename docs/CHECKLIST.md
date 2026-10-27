@@ -18,7 +18,7 @@
 - [x] Dominio `adopty.lat` + `www` con redirect 308 y TLS
 - [x] SMTP de Resend configurado y dominio verificado (DKIM + DMARC)
 - [x] `mailer_autoconfirm=false`: el registro exige confirmar el correo antes de entrar
-- [ ] Correo real de confirmación y recuperación entregado (confirmar _Delivered_ en Resend)
+- [x] Correo real de confirmación y recuperación entregado (_Delivered_ en Resend)
 
 ## Aceptación global §13
 
@@ -44,5 +44,5 @@
 > `supabase/config.toml` lo mantiene OFF para que el e2e no dependa de correo.
 >
 > Nota correo: el SMTP integrado de Supabase queda sustituido por Resend
-> (`smtp.resend.com:465`, `no-reply@adopty.lat`). Falta confirmar la entrega real en
-> una bandeja y revisar la carpeta de spam.
+> (`smtp.resend.com:465`, `no-reply@adopty.lat`). Verificado el 2026-10-27: confirmación
+> y recuperación llegan y Resend las marca _Delivered_; plantillas en español.

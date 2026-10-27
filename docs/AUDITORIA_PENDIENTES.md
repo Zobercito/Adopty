@@ -197,12 +197,13 @@ piloto abierto.
     `supabase_migrations.schema_migrations`.
   - SMTP de Resend (`smtp.resend.com:465`, remitente `no-reply@adopty.lat`), dominio
     verificado con DKIM y DMARC.
-- **Pendiente operativo:** probar un correo real de confirmación/recuperación (bandeja
-  del usuario). `mailer_autoconfirm` quedó en **`false`** el 2026-10-27: el alta envía
-  enlace de confirmación y no crea sesión hasta abrirlo.
-- **Criterio de aceptación:** checklist de `docs/CHECKLIST.md` al día; registro,
-  recuperación, cambio de correo y chat Realtime funcionando en prod (el flujo e2e
-  público pasó 32/32 contra `https://adopty.lat`).
+- **Verificado 2026-10-27:** Resend entregó (_Delivered_) el correo de confirmación y
+  el de recuperación. La cuenta de prueba se creó a las 05:23:29, se confirmó 30 s
+  después y abrió sesión 4 s más tarde. `mailer_autoconfirm` quedó en **`false`**: el
+  alta envía enlace y no crea sesión hasta abrirlo.
+- **Criterio de aceptación:** checklist de `docs/CHECKLIST.md` al día; registro con
+  confirmación y recuperación verificados en prod; cambio de correo y chat Realtime
+  cubiertos por e2e (el flujo público pasó 32/32 contra `https://adopty.lat`).
 
 #### P0-03 — Limpiar el seed y rotar credenciales demo
 
@@ -871,6 +872,7 @@ verifica antes de afirmarlos en una entrega.
 | 2026-10-26 | Cierre del nivel fácil; verificación y nueva sección 8.                      |
 | 2026-10-26 | Cierre de los P1 de código (P1-01…P1-09); verificación y nueva sección 9.    |
 | 2026-10-26 | Dominio `adopty.lat`, SMTP Resend, deploy y verificación prod; nueva §10.    |
+| 2026-10-27 | Confirmación de correo activa y entrega de Resend verificada (_Delivered_).  |
 
 ---
 
@@ -1005,14 +1007,15 @@ desplegaron en `https://adopty.lat` (ver §10).
 | `/sitemap-mascotas.xml`                            | ✅ `200 application/xml` con fichas reales; `robots.txt` anuncia ambos sitemaps     |
 | `E2E_BASE_URL=https://adopty.lat npm run test:e2e` | ✅ 32/32                                                                            |
 | `storage.buckets` / `pg_policies`                  | ✅ límites 512 000 + `{image/webp}`; policies por `auth.uid()`                      |
+| Confirmación y recuperación por Resend             | ✅ _Delivered_; alta confirmada en 30 s y sesión iniciada; plantillas en español    |
 
 ### 10.3 Pendientes operativos de este bloque
 
-- **Probar entrega real de correo** de confirmación y recuperación con `/register` y
-  `/recuperar`; confirmar _Delivered_ en Resend (requiere acceso a la bandeja).
 - **`mailer_autoconfirm` decidido y aplicado:** `false` desde el 2026-10-27. El registro
   muestra “revisa tu correo” y el login distingue “correo sin confirmar”; en local sigue
   desactivado para no romper el e2e.
+- **Entrega de correo verificada:** confirmación y recuperación llegaron a la bandeja y
+  Resend las marca _Delivered_; las plantillas están en español.
 - **Modelo de moderación P2-02** y revisión del buzón `rua` de DMARC (hoy Gmail
   personal).
 - **P0-03**: las cuentas demo con clave conocida siguen en cloud; rotarlas antes del
