@@ -85,9 +85,39 @@ const VALORES = [
   { icono: '🔒', t: 'Sin exponer tus datos', d: 'Chat interno por mascota: tu número y correo nunca se muestran.' },
   { icono: '✅', t: 'Refugios verificados', d: 'Organizaciones y rescatistas con validación dentro de la plataforma.' },
 ];
+
+const sitioBase = (Astro.site ?? new URL(Astro.url.origin)).toString().replace(/\/$/, '');
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Adopty',
+    url: `${sitioBase}/`,
+    inLanguage: 'es-PA',
+    description:
+      'Plataforma centralizada de adopción de mascotas en Panamá: busca, chatea y solicita sin exponer tus datos.',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${sitioBase}/explorar?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Adopty',
+    url: `${sitioBase}/`,
+    logo: `${sitioBase}/brand/adopty-logo-icon-sm.png`,
+    description: 'Plataforma de adopción responsable de mascotas en Panamá.',
+    areaServed: 'PA',
+  },
+];
 ---
 
-<Layout title="Adopty — Adopta con amor en Panamá">
+<Layout title="Adopty — Adopta con amor en Panamá" jsonLd={jsonLd}>
   <Navbar active="inicio" />
 
   <!-- ============ HERO ============ -->

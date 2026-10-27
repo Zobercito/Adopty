@@ -1,4 +1,36 @@
-# Informe QA — Fase 7 (Adopty)
+# Informe QA — Adopty
+
+## Actualización 2026-10-14
+
+Rama `develop`. Comandos: `npm run lint`, `npm run format:check`, `npm run check`,
+`npm test`, `npm run build`, `npm run test:e2e`.
+
+| Capa                            | Resultado                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| Unitarios (vitest)              | ✅ 78/78 en 12 archivos (validación Zod, afinidad, transiciones, panel, admin, perfil…)     |
+| Tipos (`astro check`)           | ✅ 0 errores (antes no corría: había 230, dos de ellos bugs reales)                         |
+| E2E público (Playwright)        | ✅ 28/28 contra el entorno de nube, en solo lectura: páginas, guards, 401 y validación      |
+| E2E flujo completo (Playwright) | ⏳ 11 tests escritos; corren en el CI contra un Supabase local (aquí falta acceso a Docker) |
+
+**Bugs que encontró `astro check` (corregidos):**
+
+1. `POST /api/mascotas/upload` usaba `rateLimit` sin importarlo → con sesión, **toda subida
+   de fotos respondía 500** (`ReferenceError`) desde el commit `ed3fc3c`. Sin fotos no se
+   puede publicar.
+2. El formulario **Reportar publicación** de la ficha usaba `petId`, que solo existe dentro
+   de otro `<script define:vars>` → cada reporte terminaba en "petId is not defined".
+
+Los dos tienen test de regresión en `e2e/flujo.e2e.ts`.
+
+**Qué cubre el flujo e2e** (`npm run test:e2e:flujo`, solo con Supabase local porque crea
+cuentas y mascotas): registro de 3 cuentas → subir foto y publicar → editar ajena (403) →
+solicitar + duplicado (409) → solicitar lo propio (403) → chat cerrado antes de aprobar (403)
+→ tercero no ve ni aprueba (RLS) → aprobar → `en_proceso` y terminales cerradas (409) → chat
+en ambos sentidos con no-leídos → tercero fuera del hilo → reportar por la interfaz.
+
+---
+
+## Informe original — Fase 7 (2026-09-26)
 
 Fecha: 2026-09-26 · Rama: `develop` · Comandos: `npm run lint`, `npm run format:check`, `npm test`, `npm run build`.
 

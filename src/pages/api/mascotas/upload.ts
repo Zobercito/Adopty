@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { subirFotos } from '../../../lib/storage';
+import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 

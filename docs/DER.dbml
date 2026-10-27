@@ -1,20 +1,23 @@
-// Adopty — DER (dbdiagram.io). Fuente: supabase/migrations/001_schema.sql
-// Enums Postgres: tipo_usuario, especie, sexo_mascota, tamano_mascota, estado_mascota, estado_solicitud
+// Adopty — DER (dbdiagram.io). Fuente: supabase/migrations/*.sql (19 migraciones, al 2026-10-14)
+// Enums Postgres: tipo_usuario, especie, sexo_mascota, tamano_mascota, estado_mascota, estado_solicitud,
+//   nivel_energia, experiencia_adoptante, ambiente, especie_pref, energia_pref, edad_pref
 
 Table usuarios {
   id uuid [pk, note: 'espejo de auth.users, trigger trg_new_user']
   correo text [unique, not null]
   tipo_usuario tipo_usuario [not null, default: 'persona']
   fecha_registro timestamptz [not null, default: `now()`]
-  activo bool [not null, default: true]
+  activo bool [not null, default: true, note: 'false = suspendida o dada de baja']
+  borrado_en timestamptz [note: 'baja de cuenta (lógica)']
 }
 
 Table personas {
   id uuid [pk, ref: > usuarios.id, note: 'PK/FK']
   nombre text [not null, note: '2-80']
-  telefono text [note: 'opcional, nunca público']
   foto_perfil text
-  descripcion text [note: 'máx 500']
+  descripcion text [note: 'máx 500, "sobre mí"']
+  experiencia experiencia_adoptante
+  motivacion text [note: 'máx 300']
 }
 
 Table organizaciones {
@@ -22,13 +25,17 @@ Table organizaciones {
   nombre_oficial text [not null, note: '2-120']
   direccion text [not null]
   descripcion text [note: 'máx 1000']
-  verificada bool [not null, default: false, note: 'badge, manual v1']
+  verificada bool [not null, default: false, note: 'badge; lo aprueba un admin']
   sitio_web text
+  logo text
+  redes jsonb [note: 'instagram / facebook / whatsapp']
+  contacto_visible bool [not null, default: false]
 }
 
 Table mascotas {
   id uuid [pk, default: `gen_random_uuid()`]
   id_publicador uuid [not null, ref: > usuarios.id]
+  slug text [unique, not null, note: 'nombre-xxxxxx, trigger set_mascota_slug']
   nombre text [not null, note: '2-60']
   especie especie [not null]
   raza text [not null]
@@ -39,6 +46,9 @@ Table mascotas {
   estado_salud text [not null, default: '']
   ubicacion text [not null, index]
   estado estado_mascota [not null, default: 'disponible']
+  nivel_energia nivel_energia [not null, default: 'moderada']
+  apto_ninos bool [not null, default: true]
+  apto_otros bool [not null, default: true]
   fecha_publicacion timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null]
   deleted_at timestamptz [note: 'soft-delete']
@@ -90,4 +100,64 @@ Table favoritos {
   indexes {
     (id_usuario, id_mascota) [pk]
   }
+}
+
+Table perfil_estilo_vida {
+  id_persona uuid [pk, ref: - usuarios.id, delete: cascade]
+  ambiente ambiente [not null]
+  ninos bool [not null, default: false]
+  especie_pref especie_pref [not null]
+  ubicacion text [not null, note: '2-120']
+  energia_pref energia_pref [not null]
+  otras_mascotas bool [not null, default: false]
+  edad_pref edad_pref [not null, default: 'indiferente']
+  actualizado timestamptz [not null, default: `now()`]
+  Note: 'Alimenta el algoritmo de afinidad (src/lib/match.ts)'
+}
+
+Table reportes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_mascota uuid [not null, ref: > mascotas.id, delete: cascade]
+  id_reportador uuid [not null, ref: > usuarios.id, delete: cascade]
+  motivo text [not null, note: '10-500']
+  estado text [not null, default: 'pendiente', note: 'pendiente | resuelto | descartado']
+  notas_admin text
+  fecha_reporte timestamptz [not null, default: `now()`]
+  fecha_resolucion timestamptz
+
+  indexes {
+    (id_mascota, id_reportador) [unique, note: 'un reporte por persona y mascota']
+  }
+}
+
+Table verificaciones_org {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_organizacion uuid [not null, ref: > organizaciones.id, delete: cascade]
+  tipo_evidencia text [not null, note: 'redes_sociales | documento | sitio_web | otro']
+  url_evidencia text [not null]
+  descripcion text
+  estado text [not null, default: 'pendiente', note: 'pendiente | aprobada | rechazada']
+  notas_admin text
+  fecha_solicitud timestamptz [not null, default: `now()`]
+  fecha_resolucion timestamptz
+}
+
+Table administradores {
+  id uuid [pk, ref: - usuarios.id, delete: cascade]
+  desde timestamptz [not null, default: `now()`]
+  notas text
+  Note: 'Alta manual por SQL (docs/ADMIN.md); la consulta soy_admin() lee esta tabla'
+}
+
+Table auditoria {
+  id uuid [pk, default: `gen_random_uuid()`]
+  id_usuario uuid [not null, ref: > usuarios.id, delete: cascade]
+  accion text [not null, note: 'mascota_crear, solicitud_aprobar, suspender_cuenta, baja_cuenta…']
+  tabla text [not null]
+  id_registro uuid [not null]
+  datos_anteriores jsonb
+  datos_nuevos jsonb
+  ip text
+  user_agent text
+  fecha timestamptz [not null, default: `now()`]
 }

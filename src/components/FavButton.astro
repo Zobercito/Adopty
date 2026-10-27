@@ -91,7 +91,11 @@ const { id, nombre } = Astro.props as Props;
       location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
       return;
     }
-    if (res.ok) { paint(btn, !on); setLocal(local.filter((x) => x !== id)); }
+    if (res.ok) {
+      if (!on) window.adoptyTrack?.('favorito_agregado', { mascota: id });
+      paint(btn, !on);
+      setLocal(local.filter((x) => x !== id));
+    }
   }
 
   if (!(window as unknown as Record<string, unknown>).__adoptyFav) {

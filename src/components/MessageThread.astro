@@ -54,7 +54,7 @@ const sol = solicitud ? solBadge(solicitud) : null;
   <span class="flex-1 min-w-0">
     <span class="flex items-center justify-between gap-2">
       <span class={`font-bold truncate text-sm ${no_leidos > 0 ? 'text-ink' : ''}`}>{nombre_otra}</span>
-      <time class="text-xs text-faint shrink-0 tabular" dateTime={ultima}>{fecha}</time>
+      <time class="text-xs text-faint shrink-0 tabular" datetime={ultima}>{fecha}</time>
     </span>
     <span class="flex items-center gap-2 mt-1 min-w-0">
       <span class="text-xs text-muted truncate">{mascota?.nombre ?? 'Sin mascota asociada'}</span>

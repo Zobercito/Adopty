@@ -129,10 +129,11 @@ const esOrg = tipo === 'organizacion';
   </main>
 
   <script>
-    const form = document.getElementById('regForm');
-    const err = document.getElementById('err');
-    const ok = document.getElementById('ok');
-    const btn = document.getElementById('regBtn');
+    // Los nodos existen siempre en el marcado de esta página.
+    const form = document.getElementById('regForm') as HTMLFormElement;
+    const err = document.getElementById('err') as HTMLElement;
+    const ok = document.getElementById('ok') as HTMLElement;
+    const btn = document.getElementById('regBtn') as HTMLButtonElement;
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.classList.add('hidden');
@@ -178,10 +179,10 @@ const esOrg = tipo === 'organizacion';
     // Título y etiqueta dinámicos según el tipo de cuenta elegido.
     const regTitulo = document.getElementById('regTitulo');
     const nombreLabel = document.getElementById('nombreLabel');
-    const nombreInput = document.getElementById('nombre');
+    const nombreInput = document.getElementById('nombre') as HTMLInputElement | null;
     const sincronizar = () => {
       const org =
-        document.querySelector('input[name="tipo_usuario"]:checked')?.value === 'organizacion';
+        document.querySelector<HTMLInputElement>('input[name="tipo_usuario"]:checked')?.value === 'organizacion';
       if (regTitulo) regTitulo.textContent = org ? 'Registra tu organización' : 'Crea tu cuenta';
       if (nombreLabel) nombreLabel.textContent = org ? 'Organización' : 'Nombre';
       if (nombreInput) {

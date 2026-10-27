@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import { supabaseServer } from '../lib/supabase';
 import { fotoUrl } from '../lib/mascotas';
-import { completitudPerfil, etiquetaExperiencia, EXPERIENCIAS } from '../lib/perfil';
+import { completitudPerfil, EXPERIENCIAS } from '../lib/perfil';
 import { redesVacias } from '../lib/validation/user';
 
 const user = Astro.locals.user;
@@ -60,7 +60,8 @@ const falta = (campo: string) => comp.faltanCampos.includes(campo);
 // Última solicitud de verificación: así la organización sabe en qué quedó y,
 // si fue rechazada, por qué. La nota la escribe el admin en el panel.
 // La RLS deja a cada organización leer sus propias verificaciones.
-let verificacion: { estado: string; notas_admin: string | null } | null = null;
+type Verificacion = { estado: string; notas_admin: string | null };
+let verificacion: Verificacion | null = null;
 if (esOrg) {
   const { data: v } = await supabase
     .from('verificaciones_org')
@@ -69,7 +70,7 @@ if (esOrg) {
     .order('fecha_solicitud', { ascending: false })
     .limit(1)
     .maybeSingle();
-  verificacion = (v as typeof verificacion) ?? null;
+  verificacion = (v as Verificacion | null) ?? null;
 }
 const ESTADO_VERIF: Record<string, string> = {
   pendiente: 'En revisión por el equipo',
@@ -727,10 +728,12 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
 
   <script>
     // ---------- Perfil ----------
-    const perfForm = document.getElementById('perfForm');
-    const err = document.getElementById('err');
-    const ok = document.getElementById('ok');
-    const perfBtn = document.getElementById('perfBtn');
+    // Nodo por id con su tipo real. Los de cada formulario existen junto a él en el marcado.
+    const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+    const perfForm = document.getElementById('perfForm') as HTMLFormElement | null;
+    const err = $('err');
+    const ok = $('ok');
+    const perfBtn = $<HTMLButtonElement>('perfBtn');
     perfForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.classList.add('hidden');
@@ -766,19 +769,19 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
     // Los puntos de "falta completar" se apagan en cuanto el campo se llena,
     // para no tener que guardar solo para verlos desaparecer.
     (() => {
-      const vacío = (campo) => {
-        const el = document.getElementById(campo);
+      const vacío = (campo: string) => {
+        const el = document.getElementById(campo) as HTMLInputElement | null;
         if (!el) return true;
         if (el.type === 'file') return !el.files?.length;
         return !String(el.value ?? '').trim();
       };
-      const revisar = (campo) => {
+      const revisar = (campo: string) => {
         const dot = document.querySelector(`.falta[data-para="${campo}"]`);
         if (dot) dot.classList.toggle('oculto', !vacío(campo));
       };
       for (const dot of document.querySelectorAll('.falta')) {
         const campo = dot.getAttribute('data-para');
-        const el = document.getElementById(campo);
+        const el = campo ? document.getElementById(campo) : null;
         if (!campo || !el) continue;
         el.addEventListener('input', () => revisar(campo));
         el.addEventListener('change', () => revisar(campo));
@@ -786,7 +789,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
     })();
 
     // Vista previa de la foto antes de subirla.
-    const fotoInput = document.getElementById('foto');
+    const fotoInput = document.getElementById('foto') as HTMLInputElement | null;
     fotoInput?.addEventListener('change', () => {
       const file = fotoInput.files?.[0];
       const preview = document.getElementById('fotoPreview');
@@ -802,15 +805,15 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
     });
 
     // ---------- Cambio de correo ----------
-    const mailForm = document.getElementById('mailForm');
+    const mailForm = document.getElementById('mailForm') as HTMLFormElement | null;
     mailForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const mailErr = document.getElementById('mailErr');
-      const mailOk = document.getElementById('mailOk');
+      const mailErr = $('mailErr');
+      const mailOk = $('mailOk');
       mailErr.classList.add('hidden');
       mailOk.classList.add('hidden');
       if (!mailForm.reportValidity()) return;
-      const btn = mailForm.querySelector('button[type="submit"]');
+      const btn = mailForm.querySelector('button[type="submit"]') as HTMLButtonElement;
       const previo = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Enviando…';
@@ -839,10 +842,10 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
     });
 
     // ---------- Dar de baja la cuenta ----------
-    const bajaForm = document.getElementById('bajaForm');
+    const bajaForm = document.getElementById('bajaForm') as HTMLFormElement | null;
     bajaForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const bajaErr = document.getElementById('bajaErr');
+      const bajaErr = $('bajaErr');
       bajaErr.classList.add('hidden');
       const fd = new FormData(bajaForm);
       if (String(fd.get('confirmacion') || '').trim().toUpperCase() !== 'ELIMINAR') {
@@ -851,7 +854,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         return;
       }
       if (!confirm('Esto es irreversible. ¿Eliminar tu cuenta?')) return;
-      const btn = bajaForm.querySelector('button[type="submit"]');
+      const btn = bajaForm.querySelector('button[type="submit"]') as HTMLButtonElement;
       const previo = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Eliminando…';
@@ -882,11 +885,11 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
     });
 
     // ---------- Cambio de contraseña ----------
-    const passForm = document.getElementById('passForm');
+    const passForm = document.getElementById('passForm') as HTMLFormElement | null;
     passForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const passErr = document.getElementById('passErr');
-      const passOk = document.getElementById('passOk');
+      const passErr = $('passErr');
+      const passOk = $('passOk');
       passErr.classList.add('hidden');
       passOk.classList.add('hidden');
       const fd = new FormData(passForm);
@@ -897,7 +900,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         passErr.classList.remove('hidden');
         return;
       }
-      const btn = passForm.querySelector('button[type="submit"]');
+      const btn = passForm.querySelector('button[type="submit"]') as HTMLButtonElement;
       const previo = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Actualizando…';
@@ -955,12 +958,13 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       verifBtn.replaceWith(box);
       box.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const msg = document.getElementById('verifMsg');
-        const btn = box.querySelector('button[type="submit"]');
+        const msg = $('verifMsg');
+        const btn = box.querySelector('button[type="submit"]') as HTMLButtonElement;
+        const valor = (sel: string) => (box.querySelector(sel) as HTMLInputElement).value;
         const payload = {
-          tipo_evidencia: box.querySelector('#v-tipo').value,
-          url_evidencia: box.querySelector('#v-url').value,
-          descripcion: box.querySelector('#v-desc').value,
+          tipo_evidencia: valor('#v-tipo'),
+          url_evidencia: valor('#v-url'),
+          descripcion: valor('#v-desc'),
         };
         if (!payload.url_evidencia.startsWith('http')) {
           msg.textContent = 'La URL debe comenzar con http';
@@ -983,7 +987,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
           msg.classList.replace('alert-error', 'alert-ok');
           box.reset();
         } catch (err) {
-          msg.textContent = err.message;
+          msg.textContent = err instanceof Error ? err.message : 'Error al enviar';
           msg.classList.remove('hidden');
           msg.classList.replace('alert-ok', 'alert-error');
           btn.disabled = false;
@@ -993,23 +997,25 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
     }
 
     // ---------- Estilo de vida (match) ----------
-    const estiloForm = document.getElementById('estiloForm');
+    const estiloForm = document.getElementById('estiloForm') as HTMLFormElement | null;
     if (estiloForm) {
-      const estiloMsg = document.getElementById('estiloMsg');
-      const estiloBtn = document.getElementById('estiloBtn');
+      const estiloMsg = $('estiloMsg');
+      const estiloBtn = $<HTMLButtonElement>('estiloBtn');
+      // Campos del formulario por `name` (radios y selects exponen `.value`).
+      const campo = (nombre: string) => estiloForm.elements.namedItem(nombre) as HTMLInputElement;
 
       // Cargar el perfil existente (si lo hay).
       fetch('/api/estilo-de-vida')
         .then((r) => (r.ok ? r.json() : { perfil: null }))
         .then(({ perfil }) => {
           if (!perfil) return;
-          estiloForm.ambiente.value = perfil.ambiente;
-          estiloForm.ubicacion.value = perfil.ubicacion;
-          estiloForm.especie_pref.value = perfil.especie_pref;
-          estiloForm.energia_pref.value = perfil.energia_pref;
-          estiloForm.edad_pref.value = perfil.edad_pref;
-          estiloForm.ninos.value = perfil.ninos ? 'si' : 'no';
-          estiloForm.otras_mascotas.value = perfil.otras_mascotas ? 'si' : 'no';
+          campo('ambiente').value = perfil.ambiente;
+          campo('ubicacion').value = perfil.ubicacion;
+          campo('especie_pref').value = perfil.especie_pref;
+          campo('energia_pref').value = perfil.energia_pref;
+          campo('edad_pref').value = perfil.edad_pref;
+          campo('ninos').value = perfil.ninos ? 'si' : 'no';
+          campo('otras_mascotas').value = perfil.otras_mascotas ? 'si' : 'no';
         })
         .catch(() => {});
 
@@ -1054,13 +1060,13 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
 
     // ---------- Pestañas del perfil ----------
     (() => {
-      const tabs = document.querySelectorAll('[data-tab]');
+      const tabs = document.querySelectorAll<HTMLElement>('[data-tab]');
       const paneles = {
         datos: document.getElementById('panel-datos'),
         estilo: document.getElementById('panel-estilo'),
         cuenta: document.getElementById('panel-cuenta'),
       };
-      const activar = (nombre) => {
+      const activar = (nombre: string | undefined) => {
         tabs.forEach((t) => {
           const on = t.dataset.tab === nombre;
           t.setAttribute('aria-selected', String(on));

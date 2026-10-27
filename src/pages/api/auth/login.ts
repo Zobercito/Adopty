@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { ipCliente, rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { rutaInternaSegura } from '../../../lib/redirect';
 import { supabaseServer } from '../../../lib/supabase';
 import { loginSchema } from '../../../lib/validation/user';
 
@@ -42,12 +43,6 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     );
   }
 
-  let next = '/perfil';
-  try {
-    const { next: n } = (body as { next?: string }) ?? {};
-    if (n && n.startsWith('/') && !n.startsWith('//')) next = n;
-  } catch {
-    /* default */
-  }
+  const next = rutaInternaSegura((body as { next?: unknown } | null)?.next);
   return redirect(next, 302);
 };

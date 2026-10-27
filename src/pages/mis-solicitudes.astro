@@ -133,7 +133,7 @@ const creadas = lista.length;
   </main>
 
   <script>
-    document.querySelectorAll('[data-cancelar]').forEach((btn) =>
+    document.querySelectorAll<HTMLButtonElement>('[data-cancelar]').forEach((btn) =>
       btn.addEventListener('click', async () => {
         if (!confirm('¿Cancelar esta solicitud?')) return;
         const id = btn.getAttribute('data-cancelar');

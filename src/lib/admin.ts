@@ -145,7 +145,7 @@ export async function listarVerificaciones(
     notas_admin: string | null;
     fecha_solicitud: string;
     fecha_resolucion: string | null;
-    organizaciones: VerificacionAdmin['organizaciones'];
+    organizaciones: VerificacionAdmin['organizacion'];
   }[];
   return filas.map((f) => ({
     id: f.id,

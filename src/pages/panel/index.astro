@@ -170,10 +170,10 @@ const stats = resumen
   </main>
 
   <script>
-    document.querySelectorAll('[data-estado]').forEach((sel) =>
+    document.querySelectorAll<HTMLSelectElement>('[data-estado]').forEach((sel) =>
       sel.addEventListener('change', async () => {
         const id = sel.getAttribute('data-estado');
-        const err = document.querySelector(`[data-err="${id}"]`);
+        const err = document.querySelector(`[data-err="${id}"]`) as HTMLElement;
         err.classList.add('hidden');
         sel.disabled = true;
         const res = await fetch(`/api/mascotas/${id}`, {
@@ -191,7 +191,7 @@ const stats = resumen
         location.reload();
       }),
     );
-    document.querySelectorAll('[data-eliminar]').forEach((btn) =>
+    document.querySelectorAll<HTMLButtonElement>('[data-eliminar]').forEach((btn) =>
       btn.addEventListener('click', async () => {
         if (!confirm(`¿Eliminar la publicación de ${btn.getAttribute('data-nombre')}? Se oculta de Explorar.`))
           return;

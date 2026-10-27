@@ -5,7 +5,7 @@
 **Materia:** Ingeniería de Software II · Prof. Leovigildo Bosquez Barria
 **Fecha:** ________ de __________ de 2026 · **URL prod:** __________________________
 
-## 1. Alcance entregado (Fases 0–7 + prod F8)
+## 1. Alcance entregado (Fases 0–7 + prod F8 + extras de octubre)
 
 - [ ] Auth email + perfiles persona/organización + recuperación
 - [ ] CRUD mascotas con 1–5 fotos WebP + detalle + soft-delete
@@ -13,7 +13,10 @@
 - [ ] Solicitudes pendiente/aprobada/rechazada/cancelada (RPC atómica)
 - [ ] Chat interno Realtime con no-leídos
 - [ ] Panel publicador (agregados + gestión) + favoritos
-- [ ] QA: 36 tests, rate-limit, RLS por rol, legales, backups
+- [ ] Perfil del adoptante (experiencia, motivación) + estilo de vida y afinidad
+- [ ] Cuenta: cambiar correo y contraseña, exportar mis datos, darse de baja
+- [ ] Moderación: reportes, verificación de organizaciones, suspensión de cuentas, auditoría
+- [ ] QA: 78 tests unitarios, 39 e2e (Playwright), `astro check` en CI, rate-limit, RLS por rol, legales, backup diario
 - [ ] Pendiente decidido: Google OAuth (código listo, activar en prod)
 
 ## 2. Métricas del piloto (§13)

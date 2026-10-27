@@ -28,7 +28,7 @@ const { data: mias } = await supabase
   .is('deleted_at', null);
 const misIds = new Set((mias ?? []).map((m) => m.id as string));
 const relevantes = (solicitudes ?? []).filter((s) =>
-  misIds.has((s.mascotas as { id: string } | null)?.id ?? ''),
+  misIds.has((s.mascotas as unknown as { id: string } | null)?.id ?? ''),
 );
 
 const comp = completitudPerfil({
@@ -136,7 +136,7 @@ const comp = completitudPerfil({
               relevantes.length ? (
                 <ul class="grid gap-2 mt-3">
                   {relevantes.map((s) => {
-                    const m = s.mascotas as { id: string; nombre: string; estado: string };
+                    const m = s.mascotas as unknown as { id: string; nombre: string; estado: string };
                     const clase =
                       s.estado === 'aprobada'
                         ? 'badge-disponible'

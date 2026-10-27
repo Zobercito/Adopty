@@ -64,7 +64,7 @@ export async function getMisSolicitudes(
     .order('fecha_solicitud', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((s) => {
-    const m = (s as { mascotas: Record<string, unknown> }).mascotas ?? {};
+    const m = (s as unknown as { mascotas: Record<string, unknown> | null }).mascotas ?? {};
     const fotos = fotosOrdenadas((m.fotos_mascota ?? []) as FotoRow[]);
     return {
       id: s.id as string,
@@ -120,7 +120,7 @@ export async function getSolicitudesRecibidas(
       estado: s.estado as EstadoSolicitud,
       mensaje_inicial: s.mensaje_inicial as string,
       fecha_solicitud: s.fecha_solicitud as string,
-      mascota: (s as { mascotas: SolicitudRecibida['mascota'] }).mascotas,
+      mascota: (s as unknown as { mascotas: SolicitudRecibida['mascota'] }).mascotas,
       adoptante: {
         id: adoptanteId,
         nombre: r?.nombre ?? SIN_CUENTA,

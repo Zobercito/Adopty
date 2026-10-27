@@ -34,10 +34,10 @@
 
 ## 6:00–7:00 — Cierre técnico + impacto
 
-- 30 s: arquitectura (Astro Islands + Supabase RLS + Sharp WebP), 36 tests, rate-limit,
-  RLS testeada por rol, costo $0.
+- 30 s: arquitectura (Astro Islands + Supabase RLS + Sharp WebP), 78 tests unitarios +
+  flujo e2e automatizado en CI, rate-limit, RLS testeada por rol, costo $0.
 - 30 s: impacto social (1–2 refugios piloto, 5 mascotas reales) + roadmap
-  (OAuth Google, PWA, matching). Cierre: "un único punto confiable para adoptar en Panamá".
+  (OAuth Google, notificaciones, mapas). Cierre: "un único punto confiable para adoptar en Panamá".
 
 ## Preguntas probables
 
@@ -45,3 +45,7 @@
 - **¿Y si el publicador no responde?** Cancelar solicitud;cola de revisión para orgs no verificadas.
 - **¿El acuerdo es legal?** No: se firma fuera de la plataforma (disclaimer + términos).
 - **¿Google login?** Código listo, activación en F8 (mostrar botón + mensaje de degradación).
+- **¿Cómo sabe qué mascota me conviene?** Pestaña _Estilo de vida_ del perfil → afinidad
+  (`src/lib/match.ts`) ordena Explorar según hogar, niños, otras mascotas y energía.
+- **¿Quién modera?** Administradores en `/admin`: reportes, verificación de organizaciones y
+  suspensión de cuentas, todo con rastro en `auditoria`.

@@ -20,13 +20,28 @@ supabase db reset      # migraciones + seed (30 mascotas + 2 usuarios demo)
 npm run dev            # http://localhost:4321
 ```
 
-| Script                                  | Qué hace                                                   |
-| --------------------------------------- | ---------------------------------------------------------- |
-| `npm run dev`                           | servidor desarrollo                                        |
-| `npm run build`                         | build prod (Vercel)                                        |
-| `npm test`                              | vitest, 78 tests (Zod + afinidad + transiciones + helpers) |
-| `npm run lint` / `npm run format:check` | ESLint + Prettier                                          |
-| `node scripts/perf.mjs [base]`          | perf smoke búsqueda (criterio p95 < 1 s)                   |
+| Script                                  | Qué hace                                                     |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `npm run dev`                           | servidor desarrollo                                          |
+| `npm run build`                         | build prod (Vercel)                                          |
+| `npm test`                              | vitest, 86 tests (Zod, afinidad, transiciones y helpers)     |
+| `npm run check`                         | tipos TS/Astro (`astro check`); el lint no los cubre         |
+| `npm run test:e2e`                      | Playwright: suite pública, solo lectura (28 tests)           |
+| `npm run test:e2e:flujo`                | Playwright: flujo completo; **escribe**, solo Supabase local |
+| `npm run lint` / `npm run format:check` | ESLint + Prettier                                            |
+| `node scripts/perf.mjs [base]`          | perf smoke búsqueda (criterio p95 < 1 s)                     |
+
+### Tests e2e
+
+La primera vez: `npx playwright install chromium`. Hay dos suites en `e2e/`:
+
+- **`publico.e2e.ts`** — páginas, guards, 401 y validación. No inicia sesión ni escribe:
+  se puede correr contra la nube o contra un deploy (`E2E_BASE_URL=https://… npm run test:e2e`).
+- **`flujo.e2e.ts`** — registro → publicar con foto → solicitar → aprobar → chat → reportar.
+  Crea cuentas y mascotas, así que solo corre con `E2E_FLUJO=1` **y** con `.env` apuntando a
+  Supabase local (`supabase start`); si no, se salta sola. En el CI corre en el job `e2e`.
+
+Si no hay `E2E_BASE_URL`, Playwright levanta `npm run dev` (o reutiliza el que ya corre).
 
 ## Variables de entorno
 
@@ -113,35 +128,42 @@ también `org_select USING (true)`, que venía de la migración original.
 ## Rutas
 
 - Públicas: `/`, `/explorar?...` (filtros en URL + skeletons), `/mascota/[id]`,
-  `/login`, `/register`, `/recuperar`, `/terminos`, `/privacidad`, `/404`, `/500`.
+  `/login`, `/register`, `/recuperar`, `/terminos`, `/privacidad`, `/offline`, `/404`,
+  `/500`.
 - Privadas (`?next=` al volver): `/perfil`, `/favoritos`, `/mis-solicitudes`,
   `/panel`, `/panel/solicitudes`, `/panel/adoptante/[id]`, `/mensajes`,
-  `/mascota/nueva`, `/mascota/[id]/editar`.
-- API: `/api/auth/*`, `/api/perfil`, `/api/favoritos`, `/api/mascotas*`,
-  `/api/solicitudes*`, `/api/mensajes*` (colección en `postman/adopty.json`).
+  `/mascota/nueva`, `/mascota/[id]/editar`, `/admin` (solo administradores).
+- API: `/api/auth/*`, `/api/perfil`, `/api/mis-datos`, `/api/cuenta/*`,
+  `/api/estilo-de-vida`, `/api/favoritos`, `/api/mascotas*`, `/api/solicitudes*`,
+  `/api/mensajes*`, `/api/reportes`, `/api/verificacion`, `/api/admin/*`
+  (colección en `postman/adopty.json`).
 
 ## Estructura
 
 ```
 src/pages/{index,explorar,mascota/[id],mascota/nueva,mascota/[id]/editar,
-  panel,panel/solicitudes,panel/adoptante/[id],mensajes,mis-solicitudes,favoritos,
+  panel,panel/solicitudes,panel/adoptante/[id],admin,mensajes,mis-solicitudes,favoritos,
   login,register,recuperar,perfil,terminos,privacidad,404,500}.astro
-src/pages/api/{perfil,mis-datos,favoritos,mascotas/,solicitudes/,mensajes/,
-  estilo-de-vida/,cuenta/,auth/,admin/}.ts
+src/pages/api/{perfil,mis-datos,favoritos,mascotas/,solicitudes/,mensajes/,reportes/,
+  verificacion/,estilo-de-vida/,cuenta/,auth/,admin/}.ts
 src/components/{Navbar,PetCard,Badge,FavButton,PetForm,MessageThread,ChatView}.astro
-src/lib/{supabase,mascotas,solicitudes,panel,perfil,match,storage,transiciones,ratelimit,admin}.ts
+src/lib/{supabase,mascotas,solicitudes,panel,perfil,match,storage,transiciones,
+  ratelimit,admin,auditoria,analytics,oauth,redirect,seo}.ts (+ *.test.ts)
 src/lib/validation/{user,pet,request,message}.ts (+ *.test.ts)
 src/data/mockPets.ts          # fallback del hero si la DB está vacía
-supabase/migrations/*.sql     # 001 schema · 002 RLS · 003 storage · 004 RPC aprobar · 005 RLS aprobada
+e2e/{publico,flujo}.e2e.ts    # Playwright (config en playwright.config.ts)
+supabase/migrations/*.sql     # 19 migraciones: schema, RLS, storage, RPC solicitudes, slugs,
+                              # auditoría, moderación, admin, estilo de vida, privacidad, cuenta
 supabase/seed.sql             # 2 usuarios + 30 mascotas
-postman/adopty.json · scripts/perf.mjs · docs/
+postman/adopty.json · scripts/{perf,generar-iconos}.mjs · scripts/backup.sh · docs/
 ```
 
 ## Contribución (Git Flow)
 
 Ramas `main` (prod) · `develop` (integración) · `feature/*`. Commits
-`feat:/fix:/docs:/chore:`. PR con checklist: `build`+`lint`+`format:check`+`test`
-verdes (los corre el CI), RLS considerada, Zod en servidor, responsive 320–1440.
+`feat:/fix:/docs:/chore:`. PR con checklist: `lint`+`format:check`+`check`+`test`+`build`
+y el flujo e2e verdes (los corre el CI), `npm audit` sin vulnerabilidades altas (Dependabot
+semanal), RLS considerada, Zod en servidor, responsive 320–1440.
 
 ## Deploy (Fase 8)
 

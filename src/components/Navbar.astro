@@ -171,7 +171,7 @@ const visibles = (user ? enlacesApp : enlacesVisitante) as { key: string; href: 
           aria-hidden="true"
         >
           <path d="M4 7h16M4 12h16M4 17h16" class="nav-icon-open"></path>
-          <path d="M6 6l12 12M18 6L6 18" class="nav-icon-close" hidden></path>
+          <path d="M6 6l12 12M18 6L6 18" class="nav-icon-close" {...{ hidden: true }}></path>
         </svg>
       </button>
     </div>

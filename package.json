@@ -1,7 +1,7 @@
 {
   "name": "adopty",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.8.0",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -11,9 +11,12 @@
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",
+    "check": "astro check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:flujo": "E2E_FLUJO=1 playwright test"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
@@ -22,18 +25,25 @@
     "@supabase/supabase-js": "^2.117.0",
     "@vercel/analytics": "^2.0.1",
     "astro": "^7.3.4",
-    "eslint": "^10.11.0",
     "sharp": "^0.35.4",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
+  },
+  "overrides": {
+    "path-to-regexp": "^6.3.0",
+    "zod": "$zod"
   },
   "allowScripts": {
     "esbuild": true
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
+    "eslint": "^10.12.0",
     "prettier": "^3.9.8",
     "supabase": "^2.117.0",
     "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
     "vitest": "^5.0.2"
   }
 }
