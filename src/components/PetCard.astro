@@ -1,7 +1,7 @@
 ---
 import Badge from './Badge.astro';
 import FavButton from './FavButton.astro';
-import { estadoLabel, fotoRender, gradFor, type FotoRow } from '../lib/mascotas';
+import { estadoLabel, fotoRender, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
 
 interface Props {
   id: string;
@@ -24,6 +24,8 @@ interface Props {
   compact?: boolean;
   /** % de afinidad con el perfil de estilo de vida (modo match) */
   afinidad?: number;
+  /** Primera tarjeta visible: suele ser la imagen LCP; se carga sin lazy. */
+  prioridad?: boolean;
 }
 const {
   id,
@@ -41,9 +43,10 @@ const {
   publicador,
   compact = false,
   afinidad,
+  prioridad = false,
 } = Astro.props as Props;
 const url = slug ? `/mascota/${slug}` : `/mascota/${id}`;
-const principal = [...(fotos ?? [])].sort((a, b) => (a.es_principal === b.es_principal ? a.orden - b.orden : a.es_principal ? -1 : 1))[0];
+const principal = fotosOrdenadas(fotos)[0];
 const foto = fotoRender(principal?.url_foto);
 const grad = gradFor(id);
 const extraFotos = (fotos?.length ?? 0) - (principal ? 1 : 0);
@@ -66,7 +69,8 @@ else tags.push({ texto: 'Macho', clase: 'tag-neutral' });
           <img
             src={foto}
             alt={`${nombre} - ${raza}`}
-            loading="lazy"
+            loading={prioridad ? 'eager' : 'lazy'}
+            fetchpriority={prioridad ? 'high' : undefined}
             decoding="async"
             width="640"
             height="416"
