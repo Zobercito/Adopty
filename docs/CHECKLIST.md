@@ -2,7 +2,7 @@
 
 ## Pre-prod (hacer en orden)
 
-- [x] `main` fusionado desde `develop`, CI verde (jobs `calidad` y `e2e`): PR #8 → `e6169b5`
+- [x] `main` fusionado desde `develop`, CI verde (jobs `calidad` y `e2e`)
 - [x] Vercel: env `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SITE_URL=https://adopty.lat`
 - [x] Supabase → Auth → URL Configuration: Site URL + Redirects (`/api/auth/callback` del dominio)
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
@@ -15,7 +15,7 @@
 - [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
 - [x] `pg_dump` previo al piloto: `backups/adopty_20261027_010248.dump` (385 KB, 52 tablas) validado con `pg_restore -l`; workflow diario (RPO ≤ 24 h) con retención de 90 días y alerta por issue
 - [x] Restore drill en PostgreSQL 17 limpio: 0 errores, conteos idénticos y RLS activa sobre la copia (RTO del restore 0,28 s)
-- [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 en prod → LCP 1.9 / 1.7 / 1.6 s; a11y 100 y axe 0
+- [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 en prod → LCP 1.9 / 1.7 / 1.6 s móvil; escritorio Perf 100 y CLS 0; a11y 100 y axe 0
 - [x] `/terminos`, `/privacidad`, `/404`, `/500`, sitemap, robots
 - [x] `E2E_BASE_URL=<url prod> npm run test:e2e` en verde (32/32 contra `https://adopty.lat`)
 - [x] Dominio `adopty.lat` + `www` con redirect 308 y TLS
@@ -40,6 +40,7 @@
 | Validación server total        | ✅ Zod en todas las mutaciones                                                         |
 | Tipos TS/Astro                 | ✅ `npm run check` 0 errores, en el CI                                                 |
 | Cobertura y CI                 | ✅ Umbrales en `vitest.config.ts`, e2e público y axe en CI; Lighthouse semanal         |
+| Monitor de caída y backup      | ✅ `uptime.yml` horario con issue automático; alerta de backup por issue               |
 | axe 0 críticos / teclado / AA  | ✅ axe 0 en 5 páginas × 4 anchos; teclado y targets ≥ 24 px verificados (2026-10-27)   |
 | Piloto ≥5 / ≥3 / ≥1 + feedback | ⏳ `PILOTO.md` + `ACTA_ENTREGA.md`                                                     |
 | Google OAuth                   | ⏳ pendiente decidido (F8)                                                             |
