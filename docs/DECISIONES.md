@@ -261,3 +261,41 @@ follow` en páginas privadas o fichas no públicas.
   mismo navegador donde se registró (flujo PKCE). Los usuarios existentes ya están
   confirmados. Si se necesita soportar otro dispositivo, habrá que añadir una ruta de
   verificación por `token_hash`.
+
+## ADR-021 — Moderación posterior a la publicación para el piloto
+
+- **Fecha:** 2026-10-27.
+- **Estado:** aceptada.
+- **Contexto:** el piloto es cerrado, con refugios conocidos y un solo administrador.
+  Ya existen reportes, ocultar/restaurar, verificación de organizaciones, suspensión
+  de cuentas, auditoría y límites de publicación (5 mascotas/hora). Faltaba decidir
+  si las publicaciones se revisan antes o después de salir.
+- **Decisión:** **post-moderación** durante el piloto cerrado. Toda publicación se
+  revisa en un máximo de 48 h y todo reporte se atiende en 24 h. Se oculta una
+  publicación por maltrato, venta, datos falsos, duplicados/spam, datos personales o
+  discriminación. Cuando se abra el registro público, pasar a **modelo híbrido**: las
+  primeras 1–2 publicaciones de cuentas no verificadas pasan a revisión previa; las
+  organizaciones verificadas conservan la post-moderación.
+- **Consecuencias:** publicar no se bloquea y el catálogo del piloto no depende de la
+  disponibilidad del admin, pero exige revisar el panel a diario. La regla operativa
+  queda en `docs/ADMIN.md` y el cambio a pre-moderación no requiere rediseño: es un
+  estado `pendiente` en el alta de mascotas.
+
+## ADR-022 — Reglas de negocio en triggers, no solo en la API
+
+- **Fecha:** 2026-10-27.
+- **Estado:** aceptada.
+- **Contexto:** la anon key es pública y cualquier usuario autenticado puede llamar a
+  PostgREST sin pasar por las API de Astro. Las policies de lectura ya impedían ver
+  filas ajenas, pero las de escritura no replicaban las reglas de solicitudes,
+  mensajes y transiciones de mascotas (P1-10/P1-11).
+- **Decisión:** migración `20261027020000_rls_reglas_negocio.sql`. Triggers
+  `validar_solicitud`, `solo_marcar_leido` y `validar_mascota` replican las reglas de
+  negocio; `sol_update`, `sol_insert`, `msg_insert`, `msg_update` y `mascotas_update`
+  llevan `WITH CHECK`; helpers `soy_publicador_de()` y `puede_mensajear()` son
+  `SECURITY DEFINER` para no depender de la visibilidad RLS del llamador.
+- **Consecuencias:** la regla vive en dos capas (API + base). Es duplicación
+  intencional: la API da mensajes claros y la base garantiza que no haya bypass. Toda
+  mutación nueva debe revisar si necesita trigger o policy con `WITH CHECK`. El coste
+  es que los errores de Postgres llegan al cliente como texto si se llama por REST;
+  la app no cambia porque ya validaba lo mismo.

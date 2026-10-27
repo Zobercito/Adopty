@@ -161,9 +161,9 @@ src/lib/{supabase,mascotas,solicitudes,panel,perfil,match,storage,transiciones,
 src/lib/validation/{user,pet,request,message}.ts (+ *.test.ts)
 src/data/mockPets.ts          # fallback del hero si la DB está vacía
 e2e/{publico,flujo}.e2e.ts    # Playwright (config en playwright.config.ts)
-supabase/migrations/*.sql     # 20 migraciones: schema, RLS, storage (límites y carpeta del dueño),
+supabase/migrations/*.sql     # 21 migraciones: schema, RLS, storage (límites y carpeta del dueño),
                               # RPC solicitudes, slugs, auditoría, moderación, admin, estilo de
-                              # vida, privacidad, cuenta
+                              # vida, privacidad, cuenta, triggers de reglas de negocio
 supabase/seed.sql             # 2 usuarios + 30 mascotas
 vercel.json                   # headers de seguridad (HSTS, CSP Report-Only, etc.)
 postman/adopty.json · scripts/{perf,generar-iconos}.mjs · scripts/backup.sh · docs/

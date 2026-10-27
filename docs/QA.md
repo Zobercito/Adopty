@@ -19,19 +19,30 @@ Entorno: **https://adopty.lat** (Vercel) + Supabase cloud `dvebieysgnhmimmxjwjc`
 | Búsqueda p95 < 1 s / Lighthouse / axe | ⏳ pendientes en prod (P0-05, P3-05)                                                       |
 | E2E de flujo completo (escritura)     | ✅ en CI con Supabase local; ⏳ repetir en prod tras el piloto                             |
 
-**Hallazgos abiertos detectados al verificar RLS en cloud:** P1-10 (un adoptante puede
-insertar/actualizar solicitudes por REST saltándose disponibilidad y transiciones) y
-P1-11 (mensajes directos sin solicitud aprobada y edición del contenido por el
-receptor). La app respeta las reglas; la policy no. Ver
-`docs/AUDITORIA_PENDIENTES.md` §3.2.
+**RLS cerrado el 2026-10-27:** P1-10 y P1-11 se corrigieron con la migración
+`20261027020000_rls_reglas_negocio.sql` (triggers y `WITH CHECK` en solicitudes,
+mensajes y transiciones de mascotas). Se probaron 13 casos con JWT simulado y
+`ROLLBACK`: auto-aprobación, mascota no disponible, suplantación, mensaje sin
+solicitud aprobada y edición de contenido fallan; los flujos válidos funcionan
+(incluido el auto-rechazo de otras solicitudes al aprobar). Ver
+`docs/AUDITORIA_PENDIENTES.md` §11.
 
 **P0-03 verificado el 2026-10-27:** la clave `Adopty123!` devuelve 400 en las cinco
-cuentas del seed; ninguna credencial del repositorio abre producción. Las cuentas demo
-siguen existiendo con contraseña rotada y dos cuentas de prueba vacías se pueden borrar
-sin pérdida (ver `docs/AUDITORIA_PENDIENTES.md` P0-03).
+cuentas del seed y las dos cuentas de prueba vacías se eliminaron. Quedan 5 cuentas:
+`patitas`, `rescatista`, el admin y dos cuentas reales.
 
-**Operación pendiente:** revisar el buzón `rua` de DMARC y ejecutar un `pg_dump` antes
-del piloto. La entrega de correo de confirmación y recuperación ya está verificada.
+**DMARC:** el registro actual es `v=DMARC1; p=none; rua=mailto:...; fo=1`. Es el valor
+correcto para un dominio joven: solo reporta. Plan:
+
+1. Mantener `p=none` 4 semanas y revisar los XML del buzón `rua` (crear un filtro en
+   Gmail por `Report domain: adopty.lat`).
+2. Si todos los envíos legítimos salen por Resend, pasar a `p=quarantine; pct=25` y
+   luego `pct=100`.
+3. Pasar a `p=reject` solo con varias semanas de reportes limpios. No tocar los
+   registros DKIM/SPF de Resend.
+
+**Operación pendiente:** ejecutar un `pg_dump` antes del piloto. La entrega de correo
+de confirmación y recuperación ya está verificada.
 
 ---
 

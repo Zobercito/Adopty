@@ -7,7 +7,7 @@
 - [x] Supabase → Auth → URL Configuration: Site URL + Redirects (`/api/auth/callback` del dominio)
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
 - [x] Supabase → Auth: **Secure email change** activo (cambio de correo del perfil)
-- [x] Migraciones aplicadas en cloud (las 20 de `supabase/migrations/`, hasta `20261027010000`) y anotadas en `supabase_migrations.schema_migrations`
+- [x] Migraciones aplicadas en cloud (las 21 de `supabase/migrations/`, hasta `20261027020000`) y anotadas en `supabase_migrations.schema_migrations`
 - [x] Seed **limpio** en cloud: la clave `Adopty123!` ya no abre ninguna cuenta (P0-03)
 - [x] Al menos un administrador dado de alta (`docs/ADMIN.md`)
 - [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
@@ -16,7 +16,7 @@
 - [x] `/terminos`, `/privacidad`, `/404`, `/500`, sitemap, robots
 - [x] `E2E_BASE_URL=<url prod> npm run test:e2e` en verde (32/32 contra `https://adopty.lat`)
 - [x] Dominio `adopty.lat` + `www` con redirect 308 y TLS
-- [x] SMTP de Resend configurado y dominio verificado (DKIM + DMARC)
+- [x] SMTP de Resend configurado y dominio verificado (DKIM + DMARC `p=none` con `rua`)
 - [x] `mailer_autoconfirm=false`: el registro exige confirmar el correo antes de entrar
 - [x] Correo real de confirmación y recuperación entregado (_Delivered_ en Resend)
 
@@ -31,7 +31,7 @@
 | Búsqueda p95 < 1 s (1k)        | ✅ local 28 filas; ⏳ repetir en prod                                                  |
 | Imágenes ≤ 500 KB WebP         | ✅ enforced en app y en Storage (`file_size_limit` + MIME)                             |
 | Headers de seguridad           | ✅ verificados en prod (HSTS, nosniff, XFO, referrer, permissions, CSP Report-Only)    |
-| RLS tests 100%                 | ⚠️ E2E por rol verdes; faltan P1-10/P1-11 (reglas en `solicitudes` y `mensajes`)       |
+| RLS tests 100%                 | ✅ E2E por rol + 12 pruebas de bypass REST (P1-10/P1-11 y transiciones en triggers)    |
 | Sin secretos en git            | ✅ verificado                                                                          |
 | Validación server total        | ✅ Zod en todas las mutaciones                                                         |
 | Tipos TS/Astro                 | ✅ `npm run check` 0 errores, en el CI                                                 |

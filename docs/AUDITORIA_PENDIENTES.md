@@ -67,18 +67,18 @@ relativas a la raíz del repositorio `adopty/` salvo que se indique lo contrario
 
 ### 1.1 Ficha del proyecto
 
-| Dimensión     | Estado                                                                                            |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| Stack         | Astro v7 + TypeScript strict + Tailwind v4 + Supabase + Zod + Vercel                              |
-| Persistencia  | Postgres/Supabase con 20 migraciones en `supabase/migrations/`                                    |
-| Backend       | API routes de Astro + RPC SQL; sin service role                                                   |
-| Auth          | Email/contraseña + recuperación; Google OAuth codificado pero apagado                             |
-| Páginas       | Aproximadamente 20 vistas `.astro` (públicas, privadas, admin, legales)                           |
-| API           | 28 archivos de rutas en `src/pages/api/`                                                          |
-| Tests         | 86 unitarios (14 archivos, vitest) + 2 suites Playwright                                          |
-| CI            | 2 jobs (`calidad`, `e2e`) + `npm audit`; Dependabot semanal                                       |
-| Backups       | `pg_dump` diario por GitHub Actions, artefacto 30 días                                            |
-| Estado global | Fases 0–7 completas; P1 de código/config cerrados; prod en `adopty.lat`; quedan P1-10/P1-11 (RLS) |
+| Dimensión     | Estado                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------- |
+| Stack         | Astro v7 + TypeScript strict + Tailwind v4 + Supabase + Zod + Vercel                    |
+| Persistencia  | Postgres/Supabase con 21 migraciones en `supabase/migrations/`                          |
+| Backend       | API routes de Astro + RPC SQL; sin service role                                         |
+| Auth          | Email/contraseña + recuperación; Google OAuth codificado pero apagado                   |
+| Páginas       | Aproximadamente 20 vistas `.astro` (públicas, privadas, admin, legales)                 |
+| API           | 28 archivos de rutas en `src/pages/api/`                                                |
+| Tests         | 86 unitarios (14 archivos, vitest) + 2 suites Playwright                                |
+| CI            | 2 jobs (`calidad`, `e2e`) + `npm audit`; Dependabot semanal                             |
+| Backups       | `pg_dump` diario por GitHub Actions, artefacto 30 días                                  |
+| Estado global | Fases 0–7 y todos los P1 cerrados; prod en `adopty.lat`; quedan P0 de operación y P2/P3 |
 
 ### 1.2 Veredicto
 
@@ -103,8 +103,9 @@ piloto abierto.
    (P1-07): HSTS, `nosniff`, frame policy, referrer, permissions y CSP Report-Only.
 7. ~~**Buckets de fotos sin límite de tamaño/MIME ni ruta del dueño**~~ — **resuelto
    2026-10-26** (P1-09).
-8. **Dos policies siguen permitiendo saltarse reglas de negocio por REST**:
-   `solicitudes` (P1-10) y `mensajes` (P1-11). La app las respeta, pero la capa RLS no.
+8. ~~**Dos policies permitían saltarse reglas de negocio por REST**~~ — **resuelto
+   2026-10-27** (P1-10 y P1-11): triggers y `WITH CHECK` en `solicitudes`, `mensajes`
+   y transiciones de `mascotas`.
 9. **Sin notificaciones por email** propios de la app: una solicitud o aprobación puede
    pasar inadvertida (P2-01, pendiente). Supabase Auth ya usa SMTP de Resend.
 10. **Sin monitoreo de errores/uptime**; el CI ya ejecuta `npm audit` y Dependabot está
@@ -193,7 +194,7 @@ piloto abierto.
   - Auth → Site URL `https://adopty.lat`; Redirect URLs con apex, `www`, previews,
     `localhost:4321` y `localhost:3000`.
   - **Secure email change** activo; buckets `mascotas` y `perfiles` públicos; Realtime
-    solo en `mensajes`; 20 migraciones registradas en
+    solo en `mensajes`; 21 migraciones registradas en
     `supabase_migrations.schema_migrations`.
   - SMTP de Resend (`smtp.resend.com:465`, remitente `no-reply@adopty.lat`), dominio
     verificado con DKIM y DMARC.
@@ -211,16 +212,16 @@ piloto abierto.
 - **Evidencia:** prueba de login con `Adopty123!` contra `patitas@adopty.pa`,
   `rescatista@adopty.pa`, `admin@adopty.me` y las dos cuentas de prueba: **400 en todas**
   (la clave del seed ya no sirve). Existe `admin@adopty.me` en `administradores`.
-- **Situación actual de las 7 cuentas:**
+- **Situación actual (5 cuentas tras la limpieza del 2026-10-27):**
   - `patitas@adopty.pa` (org verificada, 19 mascotas) y `rescatista@adopty.pa`
-    (13 mascotas): son el catálogo de demostración; **se conservan** hasta tener los
-    refugios reales del piloto.
-  - `prueba.demo@adopty.pa` y `revision.responsive@adopty.pa`: cuentas de prueba, sin
-    mascotas, solicitudes ni mensajes; **se pueden eliminar** sin pérdida.
+    (13 mascotas): catálogo de demostración; **se conservan** hasta tener los refugios
+    reales del piloto.
+  - `prueba.demo@adopty.pa` y `revision.responsive@adopty.pa`: **eliminadas** el
+    2026-10-27; no tenían mascotas, solicitudes ni mensajes.
   - `admin@adopty.me`: único administrador; no borrar sin transferir el rol.
   - `franciscogonzalezmoralez@gmail.com` y `arrocha.pineda17@gmail.com`: cuentas reales.
-- **Impacto residual:** bajo; ninguna credencial del repo abre producción. Las cuentas
-  demo siguen existiendo con contraseña rotada.
+- **Impacto residual:** bajo; ninguna credencial del repo abre producción. Las dos
+  cuentas demo que quedan conservan contraseña rotada.
 - **Criterio de aceptación:** cumplido: ninguna credencial pública permite entrar a prod;
   existe al menos un admin; el seed local sigue funcionando.
 
@@ -437,35 +438,40 @@ piloto abierto.
 
 #### P1-10 — RLS de `solicitudes` permite saltarse las reglas desde REST
 
-- **Estado:** `[FALTA]` (detectado en la verificación cloud del 2026-10-26).
+- **Estado:** `[HECHO]` (2026-10-27).
 - **Tipo:** seguridad/regla de negocio.
-- **Evidencia:** políticas actuales `sol_insert` (`auth.uid() = id_adoptante`) y
-  `sol_update` (`adoptante` o `soy_publicador`). Con la anon key y una sesión, un
-  adoptante puede insertar una solicitud sobre una mascota `adoptada/en_proceso` o
-  duplicada (la UI/API lo impiden, pero la policy no) y puede cambiar `estado` a
-  `aprobada` sin pasar por la RPC `aprobar_solicitud`.
-- **Impacto:** se pueden crear estados imposibles y saltarse la transacción que
-  auto-rechaza al resto.
-- **Acción sugerida:** retirar INSERT/UPDATE directos y mover altas y transiciones a
-  RPC `SECURITY DEFINER` (o triggers) que validen disponibilidad, duplicado y
-  transición; conservar SELECT. Añadir e2e negativos por REST.
-- **Criterio de aceptación:** un intento directo de insertar/actualizar fuera de las
-  reglas falla; el flujo de la app sigue verde.
+- **Evidencia original:** `sol_insert` solo comprobaba `auth.uid() = id_adoptante` y
+  `sol_update` no tenía `WITH CHECK`: un adoptante podía auto-aprobarse, insertar
+  sobre una mascota no disponible o cambiar columnas inmutables por REST.
+- **Solución aplicada:** migración `20261027020000_rls_reglas_negocio.sql`.
+  - Trigger `validar_solicitud`: alta solo `pendiente`, mascota `disponible` y no
+    propia; UPDATE solo para participantes y con las transiciones de
+    `lib/transiciones.ts`; aprobar replica el invariante de `aprobar_solicitud`
+    (mascota a `en_proceso` y resto de pendientes rechazadas).
+  - Policies `sol_insert` y `sol_update` con `WITH CHECK` y helper
+    `soy_publicador_de()`.
+- **Verificación:** 13 pruebas con JWT simulado y `ROLLBACK` en cloud. Fallan como se
+  espera: auto-aprobación del adoptante, solicitud a mascota adoptada, mascota propia y
+  suplantación de otro adoptante. Funcionan: aprobación del publicador (Nina pasa a
+  `en_proceso` y la otra solicitud pendiente queda `rechazada`) y alta válida a mascota
+  disponible.
+- **Criterio de aceptación:** cumplido; el flujo de la app no cambia porque usa las
+  mismas reglas.
 
 #### P1-11 — RLS de `mensajes` permite DMs no solicitados y edición del destinatario
 
-- **Estado:** `[FALTA]` (detectado en la verificación cloud del 2026-10-26).
+- **Estado:** `[HECHO]` (2026-10-27).
 - **Tipo:** privacidad/seguridad.
-- **Evidencia:** `msg_insert` solo comprueba `auth.uid() = id_emisor`; no exige una
-  solicitud aprobada ni un hilo previo. `msg_update` permite al receptor modificar
-  cualquier columna (incluido `contenido`), no solo `leido`.
-- **Impacto:** spam directo a cualquier usuario vía REST y alteración del historial por
-  la otra parte.
-- **Acción sugerida:** INSERT con `EXISTS` de solicitud `aprobada` entre emisor,
-  receptor y mascota (o hilo previo); UPDATE solo para marcar `leido` (trigger o RPC).
-  Mantener SELECT actual.
-- **Criterio de aceptación:** un tercero sin solicitud aprobada recibe 403 al insertar;
-  el receptor no puede cambiar el texto; chat y contador de no leídos siguen verdes.
+- **Evidencia original:** `msg_insert` solo comprobaba `auth.uid() = id_emisor` y
+  `msg_update` dejaba al receptor editar cualquier columna, incluido `contenido`.
+- **Solución aplicada:** en la misma migración, policy `msg_insert` con
+  `puede_mensajear(mascota, emisor, receptor)` (exige solicitud `aprobada` entre ambos)
+  y `msg_update` con `WITH CHECK`; el trigger `solo_marcar_leido` impide cambiar
+  emisor, receptor, mascota, contenido o fecha, y solo permite `leido = true`.
+- **Verificación:** mensaje sin solicitud aprobada → RLS 42501; mensaje con solicitud
+  aprobada → inserta; el receptor no puede editar el texto; sí puede marcar como leído.
+- **Criterio de aceptación:** cumplido; el chat y el contador de no leídos siguen
+  igual porque la app ya respetaba estas reglas.
 
 ---
 
@@ -490,20 +496,17 @@ piloto abierto.
 
 #### P2-02 — Cola de moderación para publicadores no verificados
 
-- **Estado:** `[FALTA]` respecto al plan §7.
-- **Evidencia:** `src/pages/api/mascotas/index.ts:49` inserta la mascota directamente;
-  `mascotas` no tiene un campo de aprobación previa; el admin solo gestiona reportes y
-  verificación de organizaciones.
-- **Impacto:** una organización no verificada puede publicar de inmediato; el plan pedía
-  revisión manual para mitigar spam/publicaciones falsas.
-- **Acción:** decidir y documentar:
-  - Opción A: añadir `estado_revision` (`pendiente|aprobada|rechazada`) y ocultar las
-    pendientes de la lectura pública; cola en `/admin`; auto-aprobar a organizaciones
-    verificadas.
-  - Opción B: aceptar el modelo actual basado en reportes y verificación posterior, y
-    actualizar el plan/README para que no prometa una cola que no existe.
-- **Criterio de aceptación:** la decisión está documentada; si se implementa, una
-  mascota de cuenta no verificada no es pública hasta aprobación.
+- **Estado:** `[HECHO]` (decisión, 2026-10-27). La cola previa se implementará al abrir
+  el registro público; no aplica al piloto cerrado.
+- **Evidencia:** `src/pages/api/mascotas/index.ts` inserta la mascota directamente y
+  `mascotas` no tiene aprobación previa; el admin gestiona reportes y verificaciones.
+- **Decisión (Opción B):** post-moderación para el piloto cerrado, con SLA de 24 h para
+  reportes y 48 h para revisar publicaciones. Al abrir el registro público, modelo
+  híbrido: las primeras 1–2 publicaciones de cuentas no verificadas pasan a revisión
+  previa. Documentado en ADR-021 y `docs/ADMIN.md`.
+- **Criterio de aceptación:** cumplido: la decisión está documentada y el README/plan ya
+  no promete una cola inexistente. La implementación de la cola queda como trabajo
+  futuro explícito.
 
 #### P2-03 — Rate-limit distribuido y rutas sin límite
 
@@ -619,7 +622,7 @@ piloto abierto.
 #### P4-02 — Registro de decisiones (ADR breve)
 
 - **Estado:** `[HECHO]` (2026-10-26).
-- **Evidencia:** `docs/DECISIONES.md` con 20 ADR (contexto, decisión y consecuencias),
+- **Evidencia:** `docs/DECISIONES.md` con 22 ADR (contexto, decisión y consecuencias),
   incluidas las nuevas de service worker, SEO/JSON-LD, analytics, dependencias, headers,
   Storage y dominio/correo.
 - **Criterio de aceptación:** cada decisión tiene contexto y consecuencia; las
@@ -646,21 +649,21 @@ piloto abierto.
 
 ## 4. Matriz de aceptación §13
 
-| Criterio del plan              | Estado      | Evidencia                                           | Qué falta                                    |
-| ------------------------------ | ----------- | --------------------------------------------------- | -------------------------------------------- |
-| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local           | Repetir en prod (P0-05)                      |
-| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                              | Revalidar tras cambios                       |
-| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                    | E2E completo sujeto a cuota de email         |
-| Búsqueda p95 < 1 s             | `[PARCIAL]` | `scripts/perf.mjs`, `docs/QA.md`                    | Medir en prod con datos reales               |
-| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload                 | —                                            |
-| RLS 100 %                      | `[PARCIAL]` | Migraciones + e2e por rol; todas las tablas con RLS | P1-10/P1-11 (reglas en solicitudes/mensajes) |
-| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                        | Revisar antes de cada push                   |
-| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                         | —                                            |
-| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                                 | —                                            |
-| axe 0 críticos / teclado / AA  | `[FALTA]`   | `docs/QA.md:53-55`                                  | P0-05                                        |
-| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                    | P0-06                                        |
-| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                                  | P0-01                                        |
-| Backup y restore               | `[PARCIAL]` | `.github/workflows/backup.yml`                      | P0-07 / P2-06                                |
+| Criterio del plan              | Estado      | Evidencia                                        | Qué falta                                   |
+| ------------------------------ | ----------- | ------------------------------------------------ | ------------------------------------------- |
+| CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local        | Repetir en prod (P0-05)                     |
+| Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                           | Revalidar tras cambios                      |
+| Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                 | E2E completo sujeto a cuota de email        |
+| Búsqueda p95 < 1 s             | `[PARCIAL]` | `scripts/perf.mjs`, `docs/QA.md`                 | Medir en prod con datos reales              |
+| Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload              | —                                           |
+| RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol + triggers P1-10/P1-11 | Repetir bypass por REST tras nuevos cambios |
+| Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                     | Revisar antes de cada push                  |
+| Validación server total        | `[HECHO]`   | Zod en todas las mutaciones                      | —                                           |
+| Tipos TS/Astro                 | `[HECHO]`   | `npm run check`, CI                              | —                                           |
+| axe 0 críticos / teclado / AA  | `[FALTA]`   | `docs/QA.md:53-55`                               | P0-05                                       |
+| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                 | P0-06                                       |
+| Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                               | P0-01                                       |
+| Backup y restore               | `[PARCIAL]` | `.github/workflows/backup.yml`                   | P0-07 / P2-06                               |
 
 ---
 
@@ -677,7 +680,7 @@ piloto abierto.
 | 5     | P1-04 (service worker) — hecho                                  | —                  |
 | 6     | P1-05 + P1-06 (sitemap dinámico, canonical/noindex/OG) — hechos | P0-02 (`SITE_URL`) |
 | 7     | P1-09 (límites y policies de Storage) — hecho                   | —                  |
-| 8     | P1-10/P1-11 (RLS de solicitudes y mensajes) — pendientes        | —                  |
+| 8     | P1-10/P1-11 (RLS de solicitudes y mensajes) — hechos            | —                  |
 
 ### Fase B — Endurecimiento (2–3 días)
 
@@ -702,9 +705,9 @@ piloto abierto.
 
 ### Fase D — Post-piloto (opcional, según tiempo)
 
-P2-01 (emails), P2-02 (moderación previa), P2-03 (rate-limit distribuido),
-P2-06 (backup off-site). P4-01, P4-02 y P4-03 se adelantaron y quedaron hechos el
-2026-10-26.
+P2-01 (emails), P2-03 (rate-limit distribuido), P2-06 (backup off-site) y la cola de
+pre-moderación (decisión en P2-02, implementación diferida). P4-01, P4-02 y P4-03 se
+adelantaron y quedaron hechos el 2026-10-26.
 
 ---
 
@@ -842,7 +845,7 @@ supabase db reset
 | Cloudinary                 | No se usa                      | Sharp local cubre el free tier.                                                          |
 | i18n, mapas, reseñas, push | Backlog                        | Solo español; sin mapas ni notificaciones push.                                          |
 | Emails transaccionales     | Solo Auth                      | Sin avisos de solicitud/mensaje (P2-01).                                                 |
-| Moderación previa          | No implementada                | Solo reportes/verificación posterior (P2-02).                                            |
+| Moderación previa          | Diferida al registro público   | Post-moderación en el piloto; cola híbrida al abrir (ADR-021).                           |
 
 ### D. Evidencia de la auditoría
 
@@ -900,7 +903,7 @@ Los ítems de nivel medio/difícil siguen en sus secciones de la parte 3.
 | P3-02  | `[HECHO]`    | JSON-LD `WebSite`/`Organization` y `Pet`/`BreadcrumbList` con escape seguro.      |
 | P3-04  | `[HECHO]`    | `src/pages/offline.astro` + fallback del service worker + e2e público.            |
 | P4-01  | `[HECHO]`    | `AGENTS.md` con reglas operativas para agentes.                                   |
-| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 20; ver §9/§10).                             |
+| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 22; ver §9–§11).                             |
 | P4-03  | `[HECHO]`    | Tag anotado `v0.8.0`.                                                             |
 
 No se ejecutó P0-03 (rotar seed/administrador cloud) en esa pasada porque requiere
@@ -939,9 +942,9 @@ acceso al proyecto Supabase de producción; se cerró después al verificar el c
 ## 9. Registro de ejecución — 2026-10-26 (nivel P1)
 
 Segunda pasada de la auditoría: se cerraron los P1 de código/configuración
-(P1-01…P1-09). En la verificación cloud aparecieron dos huecos de RLS que se
-documentan como P1-10 y P1-11, **pendientes**. Los cambios se commitearon y se
-desplegaron en `https://adopty.lat` (ver §10).
+(P1-01…P1-09). En la verificación cloud aparecieron dos huecos de RLS, P1-10 y P1-11,
+que se cerraron el 2026-10-27 con la migración `20261027020000_rls_reglas_negocio.sql`
+(ver §10 y §11).
 
 ### 9.1 Ítems cerrados
 
@@ -996,7 +999,7 @@ desplegaron en `https://adopty.lat` (ver §10).
 | `www`       | `www.adopty.lat` con redirect 308 al apex (`vercel.json`)                                |
 | TLS         | Let's Encrypt automático (apex y `www`)                                                  |
 | DNS         | GoDaddy: A `@` → `216.198.79.1` y `64.29.17.1`; CNAME `www` → Vercel                     |
-| Supabase    | `dvebieysgnhmimmxjwjc` (Ohio); 20 migraciones registradas; RLS en las 13 tablas          |
+| Supabase    | `dvebieysgnhmimmxjwjc` (Ohio); 21 migraciones registradas; RLS en las 13 tablas          |
 | Auth URLs   | Site URL apex; redirects para apex, `www`, previews y `localhost`                        |
 | Correo Auth | Resend SMTP (`smtp.resend.com:465`, `no-reply@adopty.lat`), DKIM + DMARC `p=none`        |
 | Storage     | Buckets públicos `mascotas`/`perfiles`, 500 KB, solo `image/webp`, escritura por carpeta |
@@ -1022,10 +1025,54 @@ desplegaron en `https://adopty.lat` (ver §10).
   desactivado para no romper el e2e.
 - **Entrega de correo verificada:** confirmación y recuperación llegaron a la bandeja y
   Resend las marca _Delivered_; las plantillas están en español.
-- **Modelo de moderación P2-02** y revisión del buzón `rua` de DMARC (hoy Gmail
-  personal).
-- **P0-03 cerrado:** la clave del seed ya no abre ninguna cuenta. Las cuentas demo
-  (`patitas`, `rescatista`) se conservan como catálogo y las dos cuentas de prueba
-  vacías se pueden borrar cuando se quiera; sustituir las demo por refugios reales
-  antes del piloto abierto.
+- **Modelo de moderación:** decidido (post-moderación para el piloto cerrado; ver
+  ADR-021 y `docs/ADMIN.md`).
+- **P0-03 cerrado:** la clave del seed ya no abre ninguna cuenta y las dos cuentas de
+  prueba vacías se eliminaron el 2026-10-27. Quedan `patitas` y `rescatista` como
+  catálogo; sustituirlas por refugios reales antes del piloto abierto.
+- **DMARC:** se mantiene `p=none` con reportes; plan de endurecimiento en `docs/QA.md`.
 - Repetir Lighthouse/axe y la búsqueda p95 con datos de producción (P0-05, P3-05).
+
+---
+
+## 11. Registro de ejecución — 2026-10-27 (moderación, cuentas y RLS)
+
+Cierre de los últimos hallazgos de seguridad y de las decisiones operativas abiertas,
+sin cambios de comportamiento visibles para el usuario.
+
+### 11.1 Ítems cerrados
+
+| ID     | Estado final | Cambio principal                                                                   |
+| ------ | ------------ | ---------------------------------------------------------------------------------- |
+| P1-10  | `[HECHO]`    | Trigger `validar_solicitud` + `WITH CHECK` en `sol_insert`/`sol_update`.           |
+| P1-11  | `[HECHO]`    | `puede_mensajear()` en INSERT y trigger `solo_marcar_leido` en UPDATE.             |
+| P1-02b | `[HECHO]`    | Transiciones de mascota también en la base (`validar_mascota`), no solo en la API. |
+| P0-03  | `[HECHO]`    | Cuentas vacías `prueba.demo` y `revision.responsive` eliminadas; quedan 5 cuentas. |
+| P2-02  | `[HECHO]`    | Modelo de moderación decidido y documentado (ADR-021 + `docs/ADMIN.md`).           |
+| —      | `[HECHO]`    | DMARC revisado: se mantiene `p=none` con `rua` y `fo=1`; plan en `docs/QA.md`.     |
+
+### 11.2 Verificación ejecutada
+
+- Migración `20261027020000_rls_reglas_negocio.sql` validada en una transacción con
+  `ROLLBACK` y luego aplicada a cloud; registrada en
+  `supabase_migrations.schema_migrations`.
+- 13 pruebas con JWT simulado (`set local role authenticated`) contra el cloud,
+  todas con `ROLLBACK`:
+  - Fallan: auto-aprobación del adoptante, solicitud a mascota adoptada, mascota
+    propia, suplantación de adoptante, mensaje sin solicitud aprobada, edición del
+    contenido por el receptor, mascota adoptada → disponible y alta de mascota
+    `adoptada`.
+  - Funcionan: aprobación del publicador (mascota a `en_proceso` y auto-rechazo de
+    otra pendiente), alta válida a mascota disponible, mensaje con solicitud aprobada
+    y marcar como leído.
+- Datos de prueba: 0 mensajes, 0 mascotas y la solicitud usada sigue en `pendiente`
+  tras los `ROLLBACK`.
+- `pg_policies` y `pg_trigger` confirman las policies y los tres triggers.
+
+### 11.3 Límites de esta verificación
+
+- No se corrieron los e2e de flujo porque Docker/Supabase local no estaba disponible;
+  el CI los ejecutará con la migración nueva. Las reglas replicadas son exactamente
+  las que ya usa la app.
+- El buzón `rua` sigue siendo Gmail personal; para el acta basta, pero conviene un
+  alias `dmarc@adopty.lat` cuando haya dominio de correo propio.

@@ -111,9 +111,10 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
 - En cloud la confirmación de correo está activa (`mailer_autoconfirm=false`): el
   registro no crea sesión hasta abrir el enlace. En local sigue desactivada para el
   e2e. No redirijas a `/perfil` sin comprobar `confirmaEmail`.
-- La app valida disponibilidad/transiciones, pero las policies de `solicitudes`
-  (P1-10) y `mensajes` (P1-11) todavía permiten saltárselas con REST directo. No
-  asumas que RLS cubre esas reglas hasta que se cierren.
+- Las reglas de solicitudes, mensajes y transiciones de mascotas viven en dos capas:
+  API (`src/pages/api/**` + `src/lib/transiciones.ts`) y base
+  (`20261027020000_rls_reglas_negocio.sql`). Si cambias una regla, actualiza ambas o
+  el bypass por REST quedará abierto.
 
 ## Documentos de referencia
 
