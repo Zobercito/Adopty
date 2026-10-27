@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
-import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { estiloVidaSchema } from '../../../lib/validation/user';
 
 export const prerender = false;
@@ -29,7 +29,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
-  const rl = rateLimit(`estilo:${user.id}`, 20, 60_000);
+  const rl = await rateLimitDistribuido(supabase, `estilo:${user.id}`, 20, 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
 
   const body = await request.json().catch(() => null);

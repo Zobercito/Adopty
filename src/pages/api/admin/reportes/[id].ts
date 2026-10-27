@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { supabaseServer } from '../../../../lib/supabase';
 import { esAdmin } from '../../../../lib/admin';
 import { registrarAuditoria } from '../../../../lib/auditoria';
-import { ipCliente, rateLimit, respuestaRateLimit } from '../../../../lib/ratelimit';
+import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     return Response.json({ error: 'Solo administradores' }, { status: 403 });
 
   // 60 decisiones por hora y admin: holgado para moderar, frena un bucle.
-  const rl = rateLimit(`admin:reporte:${user.id}`, 60, 60 * 60_000);
+  const rl = await rateLimitDistribuido(supabase, `admin:reporte:${user.id}`, 60, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const id = params.id ?? '';

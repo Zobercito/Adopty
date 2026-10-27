@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { ipCliente, rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { rutaInternaSegura } from '../../../lib/redirect';
 import { supabaseServer } from '../../../lib/supabase';
 import { loginSchema } from '../../../lib/validation/user';
@@ -8,7 +8,8 @@ export const prerender = false;
 
 /** POST /api/auth/login — signIn con cookies SSR + retorno a ?next=. Rate-limit 10/min por IP. */
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
-  const rl = rateLimit(`login:${ipCliente(request)}`, 10, 60_000);
+  const supabase = supabaseServer(cookies);
+  const rl = await rateLimitDistribuido(supabase, `login:${ipCliente(request)}`, 10, 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
   let body: unknown;
   try {
@@ -21,7 +22,6 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     return Response.json({ error: 'Datos inválidos' }, { status: 400 });
   }
   const { correo, password } = parsed.data;
-  const supabase = supabaseServer(cookies);
   const { data, error: authErr } = await supabase.auth.signInWithPassword({
     email: correo,
     password,

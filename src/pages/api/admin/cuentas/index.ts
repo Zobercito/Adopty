@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../../lib/supabase';
+import { rateLimitDistribuido, respuestaRateLimit } from '../../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -16,6 +17,9 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  const rl = await rateLimitDistribuido(supabase, `admin:cuenta:${user.id}`, 60, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const body = (await request.json().catch(() => null)) as {
     id?: string;

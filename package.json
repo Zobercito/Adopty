@@ -15,8 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:flujo": "E2E_FLUJO=1 playwright test"
+    "test:e2e:flujo": "E2E_FLUJO=1 playwright test e2e/flujo.e2e.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
@@ -37,8 +38,10 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.12.0",
     "prettier": "^3.9.8",
     "supabase": "^2.117.0",

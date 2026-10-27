@@ -1,0 +1,18 @@
+name: Rendimiento — presupuesto Lighthouse
+
+# No bloquea PRs: mide producción una vez por semana (lunes 09:00 UTC) y a mano.
+# Si LCP/CLS/TBT o la nota de rendimiento se salen del presupuesto, el job falla
+# y GitHub avisa al responsable del repo.
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lighthouse CI contra producción
+        run: npx --yes @lhci/cli@0.15.1 autorun

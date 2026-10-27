@@ -5,7 +5,7 @@ import { petUpdateSchema } from '../../../lib/validation/pet';
 import { borrarFotosStorage } from '../../../lib/storage';
 import { registrarAuditoria } from '../../../lib/auditoria';
 import { transicionMascota, type EstadoMascota } from '../../../lib/transiciones';
-import { ipCliente } from '../../../lib/ratelimit';
+import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -33,6 +33,9 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  const rl = await rateLimitDistribuido(supabase, `mascota:editar:${user.id}`, 60, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
   const { data: actual } = await supabase
     .from('mascotas')
@@ -128,6 +131,10 @@ export const DELETE: APIRoute = async ({ params, request, cookies }) => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 });
+
+  const rl = await rateLimitDistribuido(supabase, `mascota:borrar:${user.id}`, 10, 60 * 60_000);
+  if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
+
   const { data: actual } = await supabase
     .from('mascotas')
     .select('id_publicador')
