@@ -289,8 +289,8 @@ const visibles = (user ? enlacesApp : enlacesVisitante) as { key: string; href: 
     color: #1e293b;
   }
   .nav-burger:hover {
-    border-color: #00a8e8;
-    color: #0090c7;
+    border-color: var(--color-teal);
+    color: var(--color-teal-dark);
   }
 
   /* Enlaces del panel móvil */
@@ -311,7 +311,7 @@ const visibles = (user ? enlacesApp : enlacesVisitante) as { key: string; href: 
   }
   .nav-movil-link[aria-current='page'] {
     background: #fff0ea;
-    color: #e85a24;
+    color: var(--color-brand-dark);
   }
 </style>
 

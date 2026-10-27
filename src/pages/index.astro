@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import { supabaseServer } from '../lib/supabase';
-import { buscarMascotas, edadLabel, fotoUrl, gradFor, type MascotaRow, type FotoRow } from '../lib/mascotas';
+import { buscarMascotas, edadLabel, fotoRender, gradFor, type MascotaRow, type FotoRow } from '../lib/mascotas';
 import { PETS } from '../data/mockPets';
 
 type Card = {
@@ -71,7 +71,7 @@ if (!conDb) {
 
 const user = Astro.locals.user ?? null;
 
-const heroFoto = hero[0] ? fotoUrl(hero[0].fotos[0]?.url_foto) : '';
+const heroFoto = hero[0] ? fotoRender(hero[0].fotos[0]?.url_foto) : '';
 const heroGrad = hero[0] ? gradFor(hero[0].id) : 'pet-grad-1';
 
 const PASOS = [
@@ -117,7 +117,7 @@ const jsonLd = [
 ];
 ---
 
-<Layout title="Adopty — Adopta con amor en Panamá" jsonLd={jsonLd}>
+<Layout title="Adopty — Adopta con amor en Panamá" jsonLd={jsonLd} preloadImage={heroFoto}>
   <Navbar active="inicio" />
 
   <!-- ============ HERO ============ -->
@@ -131,17 +131,21 @@ const jsonLd = [
           <!-- Marca en el hero (se queda fija, no se mueve) -->
           <div id="heroLogo" class="flex items-center justify-center lg:justify-start gap-5 lg:w-full">
             <img
-              src="/brand/adopty-logo-icon-sm.png"
+              src="/brand/adopty-logo-icon-sm.webp"
               alt=""
               width="376"
               height="300"
+              loading="eager"
+              fetchpriority="high"
               class="h-24 lg:h-[13rem] w-auto shrink-0"
             />
             <img
-              src="/brand/adopty-logo-text-sm.png"
+              src="/brand/adopty-logo-text-sm.webp"
               alt="Adopty"
               width="642"
               height="180"
+              loading="eager"
+              fetchpriority="high"
               class="h-8 w-auto lg:h-auto lg:min-w-0 lg:w-full lg:flex-1 lg:object-contain lg:object-left"
             />
           </div>
@@ -181,6 +185,7 @@ const jsonLd = [
                     src={heroFoto}
                     alt={hero[0] ? `Foto de ${hero[0].nombre}` : 'Mascota en adopción'}
                     loading="eager"
+                    fetchpriority="high"
                     decoding="async"
                     width="800"
                     height="840"

@@ -9,6 +9,8 @@ interface Props {
   ogImage?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   noindex?: boolean;
+  /** Imagen crítica (LCP) que conviene precargar. */
+  preloadImage?: string;
 }
 const {
   title = 'Adopty — Adopta con amor en Panamá',
@@ -16,6 +18,7 @@ const {
   ogImage,
   jsonLd,
   noindex = false,
+  preloadImage,
 } = Astro.props as Props;
 
 const user = Astro.locals.user ?? null;
@@ -52,6 +55,15 @@ const canonical = new URL(rutaCanonica, base).toString();
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageAbs} />
+    {preloadImage && (
+      <link
+        rel="preload"
+        as="image"
+        href={preloadImage}
+        type={preloadImage.endsWith('.webp') ? 'image/webp' : undefined}
+        fetchpriority="high"
+      />
+    )}
     {jsonLd && <script type="application/ld+json" set:html={jsonLdSeguro(jsonLd)} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -61,7 +73,7 @@ const canonical = new URL(rutaCanonica, base).toString();
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Adopty" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#FF6B35" />
+    <meta name="theme-color" content="#c2410c" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -83,7 +95,7 @@ const canonical = new URL(rutaCanonica, base).toString();
           esInicio && (
             <div
               class="rounded-[2rem] p-8 sm:p-10 text-center text-white relative overflow-hidden mb-10"
-              style="background:linear-gradient(120deg,#FF6B35,#00A8E8)"
+              style="background:linear-gradient(120deg,#c2410c,#0077a8)"
             >
               <h2 class="font-display font-extrabold text-2xl sm:text-3xl">
                 ¿Listo para conocer a tu nuevo mejor amigo?

@@ -302,7 +302,10 @@ const spec: { val: string; label: string }[] = [
     } else {
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const fotoUrl = (p) => (!p ? '' : p.startsWith('/') || p.startsWith('http') ? p : `${supabaseUrl}/storage/v1/object/public/mascotas/${p}`);
+    const fotoUrl = (p) => {
+      const u = !p ? '' : p.startsWith('/') || p.startsWith('http') ? p : `${supabaseUrl}/storage/v1/object/public/mascotas/${p}`;
+      return u.replace(/^(\/assets\/[^?#]+)\.(jpe?g|png)$/i, '$1.webp');
+    };
     const gradFor = (id) => { let n = 0; for (let i = 0; i < id.length; i++) n = (n + id.charCodeAt(i)) % 6; return `pet-grad-${n + 1}`; };
     const edadLabel = (m) => (m <= 0 ? 'Recién nacido' : m < 12 ? `${m} ${m === 1 ? 'mes' : 'meses'}` : `${Math.floor(m / 12)} ${Math.floor(m / 12) === 1 ? 'año' : 'años'}, ${m % 12 ? `${m % 12} meses` : ''}`.trim());
     const badge = (e) => {
@@ -479,7 +482,7 @@ const spec: { val: string; label: string }[] = [
   }
   /* El foco del checkbox (sr-only) debe verse en la barra, no desaparecer */
   #filtros-abrir:focus-visible + .barra-filtros {
-    outline: 3px solid #00a8e8;
+    outline: 3px solid var(--color-teal);
     outline-offset: -3px;
   }
 </style>
