@@ -637,6 +637,10 @@ decidió dejar para el final.
   TBT ≤ 300 ms (mediana de 3 corridas). No bloquea PRs: si falla, avisa al repo.
 - **Criterio de aceptación:** cumplido: una regresión de LCP/CLS/TBT rompe el job
   programado y genera notificación.
+- **Primer hallazgo:** el run 40550932958 falló con CLS 0,1205 en `/` porque la fuente
+  llegaba tarde. Con el `preload` de `/fonts/plus-jakarta-sans-latin.woff2`
+  (`src/layouts/Layout.astro`) el rerun 40553322986 pasó con CLS 0 en `/` y
+  `/explorar` (Perf 100, LCP 0,4/0,5 s).
 
 ---
 
