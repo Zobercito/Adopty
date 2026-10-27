@@ -569,7 +569,8 @@ decidió dejar para el final.
 - **Verificación local:** error provocado en dev entregado a Sentry
   (`eventId e261f256ab2f4101a18d4b5b2960635a`, `flush` correcto). El build contiene la
   init en el chunk SSR y el DSN en el bundle del cliente; Vercel tiene `SENTRY_DSN`
-  (Secret) y `PUBLIC_SENTRY_DSN` (Config) en Production y Preview.
+  (Secret) y `PUBLIC_SENTRY_DSN` (Config) en Production y Preview. Producción sirve
+  `page.CA_uwgCY.js` con el DSN (verificado tras el deploy de `main`).
 - **Pendiente menor:** source maps y release tags requieren `SENTRY_AUTH_TOKEN`; no
   bloquean la captura de errores.
 - **Criterio de aceptación:** un error provocado aparece en el panel con release y ruta;
@@ -1243,8 +1244,9 @@ verde. El flujo e2e con escrituras y el job de CI se validan al pushear a `devel
 - **Uptime:** `uptime.yml` corre cada hora contra cuatro rutas y abre/cierra el issue
   `uptime` según el resultado.
 - **Sentry:** `@sentry/astro` 11.9.0 activo en cliente y servidor; sin PII, sin tracing.
-  Evento de prueba entregado en local (`e261f256…`). Falta `SENTRY_AUTH_TOKEN` si algún
-  día se quieren source maps y release tags.
+  Evento de prueba entregado en local (`e261f256…`) y DSN presente en el bundle de
+  producción (`page.CA_uwgCY.js`). Falta `SENTRY_AUTH_TOKEN` si algún día se quieren
+  source maps y release tags.
 
 ### 13.6 Lo que sigue dependiendo del responsable
 
