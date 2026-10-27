@@ -47,6 +47,18 @@ el `noindex` automático de Vercel.
   escrituras sigue corriendo contra Supabase local.
 - `perf.yml` mide Lighthouse cada lunes contra producción con presupuesto (perf ≥ 90,
   LCP ≤ 2,5 s, CLS ≤ 0,1, TBT ≤ 300 ms).
+
+**Primer run del presupuesto (2026-10-27):** falló con CLS 0,1205 en `/` (escritorio)
+porque Plus Jakarta Sans llegaba después del primer pintado y el `swap` reacomodaba
+`section#inicio`. Se añadió `rel="preload"` de `/fonts/plus-jakarta-sans-latin.woff2`
+en `Layout.astro`; el rerun (run 40553322986) quedó verde con estos valores (mediana
+de 3 runs, preset escritorio):
+
+| Ruta        | Perf | A11y | BP  | SEO | LCP   | FCP   | CLS | TBT  |
+| ----------- | ---- | ---- | --- | --- | ----- | ----- | --- | ---- |
+| `/`         | 100  | 100  | 96  | 100 | 0,4 s | 0,2 s | 0   | 0 ms |
+| `/explorar` | 100  | 100  | 96  | 100 | 0,5 s | 0,3 s | 0   | 0 ms |
+
 - El backup ahora retiene 90 días y abre un issue si falla el dump o la verificación.
 
 ---
