@@ -75,6 +75,30 @@ DELETE FROM administradores WHERE id = '<UUID>';
 
 Todo queda registrado en la tabla `auditoria` (acción, cambios e IP).
 
+### Política de moderación (piloto cerrado)
+
+Modelo: **post-moderación**. Las publicaciones salen visibles y se revisan después.
+Es viable porque el piloto es cerrado, los publicadores son refugios conocidos y hay
+límites de 5 mascotas/hora y 10 reportes/hora por usuario.
+
+| Compromiso                    | Plazo |
+| ----------------------------- | ----- |
+| Atender un reporte pendiente  | 24 h  |
+| Revisar una publicación nueva | 48 h  |
+
+**Se oculta una publicación** (soft-delete reversible) por maltrato o venta de
+animales, datos falsos, duplicados/spam, datos personales de terceros o contenido
+discriminatorio. Ante duda, se oculta y se restaura si el reporte era infundado; la
+acción queda en `auditoria`. Reincidencia → suspender la cuenta desde
+`/admin/cuentas`.
+
+**Rutina semanal:** revisar reportes `pendiente`, verificaciones `pendiente` y la
+bandeja de publicaciones ocultas. Si no hay pendientes, no hay nada que hacer.
+
+**Cuándo cambiar de modelo:** al abrir el registro público, pasar a **híbrido**: las
+primeras 1–2 publicaciones de cuentas no verificadas se revisan antes de publicar; las
+organizaciones verificadas siguen en post-moderación. Ver ADR-021.
+
 ### Privacidad (minimización de datos — Ley 81)
 
 El panel muestra **solo el nombre** de quien reportó o de la organización.

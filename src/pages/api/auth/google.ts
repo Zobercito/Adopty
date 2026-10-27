@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
-import { supabaseServer } from '../../../lib/supabase';
 import { googleActivo } from '../../../lib/oauth';
+import { rutaInternaSegura } from '../../../lib/redirect';
+import { supabaseServer } from '../../../lib/supabase';
 
 export const prerender = false;
 
@@ -16,8 +17,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
     return new Response('Not found', { status: 404 });
   }
 
-  const rawNext = url.searchParams.get('next') ?? '/perfil';
-  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/perfil';
+  const next = rutaInternaSegura(url.searchParams.get('next'));
   const supabase = supabaseServer(cookies);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

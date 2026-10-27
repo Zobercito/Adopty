@@ -20,13 +20,28 @@ supabase db reset      # migraciones + seed (30 mascotas + 2 usuarios demo)
 npm run dev            # http://localhost:4321
 ```
 
-| Script                                  | Qué hace                                                   |
-| --------------------------------------- | ---------------------------------------------------------- |
-| `npm run dev`                           | servidor desarrollo                                        |
-| `npm run build`                         | build prod (Vercel)                                        |
-| `npm test`                              | vitest, 78 tests (Zod + afinidad + transiciones + helpers) |
-| `npm run lint` / `npm run format:check` | ESLint + Prettier                                          |
-| `node scripts/perf.mjs [base]`          | perf smoke búsqueda (criterio p95 < 1 s)                   |
+| Script                                  | Qué hace                                                     |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `npm run dev`                           | servidor desarrollo                                          |
+| `npm run build`                         | build prod (Vercel)                                          |
+| `npm test`                              | vitest, 86 tests (Zod, afinidad, transiciones y helpers)     |
+| `npm run check`                         | tipos TS/Astro (`astro check`); el lint no los cubre         |
+| `npm run test:e2e`                      | Playwright: suite pública, solo lectura (32 tests)           |
+| `npm run test:e2e:flujo`                | Playwright: flujo completo; **escribe**, solo Supabase local |
+| `npm run lint` / `npm run format:check` | ESLint + Prettier                                            |
+| `node scripts/perf.mjs [base]`          | perf smoke búsqueda (criterio p95 < 1 s)                     |
+
+### Tests e2e
+
+La primera vez: `npx playwright install chromium`. Hay dos suites en `e2e/`:
+
+- **`publico.e2e.ts`** — páginas, guards, 401 y validación. No inicia sesión ni escribe:
+  se puede correr contra la nube o contra un deploy (`E2E_BASE_URL=https://… npm run test:e2e`).
+- **`flujo.e2e.ts`** — registro → publicar con foto → solicitar → aprobar → chat → reportar.
+  Crea cuentas y mascotas, así que solo corre con `E2E_FLUJO=1` **y** con `.env` apuntando a
+  Supabase local (`supabase start`); si no, se salta sola. En el CI corre en el job `e2e`.
+
+Si no hay `E2E_BASE_URL`, Playwright levanta `npm run dev` (o reutiliza el que ya corre).
 
 ## Variables de entorno
 
@@ -35,7 +50,7 @@ npm run dev            # http://localhost:4321
 | `PUBLIC_SUPABASE_URL`             | cliente+server         | URL del proyecto Supabase                                      |
 | `PUBLIC_SUPABASE_ANON_KEY`        | cliente+server         | anon key (RLS la protege)                                      |
 | `SUPABASE_SERVICE_ROLE_KEY`       | **solo server/Vercel** | (reservada, hoy sin uso: todo pasa por RLS)                    |
-| `SITE_URL`                        | build                  | dominio prod para el sitemap (Fase 8)                          |
+| `SITE_URL`                        | build                  | dominio prod para sitemap y metadatos (`https://adopty.lat`)   |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_*` | Supabase               | **F8/pendiente**: credencial OAuth Google (ver `.env.example`) |
 
 ## Seed y cuentas demo (SOLO piloto — rotar antes de producción)
@@ -53,7 +68,8 @@ los credenciales de prueba viven fuera del control de versiones.
 | `rescatista@adopty.pa` | Persona                 |
 
 Para poder entrar durante una demo o revisión, pídele la clave a quien administra el
-proyecto, o crea tu propia cuenta desde `/register` (funciona sin confirmación de correo).
+proyecto, o crea tu propia cuenta desde `/register` (en producción deberás confirmar el
+correo antes de entrar).
 
 > 🔐 **Por qué no está la clave aquí.** Con la clave publicada, cualquiera que lea el repo
 > entra como organización _verificada_. Si necesitas regenerar el seed para un entorno
@@ -79,10 +95,11 @@ El perfil es de **dos lados**: quien adopta también responde por su hogar.
 la autorización está en PostgreSQL (RPC `resumen_adoptantes`), no en la interfaz.
 
 **Qué pasa al darse de baja** (RPC `eliminar_mi_cuenta`): el nombre pasa a
-«Usuario no disponible», se borran foto y textos, se despublican las mascotas
-`disponible`, se cancelan las solicitudes `pendiente` y **los mensajes se
-conservan** (la otra parte los sigue viendo). Si hay una adopción **aprobada** sin
-resolver, la baja se bloquea hasta cerrarla.
+«Usuario no disponible», se borran los textos y **el objeto de la foto de perfil
+del bucket `perfiles`**, se despublican las mascotas `disponible`, se cancelan las
+solicitudes `pendiente` y **los mensajes se conservan** (la otra parte los sigue
+viendo). Si hay una adopción **aprobada** sin resolver, la baja se bloquea hasta
+cerrarla.
 
 Endpoints nuevos: `GET|PUT /api/perfil` (el `PUT` va con `FormData`),
 `PUT /api/auth/cambiar-email`, `POST /api/cuenta/borrar`, `GET /api/mis-datos`,
@@ -109,52 +126,80 @@ también `org_select USING (true)`, que venía de la migración original.
 - El **cambio de correo** depende de que en Supabase Auth esté activo _Secure
   email change_ y el dominio en la whitelist de _Redirect URLs_.
 - Las fotos de mascota del entorno de nube son de muestra: muchas no tienen foto.
+- Los headers de seguridad viven en `vercel.json` (HSTS, `nosniff`, frame policy,
+  referrer, permissions y CSP). La CSP está en **Report-Only** por los scripts inline
+  de Astro; pasar a enforcing requiere nonces/hashes y validarlo en un preview.
+- El estado `adoptada` es terminal: la API responde 409 a cualquier intento de
+  reabrirlo y la UI deshabilita el selector.
 
 ## Rutas
 
 - Públicas: `/`, `/explorar?...` (filtros en URL + skeletons), `/mascota/[id]`,
-  `/login`, `/register`, `/recuperar`, `/terminos`, `/privacidad`, `/404`, `/500`.
+  `/login`, `/register`, `/recuperar`, `/terminos`, `/privacidad`, `/offline`, `/404`,
+  `/500`.
 - Privadas (`?next=` al volver): `/perfil`, `/favoritos`, `/mis-solicitudes`,
   `/panel`, `/panel/solicitudes`, `/panel/adoptante/[id]`, `/mensajes`,
-  `/mascota/nueva`, `/mascota/[id]/editar`.
-- API: `/api/auth/*`, `/api/perfil`, `/api/favoritos`, `/api/mascotas*`,
-  `/api/solicitudes*`, `/api/mensajes*` (colección en `postman/adopty.json`).
+  `/mascota/nueva`, `/mascota/[id]/editar`, `/admin` (solo administradores).
+- API: `/api/auth/*`, `/api/perfil`, `/api/mis-datos`, `/api/cuenta/*`,
+  `/api/estilo-de-vida`, `/api/favoritos`, `/api/mascotas*`, `/api/solicitudes*`,
+  `/api/mensajes*`, `/api/reportes`, `/api/verificacion`, `/api/admin/*`
+  (colección en `postman/adopty.json`).
+- SEO: `/robots.txt`, `/sitemap-index.xml` (estático) y `/sitemap-mascotas.xml`
+  (SSR, solo fichas `disponible` no borradas).
 
 ## Estructura
 
 ```
 src/pages/{index,explorar,mascota/[id],mascota/nueva,mascota/[id]/editar,
-  panel,panel/solicitudes,panel/adoptante/[id],mensajes,mis-solicitudes,favoritos,
+  panel,panel/solicitudes,panel/adoptante/[id],admin,mensajes,mis-solicitudes,favoritos,
   login,register,recuperar,perfil,terminos,privacidad,404,500}.astro
-src/pages/api/{perfil,mis-datos,favoritos,mascotas/,solicitudes/,mensajes/,
-  estilo-de-vida/,cuenta/,auth/,admin/}.ts
+src/pages/api/{perfil,mis-datos,favoritos,mascotas/,solicitudes/,mensajes/,reportes/,
+  verificacion/,estilo-de-vida/,cuenta/,auth/,admin/}.ts
 src/components/{Navbar,PetCard,Badge,FavButton,PetForm,MessageThread,ChatView}.astro
-src/lib/{supabase,mascotas,solicitudes,panel,perfil,match,storage,transiciones,ratelimit,admin}.ts
+src/lib/{supabase,mascotas,solicitudes,panel,perfil,match,storage,transiciones,
+  ratelimit,admin,auditoria,analytics,oauth,redirect,seo}.ts (+ *.test.ts)
 src/lib/validation/{user,pet,request,message}.ts (+ *.test.ts)
 src/data/mockPets.ts          # fallback del hero si la DB está vacía
-supabase/migrations/*.sql     # 001 schema · 002 RLS · 003 storage · 004 RPC aprobar · 005 RLS aprobada
+e2e/{publico,flujo}.e2e.ts    # Playwright (config en playwright.config.ts)
+supabase/migrations/*.sql     # 21 migraciones: schema, RLS, storage (límites y carpeta del dueño),
+                              # RPC solicitudes, slugs, auditoría, moderación, admin, estilo de
+                              # vida, privacidad, cuenta, triggers de reglas de negocio
 supabase/seed.sql             # 2 usuarios + 30 mascotas
-postman/adopty.json · scripts/perf.mjs · docs/
+vercel.json                   # headers de seguridad (HSTS, CSP Report-Only, etc.)
+postman/adopty.json · scripts/{perf,generar-iconos}.mjs · scripts/backup.sh · docs/
 ```
 
 ## Contribución (Git Flow)
 
 Ramas `main` (prod) · `develop` (integración) · `feature/*`. Commits
-`feat:/fix:/docs:/chore:`. PR con checklist: `build`+`lint`+`format:check`+`test`
-verdes (los corre el CI), RLS considerada, Zod en servidor, responsive 320–1440.
+`feat:/fix:/docs:/chore:`. PR con checklist: `lint`+`format:check`+`check`+`test`+`build`
+y el flujo e2e verdes (los corre el CI), `npm audit` sin vulnerabilidades altas (Dependabot
+semanal), RLS considerada, Zod en servidor, responsive 320–1440.
 
 ## Deploy (Fase 8)
 
-1. Vercel → importa el repo, rama prod `main`; env vars `PUBLIC_SUPABASE_URL`,
-   `PUBLIC_SUPABASE_ANON_KEY` (+ `SITE_URL` con el dominio final).
-2. Supabase Dashboard → Auth → URL Configuration: Site URL + Redirects del dominio
-   (`/api/auth/callback`); activa **Secure email change** (cambio de correo de la
-   pestaña Cuenta); confirma buckets `mascotas` y `perfiles` públicos y Realtime en `mensajes`.
-3. **Migraciones**: están en `supabase/migrations/` y ya aplicadas en la nube. Si
+Producción actual: **https://adopty.lat** (Vercel, proyecto `adopty`). `www.adopty.lat`
+redirige 308 al apex desde `vercel.json`.
+
+1. Vercel → proyecto `adopty`, rama prod `main`; env vars `PUBLIC_SUPABASE_URL`,
+   `PUBLIC_SUPABASE_ANON_KEY` y `SITE_URL=https://adopty.lat`. `vercel.json` aplica
+   headers de seguridad y el redirect `www → apex`; comprueba con
+   `curl -I https://adopty.lat/` y `curl -I https://www.adopty.lat/`.
+2. Supabase Dashboard → Auth → URL Configuration: Site URL `https://adopty.lat` y
+   Redirects del dominio (`/api/auth/callback`) más las previews; **Secure email
+   change** activo; buckets `mascotas` y `perfiles` públicos (WebP ≤ 500 KB, carpeta
+   del dueño) y Realtime en `mensajes`.
+3. **Correo transaccional**: Supabase Auth usa SMTP de Resend
+   (`smtp.resend.com:465`, usuario `resend`, remitente `no-reply@adopty.lat`), con
+   dominio `adopty.lat` verificado (DKIM + DMARC). Sustituye el límite de 2 correos/hora
+   del SMTP integrado. **Confirm email está activo** (`mailer_autoconfirm=false`): al
+   registrarse se envía un enlace y no hay sesión hasta abrirlo. En local
+   `supabase/config.toml` mantiene `enable_confirmations=false` para el e2e.
+4. **Migraciones**: están en `supabase/migrations/` y ya aplicadas en la nube (20). Si
    añades una, aplícala (SQL Editor o `psql`) **y** anótala en
    `supabase_migrations.schema_migrations`, o el siguiente `db push` intentará
    reaplicarla.
-4. **Pendiente decidido**: Google OAuth (crear credencial en Google Cloud → Providers →
+5. **Pendiente decidido**: Google OAuth (crear credencial en Google Cloud → Providers →
    ON → redirects). Hasta entonces el botón muestra aviso y el correo funciona 100%.
 
 ## Equipo

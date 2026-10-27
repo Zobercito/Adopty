@@ -31,7 +31,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     .eq('id', id)
     .maybeSingle();
   if (!sol) return Response.json({ error: 'No encontrada' }, { status: 404 });
-  const publicador = (sol as { mascotas: { id_publicador: string } }).mascotas.id_publicador;
+  const publicador = (sol as unknown as { mascotas: { id_publicador: string } }).mascotas
+    .id_publicador;
   const { accion } = parsed.data;
   // Rol estricto por identidad (un tercero no es ni adoptante ni publicador)
   let rol: RolSolicitud;

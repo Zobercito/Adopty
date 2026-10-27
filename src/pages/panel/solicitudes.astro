@@ -22,7 +22,7 @@ const ordenados = [...lista].sort((a, b) => {
 });
 ---
 
-<Layout title="Adopty — Solicitudes recibidas">
+<Layout title="Adopty — Solicitudes recibidas" noindex>
   <Navbar />
   <main class="max-w-4xl mx-auto px-4 mt-6">
     <div class="flex items-start justify-between flex-wrap gap-3">
@@ -162,7 +162,7 @@ const ordenados = [...lista].sort((a, b) => {
   </main>
 
   <script>
-    const mostrarErr = (id, msg) => {
+    const mostrarErr = (id: string, msg: string) => {
       const el = document.querySelector(`[data-err="${id}"]`);
       if (el) {
         el.textContent = msg;
@@ -170,7 +170,7 @@ const ordenados = [...lista].sort((a, b) => {
       }
     };
 
-    async function accionar(id, accion, btn) {
+    async function accionar(id: string, accion: 'aprobar' | 'rechazar', btn: HTMLButtonElement) {
       const msg =
         accion === 'aprobar'
           ? '¿Aprobar? La mascota pasa a En proceso y se rechaza al resto.'
@@ -186,6 +186,7 @@ const ordenados = [...lista].sort((a, b) => {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        if (accion === 'aprobar') window.adoptyTrack?.('solicitud_aprobada', { solicitud: id });
         location.reload();
         return;
       }
@@ -195,12 +196,12 @@ const ordenados = [...lista].sort((a, b) => {
     }
 
     document
-      .querySelectorAll('[data-aprobar]')
-      .forEach((b) => b.addEventListener('click', () => accionar(b.getAttribute('data-aprobar'), 'aprobar', b)));
+      .querySelectorAll<HTMLButtonElement>('[data-aprobar]')
+      .forEach((b) => b.addEventListener('click', () => accionar(b.dataset.aprobar ?? '', 'aprobar', b)));
     document
-      .querySelectorAll('[data-rechazar]')
+      .querySelectorAll<HTMLButtonElement>('[data-rechazar]')
       .forEach((b) =>
-        b.addEventListener('click', () => accionar(b.getAttribute('data-rechazar'), 'rechazar', b)),
+        b.addEventListener('click', () => accionar(b.dataset.rechazar ?? '', 'rechazar', b)),
       );
   </script>
 </Layout>

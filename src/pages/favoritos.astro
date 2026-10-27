@@ -45,7 +45,7 @@ const reales = ((favs ?? []) as { id_mascota: string; mascotas: unknown }[])
 const errorMsg = error?.message ?? '';
 ---
 
-<Layout title="Adopty — Mis favoritos">
+<Layout title="Adopty — Mis favoritos" noindex>
   <Navbar />
   <main class="max-w-6xl mx-auto px-4 mt-6">
     <div class="flex items-end justify-between flex-wrap gap-3">
@@ -129,11 +129,12 @@ const errorMsg = error?.message ?? '';
   <script>
     // Conteo de favs demo locales (ids no-UUID del mock Fase 0).
     try {
-      const f = JSON.parse(localStorage.getItem('adopty_favs') || '[]');
+      const f: string[] = JSON.parse(localStorage.getItem('adopty_favs') || '[]');
       const demo = f.filter((x) => !/^[0-9a-f-]{36}$/i.test(x));
       if (demo.length) {
-        document.getElementById('localCount').textContent = String(demo.length);
-        document.getElementById('localWrap').classList.remove('hidden');
+        const count = document.getElementById('localCount');
+        if (count) count.textContent = String(demo.length);
+        document.getElementById('localWrap')?.classList.remove('hidden');
       }
     } catch {}
   </script>

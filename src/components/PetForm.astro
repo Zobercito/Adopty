@@ -162,13 +162,20 @@ const nuevo = mode === 'create';
     {!nuevo && (
       <div>
         <label class="label" for="estado">Estado</label>
-        <select id="estado" name="estado" class="input-soft mt-1 text-sm">
+        <select
+          id="estado"
+          name="estado"
+          disabled={pet?.estado === 'adoptada'}
+          class="input-soft mt-1 text-sm disabled:opacity-60"
+        >
           <option value="disponible" selected={!pet || pet.estado === 'disponible'}>Disponible</option>
           <option value="en_proceso" selected={pet?.estado === 'en_proceso'}>En proceso de adopción</option>
           <option value="adoptada" selected={pet?.estado === 'adoptada'}>Adoptada</option>
         </select>
         <p class="text-xs mt-1 text-faint">
-          «En proceso» oculta la ficha de Explorar para los demás, pero no la elimina.
+          {pet?.estado === 'adoptada'
+            ? 'Una adopción confirmada es definitiva: el estado ya no se puede cambiar.'
+            : '«En proceso» oculta la ficha de Explorar para los demás, pero no la elimina.'}
         </p>
       </div>
     )}
@@ -336,7 +343,7 @@ const nuevo = mode === 'create';
         nivel_energia: fd.get('nivel_energia') || 'moderada',
         apto_ninos: fd.get('apto_ninos') === 'si',
         apto_otros: fd.get('apto_otros') === 'si',
-        ...(mode === 'edit' ? { estado: fd.get('estado') || 'disponible' } : {}),
+        ...(mode === 'edit' && fd.get('estado') ? { estado: fd.get('estado') } : {}),
       };
 
       btn.disabled = true;

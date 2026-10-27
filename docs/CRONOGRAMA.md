@@ -25,14 +25,15 @@ gantt
 
 ## Hitos por semana
 
-| Sem | Hito                                       | Estado                        |
-| --- | ------------------------------------------ | ----------------------------- |
-| 1   | Preview Vercel + base Astro                | ✅                            |
-| 2–3 | Auth + DB + RLS en cloud                   | ✅                            |
-| 3–4 | CRUD + Storage WebP                        | ✅                            |
-| 5   | Búsqueda < 1 s + URL compartible           | ✅                            |
-| 6   | Solicitudes con estados + RPC              | ✅                            |
-| 7   | Chat realtime + no-leídos                  | ✅                            |
-| 8   | Panel + favoritos                          | ✅                            |
-| 9   | QA: 36 tests, rate-limit, legales, backups | ✅                            |
-| 10  | Prod + piloto + OAuth + sustentación       | 🔶 en curso (OAuth pendiente) |
+| Sem | Hito                                                        | Estado                        |
+| --- | ----------------------------------------------------------- | ----------------------------- |
+| 1   | Preview Vercel + base Astro                                 | ✅                            |
+| 2–3 | Auth + DB + RLS en cloud                                    | ✅                            |
+| 3–4 | CRUD + Storage WebP                                         | ✅                            |
+| 5   | Búsqueda < 1 s + URL compartible                            | ✅                            |
+| 6   | Solicitudes con estados + RPC                               | ✅                            |
+| 7   | Chat realtime + no-leídos                                   | ✅                            |
+| 8   | Panel + favoritos                                           | ✅                            |
+| 9   | QA: 36 tests, rate-limit, legales, backups                  | ✅                            |
+| 10  | Prod + piloto + OAuth + sustentación                        | 🔶 en curso (OAuth pendiente) |
+| +   | Fuera de plan (oct): admin, afinidad, cuenta, rediseño, e2e | ✅                            |

@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 ---
 
-<Layout title="Adopty — Recuperar contraseña">
+<Layout title="Adopty — Recuperar contraseña" noindex>
   <Navbar />
   <main class="max-w-md mx-auto px-4 mt-8">
     <div class="soft-card p-7 sm:p-8">
@@ -38,10 +38,11 @@ import Navbar from '../components/Navbar.astro';
   </main>
 
   <script>
-    const form = document.getElementById('recForm');
-    const err = document.getElementById('err');
-    const ok = document.getElementById('ok');
-    const btn = document.getElementById('recBtn');
+    // Los nodos existen siempre en el marcado de esta página.
+    const form = document.getElementById('recForm') as HTMLFormElement;
+    const err = document.getElementById('err') as HTMLElement;
+    const ok = document.getElementById('ok') as HTMLElement;
+    const btn = document.getElementById('recBtn') as HTMLButtonElement;
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.classList.add('hidden');

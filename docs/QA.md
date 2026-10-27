@@ -1,4 +1,82 @@
-# Informe QA — Fase 7 (Adopty)
+# Informe QA — Adopty
+
+## Actualización 2026-10-26 — producción en `adopty.lat`
+
+Entorno: **https://adopty.lat** (Vercel) + Supabase cloud `dvebieysgnhmimmxjwjc`.
+
+| Capa / prueba                         | Resultado                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Unitarios (vitest)                    | ✅ 86/86 en 14 archivos                                                                    |
+| Tipos (`astro check`)                 | ✅ 0 errores                                                                               |
+| Build (`npm run build`)               | ✅ completo (SSR Vercel + sitemap estático)                                                |
+| E2E público contra prod               | ✅ 32/32 (`E2E_BASE_URL=https://adopty.lat npm run test:e2e`)                              |
+| Headers de seguridad                  | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions y CSP Report-Only       |
+| Canonical / `noindex` / sitemap       | ✅ canonical sin query, privadas `noindex`, fichas en `/sitemap-mascotas.xml`              |
+| Dominio y TLS                         | ✅ apex y `www` con Let's Encrypt; `www` redirige 308 al apex                              |
+| Storage                               | ✅ buckets 500 KB + `image/webp`; escritura limitada a `auth.uid()`                        |
+| Correo Auth (Resend SMTP)             | ✅ confirmación y recuperación _Delivered_; plantillas en español; alta confirmada en 30 s |
+| Logout                                | ✅ visible en navbar de escritorio, menú móvil y pestaña Cuenta del perfil                 |
+| Búsqueda p95 < 1 s / Lighthouse / axe | ⏳ pendientes en prod (P0-05, P3-05)                                                       |
+| E2E de flujo completo (escritura)     | ✅ en CI con Supabase local; ⏳ repetir en prod tras el piloto                             |
+
+**RLS cerrado el 2026-10-27:** P1-10 y P1-11 se corrigieron con la migración
+`20261027020000_rls_reglas_negocio.sql` (triggers y `WITH CHECK` en solicitudes,
+mensajes y transiciones de mascotas). Se probaron 13 casos con JWT simulado y
+`ROLLBACK`: auto-aprobación, mascota no disponible, suplantación, mensaje sin
+solicitud aprobada y edición de contenido fallan; los flujos válidos funcionan
+(incluido el auto-rechazo de otras solicitudes al aprobar). Ver
+`docs/AUDITORIA_PENDIENTES.md` §11.
+
+**P0-03 verificado el 2026-10-27:** la clave `Adopty123!` devuelve 400 en las cinco
+cuentas del seed y las dos cuentas de prueba vacías se eliminaron. Quedan 5 cuentas:
+`patitas`, `rescatista`, el admin y dos cuentas reales.
+
+**DMARC:** el registro actual es `v=DMARC1; p=none; rua=mailto:...; fo=1`. Es el valor
+correcto para un dominio joven: solo reporta. Plan:
+
+1. Mantener `p=none` 4 semanas y revisar los XML del buzón `rua` (crear un filtro en
+   Gmail por `Report domain: adopty.lat`).
+2. Si todos los envíos legítimos salen por Resend, pasar a `p=quarantine; pct=25` y
+   luego `pct=100`.
+3. Pasar a `p=reject` solo con varias semanas de reportes limpios. No tocar los
+   registros DKIM/SPF de Resend.
+
+**Operación pendiente:** ejecutar un `pg_dump` antes del piloto. La entrega de correo
+de confirmación y recuperación ya está verificada.
+
+---
+
+## Actualización 2026-10-14
+
+Rama `develop`. Comandos: `npm run lint`, `npm run format:check`, `npm run check`,
+`npm test`, `npm run build`, `npm run test:e2e`.
+
+| Capa                            | Resultado                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| Unitarios (vitest)              | ✅ 78/78 en 12 archivos (validación Zod, afinidad, transiciones, panel, admin, perfil…)     |
+| Tipos (`astro check`)           | ✅ 0 errores (antes no corría: había 230, dos de ellos bugs reales)                         |
+| E2E público (Playwright)        | ✅ 28/28 contra el entorno de nube, en solo lectura: páginas, guards, 401 y validación      |
+| E2E flujo completo (Playwright) | ⏳ 11 tests escritos; corren en el CI contra un Supabase local (aquí falta acceso a Docker) |
+
+**Bugs que encontró `astro check` (corregidos):**
+
+1. `POST /api/mascotas/upload` usaba `rateLimit` sin importarlo → con sesión, **toda subida
+   de fotos respondía 500** (`ReferenceError`) desde el commit `ed3fc3c`. Sin fotos no se
+   puede publicar.
+2. El formulario **Reportar publicación** de la ficha usaba `petId`, que solo existe dentro
+   de otro `<script define:vars>` → cada reporte terminaba en "petId is not defined".
+
+Los dos tienen test de regresión en `e2e/flujo.e2e.ts`.
+
+**Qué cubre el flujo e2e** (`npm run test:e2e:flujo`, solo con Supabase local porque crea
+cuentas y mascotas): registro de 3 cuentas → subir foto y publicar → editar ajena (403) →
+solicitar + duplicado (409) → solicitar lo propio (403) → chat cerrado antes de aprobar (403)
+→ tercero no ve ni aprueba (RLS) → aprobar → `en_proceso` y terminales cerradas (409) → chat
+en ambos sentidos con no-leídos → tercero fuera del hilo → reportar por la interfaz.
+
+---
+
+## Informe original — Fase 7 (2026-09-26)
 
 Fecha: 2026-09-26 · Rama: `develop` · Comandos: `npm run lint`, `npm run format:check`, `npm test`, `npm run build`.
 

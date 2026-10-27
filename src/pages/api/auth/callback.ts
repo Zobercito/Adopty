@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { rutaInternaSegura } from '../../../lib/redirect';
 import { supabaseServer } from '../../../lib/supabase';
 
 export const prerender = false;
@@ -9,7 +10,7 @@ export const prerender = false;
  */
 export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   const code = url.searchParams.get('code');
-  const next = url.searchParams.get('next') ?? '/perfil';
+  const next = rutaInternaSegura(url.searchParams.get('next'));
   if (code) {
     const supabase = supabaseServer(cookies);
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -25,7 +26,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
         await supabase.auth.signOut();
         return redirect('/login?error=cuenta-dada-de-baja', 302);
       }
-      return redirect(next.startsWith('/') ? next : '/perfil', 302);
+      return redirect(next, 302);
     }
   }
   return redirect('/login?error=callback', 302);

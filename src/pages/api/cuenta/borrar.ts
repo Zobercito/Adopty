@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { rateLimit, respuestaRateLimit } from '../../../lib/ratelimit';
+import { borrarFotoPerfilStorage } from '../../../lib/storage';
 import { borrarCuentaSchema } from '../../../lib/validation/user';
 
 export const prerender = false;
@@ -41,6 +42,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   });
   if (passErr) return Response.json({ error: 'Tu contraseña no es correcta' }, { status: 401 });
 
+  // La RPC anonimiza la fila, así que hay que guardar la ruta de la foto antes.
+  const { data: cuenta } = await supabase
+    .from('usuarios')
+    .select('tipo_usuario')
+    .eq('id', user.id)
+    .maybeSingle();
+  const esOrg = cuenta?.tipo_usuario === 'organizacion';
+  const tabla = esOrg ? 'organizaciones' : 'personas';
+  const columna = esOrg ? 'logo' : 'foto_perfil';
+  const { data: detalle } = await supabase
+    .from(tabla)
+    .select(columna)
+    .eq('id', user.id)
+    .maybeSingle();
+  const fotoPath = (detalle as Record<string, string | null> | null)?.[columna] ?? null;
+
   const { data, error } = await supabase.rpc('eliminar_mi_cuenta');
   if (error) {
     // P0001 = regla de negocio (adopción en curso); 28000 = sesión inválida.
@@ -49,6 +66,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return Response.json({ error: error.message }, { status: 400 });
   }
 
+  // Borrar el objeto exige seguir autenticado (política por carpeta del dueño).
+  if (fotoPath) await borrarFotoPerfilStorage(supabase, fotoPath);
   await supabase.auth.signOut();
   const resumen = (data ?? {}) as {
     mascotas_despublicadas?: number;

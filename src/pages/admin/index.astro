@@ -96,7 +96,7 @@ const tabRe = (estado: EstadoReporte) => ({ href: `/admin?re=${estado}&ve=${ve}`
 const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${estado}`, activo: ve === estado });
 ---
 
-<Layout title={esAdminUser ? 'Adopty — Panel de administración' : 'Adopty — No encontrado'}>
+<Layout title={esAdminUser ? 'Adopty — Panel de administración' : 'Adopty — No encontrado'} noindex>
   <Navbar />
   <main class="max-w-5xl mx-auto px-4 mt-6 mb-8">
     {
@@ -459,19 +459,19 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
   </main>
 
   <script>
-    const mostrarErr = (id, msg) => {
+    const mostrarErr = (id: string, msg: string) => {
       const el = document.querySelector(`[data-err="${id}"]`);
       if (el) {
         el.textContent = msg;
         el.classList.remove('hidden');
       }
     };
-    const notasDe = (id) => {
+    const notasDe = (id: string) => {
       const el = document.querySelector(`[data-notas="${id}"]`);
       return el && 'value' in el ? String(el.value).trim() : '';
     };
 
-    const avisar = (msg, tipo) => {
+    const avisar = (msg: string, tipo: 'ok' | 'error' | 'proceso') => {
       const el = document.getElementById('adminEstado');
       if (!el) return;
       el.textContent = msg;
@@ -480,7 +480,11 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
       el.classList.toggle('alert-error', tipo !== 'ok');
     };
 
-    const enviar = async (url, cuerpo, okMsg) => {
+    const enviar = async (
+      url: string,
+      cuerpo: object,
+      okMsg: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
       avisar('Procesando…', 'proceso');
       const res = await fetch(url, {
         method: 'POST',
@@ -496,7 +500,7 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
       return { ok: true };
     };
 
-    async function accionReporte(id, accion) {
+    async function accionReporte(id: string, accion: 'ocultar' | 'descartar') {
       const msg =
         accion === 'ocultar'
           ? '¿Ocultar esta publicación? Dejará de verse en Explorar (se puede restaurar desde la bandeja "Ocultadas"). Los demás reportes de esta mascota se descartarán.'
@@ -504,29 +508,29 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
       if (!confirm(msg)) return;
       const r = await enviar(`/api/admin/reportes/${id}`, { accion },
         accion === 'ocultar' ? 'Publicación oculta.' : 'Reporte descartado.');
-      if (!r.ok) return mostrarErr(id, r.error);
+      if (!r.ok) return mostrarErr(id, r.error ?? '');
       location.reload();
     }
 
-    async function accionRestaurar(mascotaId) {
+    async function accionRestaurar(mascotaId: string) {
       if (!confirm('¿Restaurar esta publicación? Volverá a verse en Explorar.')) return;
       const r = await enviar(`/api/admin/mascotas/${mascotaId}/restaurar`, {}, 'Publicación restaurada.');
       if (!r.ok) return;
       location.reload();
     }
 
-    async function accionVerif(id, aprobar) {
+    async function accionVerif(id: string, aprobar: boolean) {
       const msg = aprobar
         ? '¿Aprobar la verificación? La organización verá el badge "verificada".'
         : '¿Rechazar la verificación?';
       if (!confirm(msg)) return;
       const r = await enviar(`/api/admin/verificaciones/${id}`, { aprobar, notas: notasDe(id) },
         aprobar ? 'Organización verificada.' : 'Solicitud rechazada.');
-      if (!r.ok) return mostrarErr(id, r.error);
+      if (!r.ok) return mostrarErr(id, r.error ?? '');
       location.reload();
     }
 
-    async function alternarCuenta(id, activo, boton) {
+    async function alternarCuenta(id: string, activo: boolean, boton: HTMLButtonElement) {
       const msg = activo
         ? '¿Suspender esta cuenta? Dejará de poder entrar; sus publicaciones y mensajes no se borran.'
         : '¿Reactivar esta cuenta? Volverá a poder entrar con normalidad.';
@@ -549,10 +553,10 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
       location.reload();
     }
 
-    document.querySelectorAll('[data-alternar]').forEach((b) =>
+    document.querySelectorAll<HTMLButtonElement>('[data-alternar]').forEach((b) =>
       b.addEventListener('click', () =>
         alternarCuenta(
-          b.getAttribute('data-alternar'),
+          b.getAttribute('data-alternar') ?? '',
           b.getAttribute('data-activo') === 'true',
           b,
         ),
@@ -561,22 +565,22 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
 
     document.querySelectorAll('[data-ocultar]').forEach((b) =>
       b.addEventListener('click', () =>
-        accionReporte(b.getAttribute('data-ocultar'), 'ocultar'),
+        accionReporte(b.getAttribute('data-ocultar') ?? '', 'ocultar'),
       ),
     );
     document.querySelectorAll('[data-descartar]').forEach((b) =>
       b.addEventListener('click', () =>
-        accionReporte(b.getAttribute('data-descartar'), 'descartar'),
+        accionReporte(b.getAttribute('data-descartar') ?? '', 'descartar'),
       ),
     );
     document.querySelectorAll('[data-restaurar]').forEach((b) =>
-      b.addEventListener('click', () => accionRestaurar(b.getAttribute('data-restaurar'))),
+      b.addEventListener('click', () => accionRestaurar(b.getAttribute('data-restaurar') ?? '')),
     );
     document.querySelectorAll('[data-aprobar]').forEach((b) =>
-      b.addEventListener('click', () => accionVerif(b.getAttribute('data-aprobar'), true)),
+      b.addEventListener('click', () => accionVerif(b.getAttribute('data-aprobar') ?? '', true)),
     );
     document.querySelectorAll('[data-rechazar]').forEach((b) =>
-      b.addEventListener('click', () => accionVerif(b.getAttribute('data-rechazar'), false)),
+      b.addEventListener('click', () => accionVerif(b.getAttribute('data-rechazar') ?? '', false)),
     );
   </script>
 </Layout>

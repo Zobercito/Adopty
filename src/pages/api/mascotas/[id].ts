@@ -4,6 +4,7 @@ import { fotosOrdenadas, type FotoRow, type MascotaRow } from '../../../lib/masc
 import { petUpdateSchema } from '../../../lib/validation/pet';
 import { borrarFotosStorage } from '../../../lib/storage';
 import { registrarAuditoria } from '../../../lib/auditoria';
+import { transicionMascota, type EstadoMascota } from '../../../lib/transiciones';
 import { ipCliente } from '../../../lib/ratelimit';
 
 export const prerender = false;
@@ -35,7 +36,7 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 
   const { data: actual } = await supabase
     .from('mascotas')
-    .select('id_publicador')
+    .select('id_publicador, estado')
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle();
@@ -52,6 +53,15 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
   }
   const { fotos_keep, fotos_new, ...campos } = parsed.data;
   const updates = Object.fromEntries(Object.entries(campos).filter(([, v]) => v !== undefined));
+  if (
+    updates.estado !== undefined &&
+    !transicionMascota(actual.estado as EstadoMascota, updates.estado as EstadoMascota)
+  ) {
+    return Response.json(
+      { error: `Una mascota adoptada no puede volver a "${updates.estado}"` },
+      { status: 409 },
+    );
+  }
   if (Object.keys(updates).length) {
     const { error } = await supabase.from('mascotas').update(updates).eq('id', id);
     if (error) return Response.json({ error: error.message }, { status: 400 });

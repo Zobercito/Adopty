@@ -85,7 +85,7 @@ const conSeparadores = mensajes.map((m, i) => {
                     <p class="text-sm break-words whitespace-pre-wrap">{m.contenido}</p>
                   </div>
                   <p class="text-xs mt-1 text-faint flex items-center gap-1">
-                    <time dateTime={m.fecha_envio}>
+                    <time datetime={m.fecha_envio}>
                       {hoy(m.fecha_envio) ? reloj(m.fecha_envio) : new Date(m.fecha_envio).toLocaleDateString('es-PA', { day: 'numeric', month: 'short' })}
                     </time>
                     {yo && m.leido && <span title="Leído">✓✓</span>}
@@ -205,6 +205,7 @@ const conSeparadores = mensajes.map((m, i) => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Error al enviar');
+      window.adoptyTrack?.('mensaje_enviado', { mascota: id_mascota });
     } catch (err) {
       // Error en línea: se marca para que el usuario vea qué no salió.
       const nodo = messages.querySelector(`[data-msg-id="${optimista.id}"]`);

@@ -87,7 +87,7 @@ if (pet) {
 }
 
 // [clave dentro de `redes`, etiqueta visible, constructor de la URL]
-const REDES: [string, string, (v: string) => string][] = [
+const REDES: ['instagram' | 'facebook' | 'whatsapp', string, (v: string) => string][] = [
   ['instagram', 'Instagram', (v) => `https://instagram.com/${v.replace(/^@/, '')}`],
   ['facebook', 'Facebook', (v) => (v.startsWith('http') ? v : `https://${v}`)],
   ['whatsapp', 'WhatsApp', (v) => `https://wa.me/${v.replace(/[^\d]/g, '')}`],
@@ -107,11 +107,55 @@ const datos = pet
       fila('Publicado', fecha),
     ]
   : [];
+
+const sitioBase = (Astro.site ?? new URL(Astro.url.origin)).toString().replace(/\/$/, '');
+const urlFicha = pet ? `${sitioBase}/mascota/${pet.slug ?? pet.id}` : '';
+const imagenes = fotos
+  .map((f) => fotoUrl(f.url_foto))
+  .filter(Boolean)
+  .map((u) => (u.startsWith('http') ? u : new URL(u, sitioBase).toString()));
+const jsonLdPet =
+  pet && !noExiste
+    ? [
+        {
+          '@context': 'https://schema.org',
+          '@type': pet.especie === 'perro' ? 'Dog' : pet.especie === 'gato' ? 'Cat' : 'Pet',
+          name: pet.nombre,
+          description: pet.descripcion,
+          url: urlFicha,
+          ...(imagenes.length ? { image: imagenes } : {}),
+          ...(pet.raza ? { breed: pet.raza } : {}),
+          additionalProperty: [
+            { '@type': 'PropertyValue', name: 'Especie', value: pet.especie },
+            { '@type': 'PropertyValue', name: 'Edad', value: edadLabel(pet.edad_meses) },
+            { '@type': 'PropertyValue', name: 'Sexo', value: pet.sexo },
+            { '@type': 'PropertyValue', name: 'Tamaño', value: pet.tamano },
+            { '@type': 'PropertyValue', name: 'Ubicación', value: pet.ubicacion },
+          ],
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Inicio', item: `${sitioBase}/` },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Mascotas en adopción',
+              item: `${sitioBase}/explorar`,
+            },
+            { '@type': 'ListItem', position: 3, name: pet.nombre, item: urlFicha },
+          ],
+        },
+      ]
+    : undefined;
 ---
 <Layout
   title={pet ? `Adopty — ${pet.nombre}, ${pet.raza} en adopción` : 'Adopty — No encontrada'}
   description={pet ? `${pet.nombre}: ${pet.descripcion.slice(0, 150)}` : undefined}
   ogImage={ogImage}
+  jsonLd={jsonLdPet}
+  noindex={noExiste || pet?.estado !== 'disponible'}
 >
   <Navbar active="explorar" />
   <main class="max-w-6xl mx-auto px-4 mt-6 mb-4">
@@ -396,7 +440,7 @@ const datos = pet
                 <summary class="text-xs text-muted hover:text-ink cursor-pointer font-semibold py-2">
                   🚩 Reportar publicación
                 </summary>
-                <form id="reportForm" class="mt-3 grid gap-2">
+                <form id="reportForm" class="mt-3 grid gap-2" data-pet-id={pet.id}>
                   <label class="label" for="motivo">Motivo (mínimo 10 caracteres)</label>
                   <textarea
                     id="motivo"
@@ -432,6 +476,7 @@ const datos = pet
     }
   </main>
   <script define:vars={{ petId: pet?.id ?? '', solId: miSolicitud?.id ?? '' }}>
+    if (petId) window.adoptyTrack?.('ver_detalle', { mascota: petId });
     const solForm = document.getElementById('solForm');
     if (solForm) solForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -475,11 +520,11 @@ const datos = pet
   <script>
     const carousel = document.getElementById('carousel');
     if (carousel) {
-      const slides = [...carousel.querySelectorAll('.slide')];
-      const dots = [...carousel.querySelectorAll('[data-dot]')];
+      const slides = [...carousel.querySelectorAll<HTMLElement>('.slide')];
+      const dots = [...carousel.querySelectorAll<HTMLElement>('[data-dot]')];
       const counter = document.getElementById('counter');
       let actual = 0;
-      const mostrar = (n) => {
+      const mostrar = (n: number) => {
         actual = (n + slides.length) % slides.length;
         slides.forEach((s, i) => (s.style.display = i === actual ? 'block' : 'none'));
         dots.forEach((d, i) => (d.style.background = i === actual ? '#FF6B35' : 'rgba(255,255,255,.75)'));
@@ -495,21 +540,22 @@ const datos = pet
     }
 
     // Reportar publicación (formulario en <details>, sin prompt bloqueante)
-    const reportForm = document.getElementById('reportForm');
+    const reportForm = document.getElementById('reportForm') as HTMLFormElement | null;
     if (reportForm) {
       const msg = document.getElementById('reportMsg');
       reportForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const motivo = String(new FormData(reportForm).get('motivo') ?? '').trim();
         if (motivo.length < 10) return;
-        const btn = reportForm.querySelector('button[type="submit"]');
+        const btn = reportForm.querySelector('button[type="submit"]') as HTMLButtonElement;
         btn.disabled = true;
         btn.textContent = 'Enviando…';
         try {
           const res = await fetch('/api/reportes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_mascota: petId, motivo }),
+            // `petId` vive en el otro <script define:vars>: este no lo ve.
+            body: JSON.stringify({ id_mascota: reportForm.dataset.petId, motivo }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.error || 'Error al reportar');
@@ -521,7 +567,7 @@ const datos = pet
           reportForm.reset();
         } catch (err) {
           if (msg) {
-            msg.textContent = err.message;
+            msg.textContent = err instanceof Error ? err.message : 'Error al reportar';
             msg.classList.remove('hidden');
             msg.classList.replace('alert-ok', 'alert-error');
           }

@@ -44,9 +44,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
   }
   const { fotos, ...mascota } = parsed.data;
+  // Toda publicación nace disponible: el estado se gestiona después desde la API.
   const { data: creada, error } = await supabase
     .from('mascotas')
-    .insert({ ...mascota, id_publicador: user.id })
+    .insert({ ...mascota, estado: 'disponible', id_publicador: user.id })
     .select('id')
     .single();
   if (error || !creada) {

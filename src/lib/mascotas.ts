@@ -136,12 +136,13 @@ export async function buscarMascotas(
   /**
    * Consulta nueva en cada llamada: un PostgrestBuilder es mutable (`.order()` y
    * `.range()` escriben en su URL interna), así que reutilizar el mismo builder
-   * para dos peticiones duplica los parámetros.
+   * para dos peticiones duplica los parámetros. `soloConteo` pide solo el total
+   * (HEAD), sin traer filas.
    */
-  const consulta = () => {
+  const consulta = (soloConteo = false) => {
     let q = supabase
       .from('mascotas')
-      .select('*, fotos_mascota(*)', { count: 'exact' })
+      .select(soloConteo ? 'id' : '*, fotos_mascota(*)', { count: 'exact', head: soloConteo })
       .is('deleted_at', null)
       .eq('estado', b.estado ?? 'disponible');
     if (b.especie) q = q.eq('especie', b.especie);
@@ -153,7 +154,7 @@ export async function buscarMascotas(
   };
 
   const contar = async (): Promise<number> => {
-    const r = await consulta().select('id', { count: 'exact', head: true });
+    const r = await consulta(true);
     if (r.error) throw new Error(r.error.message);
     return r.count ?? 0;
   };
@@ -175,7 +176,7 @@ export async function buscarMascotas(
       if (!/not satisfiable/i.test(r.error.message)) throw new Error(r.error.message);
       return { filas: [], total: await contar(), fueraDeRango: true };
     }
-    return { filas: (r.data ?? []) as Fila[], total: r.count ?? 0, fueraDeRango: false };
+    return { filas: (r.data ?? []) as unknown as Fila[], total: r.count ?? 0, fueraDeRango: false };
   };
 
   const empaquetar = (filas: Fila[], total: number, n: number): ResultadoBusqueda => ({

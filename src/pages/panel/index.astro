@@ -30,7 +30,7 @@ const stats = resumen
   : [];
 ---
 
-<Layout title="Adopty — Mi panel de publicador">
+<Layout title="Adopty — Mi panel de publicador" noindex>
   <Navbar />
   <main class="max-w-6xl mx-auto px-4 mt-6">
     <div class="flex items-start justify-between flex-wrap gap-3">
@@ -140,7 +140,9 @@ const stats = resumen
                   <select
                     id={`estado-${p.id}`}
                     data-estado={p.id}
-                    class="input-soft text-xs py-2 w-auto"
+                    disabled={p.estado === 'adoptada'}
+                    title={p.estado === 'adoptada' ? 'Una adopción confirmada es definitiva' : undefined}
+                    class="input-soft text-xs py-2 w-auto disabled:opacity-60"
                     aria-label={`Estado de ${p.nombre}`}
                   >
                     <option value="disponible" selected={p.estado === 'disponible'}>
@@ -170,10 +172,10 @@ const stats = resumen
   </main>
 
   <script>
-    document.querySelectorAll('[data-estado]').forEach((sel) =>
+    document.querySelectorAll<HTMLSelectElement>('[data-estado]').forEach((sel) =>
       sel.addEventListener('change', async () => {
         const id = sel.getAttribute('data-estado');
-        const err = document.querySelector(`[data-err="${id}"]`);
+        const err = document.querySelector(`[data-err="${id}"]`) as HTMLElement;
         err.classList.add('hidden');
         sel.disabled = true;
         const res = await fetch(`/api/mascotas/${id}`, {
@@ -191,7 +193,7 @@ const stats = resumen
         location.reload();
       }),
     );
-    document.querySelectorAll('[data-eliminar]').forEach((btn) =>
+    document.querySelectorAll<HTMLButtonElement>('[data-eliminar]').forEach((btn) =>
       btn.addEventListener('click', async () => {
         if (!confirm(`¿Eliminar la publicación de ${btn.getAttribute('data-nombre')}? Se oculta de Explorar.`))
           return;
