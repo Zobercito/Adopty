@@ -42,6 +42,7 @@ el `noindex` automático de Vercel.
 | axe automatizado                 | ✅ 10/10 (5 páginas × 360/1280 px)                                         |
 | RLS por REST (anon)              | ✅ `rate_limits` 401; `usuarios`/`mensajes` `[]`; `mascotas` pública       |
 | Uptime                           | ✅ `uptime.yml` manual: `/`, `/explorar`, `/login`, `/terminos` → 200      |
+| Sentry                           | ✅ Error de prueba entregado en local (eventId `e261f256…`); sin PII       |
 | `format:check`/`lint`/`check`    | ✅ 0 errores                                                               |
 | `npm run build`                  | ✅ SSR Vercel + sitemap                                                    |
 
