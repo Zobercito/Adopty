@@ -552,16 +552,18 @@ decidió dejar para el final.
 
 #### P2-04 — Observabilidad y monitoreo
 
-- **Estado:** `[PARCIAL]` (2026-10-27: alerta de backup hecha).
+- **Estado:** `[PARCIAL]` (2026-10-27: alertas de backup y uptime hechas).
 - **Evidencia:** solo `@vercel/analytics`; `src/middleware.ts:73-79` usa
-  `console.error`; no hay Sentry/Highlight ni monitor de uptime.
+  `console.error`; no hay Sentry/Highlight ni monitor externo.
 - **Hecho:** `.github/workflows/backup.yml` abre un issue con etiqueta `backup` si el
-  dump o la verificación fallan (sin depender de servicios externos).
+  dump o la verificación fallan. `.github/workflows/uptime.yml` comprueba cada hora `/`,
+  `/explorar`, `/login` y `/terminos`; abre un issue `uptime` si alguna no da 200 y lo
+  cierra cuando se recupera. Todo sin servicios externos.
 - **Pendiente:** Sentry (server + cliente) con scrubbing de PII y release tags, y un
   monitor de uptime externo. Ambos requieren cuenta/DSN del responsable.
 - **Criterio de aceptación:** un error provocado aparece en el panel con release y ruta;
-  hay alerta de caída y de backup fallido; no se envían datos personales. La parte de
-  backup está cumplida; panel y uptime siguen pendientes.
+  hay alerta de caída y de backup fallido; no se envían datos personales. Caída y backup
+  están cubiertos por GitHub Actions; falta el panel de errores.
 
 #### P2-05 — Endurecer CI
 
@@ -1211,6 +1213,23 @@ el runbook.
 
 `npm run format:check`, `lint`, `check`, `test:coverage`, `build` y el smoke de axe en
 verde. El flujo e2e con escrituras y el job de CI se validan al pushear a `develop`.
+
+### 13.5 Hallazgos del primer presupuesto y mantenimiento
+
+- **CLS 0,1205 en `/`:** el primer `perf.yml` (run 40550932958) falló porque Plus Jakarta
+  Sans se descubría tarde. Se precarga en `Layout.astro`; el rerun 40553322986 quedó verde
+  con CLS 0, Perf 100 y LCP 0,4/0,5 s en `/` y `/explorar`.
+- **Node 22.23.4:** Astro 7.4.2 subió el mínimo por el parche de seguridad de octubre
+  2026; `engines` y CI se alinearon (PR #12). Con eso pasó Dependabot #6.
+- **Actions v7:** `checkout`, `setup-node` y `upload/download-artifact` quedaron en v7
+  (PR #13); el backup manual (run 40557334115) generó el artefacto de 74 KB con caducidad
+  a 90 días.
+- **TypeScript 7:** Dependabot ignorará majors de TS hasta que `@astrojs/check` acepte el
+  peer (`npm ci` falla con ERESOLVE).
+- **RLS tras los últimos cambios:** con la anon key, `rate_limits` responde 401 (42501),
+  `usuarios` y `mensajes` devuelven `[]`, y `mascotas` sigue pública.
+- **Uptime:** `uptime.yml` corre cada hora contra cuatro rutas y abre/cierra el issue
+  `uptime` según el resultado.
 
 ### 13.5 Lo que sigue dependiendo del responsable
 

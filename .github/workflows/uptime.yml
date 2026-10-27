@@ -1,0 +1,85 @@
+name: Uptime de producción
+
+# Comprobación sintética sin servicios externos: si adopty.lat deja de responder,
+# abre un issue; cuando vuelve, lo cierra. Cubre el mínimo de P2-04 (Sentry y un
+# monitor externo siguen pendientes de cuentas).
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: uptime-prod
+  cancel-in-progress: false
+
+jobs:
+  comprobar:
+    name: Rutas públicas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: HTTP 200 en rutas clave
+        run: |
+          set -euo pipefail
+          for ruta in / /explorar /login /terminos; do
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://adopty.lat$ruta")
+            echo "$ruta -> $codigo"
+            test "$codigo" = 200 || { echo "::error::$ruta devolvió $codigo"; exit 1; }
+          done
+
+  alertar:
+    name: Alertar si producción no responde
+    runs-on: ubuntu-latest
+    needs: [comprobar]
+    if: failure()
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const titulo = 'Producción no responde';
+            const { owner, repo } = context.repo;
+            const abiertos = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'uptime',
+            });
+            if (abiertos.data.some((i) => i.title === titulo)) return;
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: titulo,
+              labels: ['uptime'],
+              body: [
+                'La comprobación horaria de `https://adopty.lat` falló.',
+                '',
+                `Ejecución: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+                '',
+                'Revisa el deploy de Vercel, el estado de Supabase y el dominio.',
+              ].join('\n'),
+            });
+
+  recuperado:
+    name: Cerrar la alerta si volvió
+    runs-on: ubuntu-latest
+    needs: [comprobar]
+    if: success()
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const abiertos = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'uptime',
+            });
+            for (const issue of abiertos.data.filter((i) => i.title === 'Producción no responde')) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+            }
