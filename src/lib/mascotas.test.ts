@@ -3,6 +3,7 @@ import {
   buscarMascotas,
   edadLabel,
   estadoLabel,
+  fotoRender,
   fotoUrl,
   fotosOrdenadas,
   gradFor,
@@ -65,6 +66,22 @@ describe('fotoUrl', () => {
     expect(fotoUrl('uid/foto.webp')).toBe(
       'https://xyz.supabase.co/storage/v1/object/public/mascotas/uid/foto.webp',
     );
+  });
+});
+
+describe('fotoRender', () => {
+  it('usa la variante WebP de las fotos locales', () => {
+    expect(fotoRender('/assets/6.JPG')).toBe('/assets/6.webp');
+    expect(fotoRender('/assets/2.jpeg')).toBe('/assets/2.webp');
+    expect(fotoRender('')).toBe('');
+  });
+  it('no toca almacenamiento ni URLs externas', () => {
+    vi.stubEnv('PUBLIC_SUPABASE_URL', 'https://xyz.supabase.co');
+    expect(fotoRender('uid/foto.webp')).toBe(
+      'https://xyz.supabase.co/storage/v1/object/public/mascotas/uid/foto.webp',
+    );
+    expect(fotoRender('https://x.com/a.jpg')).toBe('https://x.com/a.jpg');
+    vi.unstubAllEnvs();
   });
 });
 

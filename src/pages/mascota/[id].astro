@@ -5,7 +5,7 @@ import Navbar from '../../components/Navbar.astro';
 import Badge from '../../components/Badge.astro';
 import FavButton from '../../components/FavButton.astro';
 import { supabaseServer } from '../../lib/supabase';
-import { estadoLabel, edadLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow, type MascotaRow } from '../../lib/mascotas';
+import { estadoLabel, edadLabel, fotoRender, fotoUrl, fotosOrdenadas, gradFor, type FotoRow, type MascotaRow } from '../../lib/mascotas';
 import { perfilesPublicos } from '../../lib/perfil';
 
 const { id } = Astro.params;
@@ -191,7 +191,7 @@ const jsonLdPet =
               {fotos.map((f, i) => (
                 <img
                   data-slide={i}
-                  src={fotoUrl(f.url_foto)}
+                  src={fotoRender(f.url_foto)}
                   alt={`${pet.nombre} — foto ${i + 1} de ${fotos.length}`}
                   loading={i === 0 ? 'eager' : 'lazy'}
                   decoding="async"
@@ -227,7 +227,7 @@ const jsonLdPet =
                         data-dot={i}
                         aria-label={`Ir a foto ${i + 1}`}
                         class="dot-nav w-2.5 h-2.5 rounded-full"
-                        style={`background:${i === 0 ? '#FF6B35' : 'rgba(255,255,255,.75)'}`}
+                        style={`background:${i === 0 ? '#c2410c' : 'rgba(255,255,255,.75)'}`}
                       />
                     ))}
                   </div>
@@ -527,7 +527,7 @@ const jsonLdPet =
       const mostrar = (n: number) => {
         actual = (n + slides.length) % slides.length;
         slides.forEach((s, i) => (s.style.display = i === actual ? 'block' : 'none'));
-        dots.forEach((d, i) => (d.style.background = i === actual ? '#FF6B35' : 'rgba(255,255,255,.75)'));
+        dots.forEach((d, i) => (d.style.background = i === actual ? '#c2410c' : 'rgba(255,255,255,.75)'));
         if (counter) counter.textContent = `Foto ${actual + 1} / ${slides.length}`;
       };
       document.getElementById('prev')?.addEventListener('click', () => mostrar(actual - 1));
@@ -599,7 +599,7 @@ const jsonLdPet =
       transform 0.15s ease;
   }
   .carousel-btn:hover {
-    background: #ff6b35;
+    background: var(--color-brand);
     color: #fff;
   }
   .dot-nav {
