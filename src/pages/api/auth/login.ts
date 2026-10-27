@@ -26,7 +26,18 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     email: correo,
     password,
   });
-  if (authErr) return Response.json({ error: 'Correo o contraseña incorrectos' }, { status: 401 });
+  if (authErr) {
+    const sinConfirmar =
+      authErr.code === 'email_not_confirmed' || /email not confirmed/i.test(authErr.message);
+    return Response.json(
+      {
+        error: sinConfirmar
+          ? 'Confirma tu correo antes de entrar. Revisa tu bandeja y la carpeta de spam.'
+          : 'Correo o contraseña incorrectos',
+      },
+      { status: sinConfirmar ? 403 : 401 },
+    );
+  }
   const user = data.user;
 
   // Una cuenta dada de baja conserva su contraseña pero no puede volver a entrar.

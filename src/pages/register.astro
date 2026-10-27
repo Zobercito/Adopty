@@ -164,7 +164,7 @@ const esOrg = tipo === 'organizacion';
           return;
         }
         if (data.confirmaEmail) {
-          ok.textContent = 'Revisa tu correo para confirmar la cuenta y luego entra.';
+          ok.textContent = `Te enviamos un enlace a ${fd.get('correo')}. Ábrelo para confirmar la cuenta y luego entra. Si no lo ves, revisa la carpeta de spam.`;
           ok.classList.remove('hidden');
         }
       } catch {
