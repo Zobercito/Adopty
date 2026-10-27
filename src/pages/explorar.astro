@@ -456,6 +456,9 @@ const spec: { val: string; label: string }[] = [
     background: #f8fafc;
   }
   @media (min-width: 1024px) {
+    /* En escritorio el toggle no existe: sin esto el checkbox sr-only seguía
+       siendo enfocable con una etiqueta oculta (fallo de accesibilidad). */
+    #filtros-abrir,
     .barra-filtros {
       display: none;
     }

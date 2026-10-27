@@ -2,12 +2,14 @@
 
 @theme {
   /* Marca — rediseño basado en el mockup: naranja #FF6B35 + azul cielo #00A8E8 */
-  --color-brand: #ff6b35;
-  --color-brand-dark: #e85a24;
+  /* Tonos oscurecidos para que texto y botones cumplan WCAG AA (4.5:1)
+     sobre blanco y sobre sus fondos suaves, manteniendo el matiz de marca. */
+  --color-brand: #c2410c;
+  --color-brand-dark: #9a3412;
   --color-brand-soft: #fff0ea;
-  --color-teal: #00a8e8;
-  --color-teal-adopty: #00a8e8;
-  --color-teal-dark: #0090c7;
+  --color-teal: #0077a8;
+  --color-teal-adopty: #0077a8;
+  --color-teal-dark: #006b96;
   --color-teal-soft: #e6f6ff;
 
   /* Texto */
@@ -15,8 +17,8 @@
   --color-body: #475569;
   /* Texto secundario legible (WCAG AA sobre blanco); antes se usaba gray-400 (#9ca3af, 2.8:1) */
   --color-muted: #5b6b82;
-  /* Solo decorativo (pictogramas, separadores): nunca texto informativo */
-  --color-faint: #94a3b8;
+  /* Texto terciario: legible sobre blanco (4.76:1) pese a ser tenue */
+  --color-faint: #64748b;
 
   /* Superficies y líneas */
   --color-page: #faf9f6;
