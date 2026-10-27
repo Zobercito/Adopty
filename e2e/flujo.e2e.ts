@@ -209,14 +209,15 @@ test('con la solicitud aprobada, ambos chatean y cuentan no-leídos', async () =
   });
   expect(vuelta.status(), await vuelta.text()).toBe(201);
 
-  // Un tercero no ve el hilo ni puede escribir en él.
+  // Un tercero no ve el hilo ni puede escribir en él. La mascota está
+  // `en_proceso` y RLS la oculta, así que el API responde 404 (no revela que existe).
   const ajena = await tercero.get('/api/mensajes');
   const ajenos = ((await ajena.json()) as { items: { id_mascota: string }[] }).items;
   expect(ajenos.map((h) => h.id_mascota)).not.toContain(mascotaId);
   const intruso = await tercero.post('/api/mensajes', {
     data: { id_mascota: mascotaId, contenido: 'Hola, ¿puedo entrar?' },
   });
-  expect(intruso.status()).toBe(403);
+  expect(intruso.status()).toBe(404);
 });
 
 test('reportar una publicación desde la ficha (interfaz)', async ({ page }) => {
