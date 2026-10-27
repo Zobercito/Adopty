@@ -126,14 +126,25 @@ const visibles = (user ? enlacesApp : enlacesVisitante) as { key: string; href: 
     <div class="flex items-center gap-2 shrink-0">
       {
         user ? (
-          <a
-            href="/perfil"
-            class="avatar w-10 h-10 text-sm"
-            aria-label={`Mi perfil (${initial})`}
-            title={user.email ?? 'Mi perfil'}
-          >
-            {initial}
-          </a>
+          <>
+            <a
+              href="/perfil"
+              class="avatar w-10 h-10 text-sm"
+              aria-label={`Mi perfil (${initial})`}
+              title={user.email ?? 'Mi perfil'}
+            >
+              {initial}
+            </a>
+            <form action="/api/auth/logout" method="post" class="hidden sm:block">
+              <button
+                type="submit"
+                class="px-3 py-2 rounded-2xl text-sm font-bold text-slate-500 hover:text-danger hover:bg-danger-soft transition-colors"
+                title="Cerrar sesión"
+              >
+                Salir
+              </button>
+            </form>
+          </>
         ) : (
           <>
             <a href="/login" class="hidden sm:inline-block px-4 py-2.5 rounded-2xl font-bold text-sm text-teal hover:bg-teal-soft transition-colors">
