@@ -552,18 +552,30 @@ decidió dejar para el final.
 
 #### P2-04 — Observabilidad y monitoreo
 
-- **Estado:** `[PARCIAL]` (2026-10-27: alertas de backup y uptime hechas).
+- **Estado:** `[HECHO]` (2026-10-27).
 - **Evidencia:** solo `@vercel/analytics`; `src/middleware.ts:73-79` usa
   `console.error`; no hay Sentry/Highlight ni monitor externo.
 - **Hecho:** `.github/workflows/backup.yml` abre un issue con etiqueta `backup` si el
   dump o la verificación fallan. `.github/workflows/uptime.yml` comprueba cada hora `/`,
   `/explorar`, `/login` y `/terminos`; abre un issue `uptime` si alguna no da 200 y lo
   cierra cuando se recupera. Todo sin servicios externos.
-- **Pendiente:** Sentry (server + cliente) con scrubbing de PII y release tags, y un
-  monitor de uptime externo. Ambos requieren cuenta/DSN del responsable.
+- **Sentry (server + cliente):** `@sentry/astro` 11.9.0 con `sentry.client.config.ts` y
+  `sentry.server.config.ts`. Sin DSN el SDK no se inicializa, así que CI y dev local
+  funcionan igual. Privacidad: `dataCollection` apaga `userInfo`, cookies, query, cuerpos
+  HTTP y variables de stack, y `beforeSend` borra cookies/`authorization` y la query de
+  la URL. Solo errores (`tracesSampleRate: 0`, sin replay). El middleware importa
+  `sentry.server.config` para cubrir también los endpoints (la integración solo lo
+  inyecta en páginas SSR) y llama a `captureException` en su `catch`.
+- **Verificación local:** error provocado en dev entregado a Sentry
+  (`eventId e261f256ab2f4101a18d4b5b2960635a`, `flush` correcto). El build contiene la
+  init en el chunk SSR y el DSN en el bundle del cliente; Vercel tiene `SENTRY_DSN`
+  (Secret) y `PUBLIC_SENTRY_DSN` (Config) en Production y Preview.
+- **Pendiente menor:** source maps y release tags requieren `SENTRY_AUTH_TOKEN`; no
+  bloquean la captura de errores.
 - **Criterio de aceptación:** un error provocado aparece en el panel con release y ruta;
-  hay alerta de caída y de backup fallido; no se envían datos personales. Caída y backup
-  están cubiertos por GitHub Actions; falta el panel de errores.
+  hay alerta de caída y de backup fallido; no se envían datos personales. Panel de
+  errores, caída y backup cubiertos (la ruta va en el evento; el release queda para
+  cuando se configure el auth token).
 
 #### P2-05 — Endurecer CI
 
@@ -727,7 +739,7 @@ decidió dejar para el final.
 | 1     | P1-07 (headers)                                     | —            |
 | 2     | P1-08 (analytics) — hecho                           | —            |
 | 3     | P2-05a (audit + Dependabot) hecha; P2-05b pendiente | P0-04        |
-| 4     | P2-04 (observabilidad)                              | —            |
+| 4     | P2-04 (observabilidad) — hecho                      | —            |
 | 5     | P3-01 / P3-02 / P3-04 — hechos                      | P1-06        |
 
 ### Fase C — Producción (3–5 días)
@@ -1230,8 +1242,11 @@ verde. El flujo e2e con escrituras y el job de CI se validan al pushear a `devel
   `usuarios` y `mensajes` devuelven `[]`, y `mascotas` sigue pública.
 - **Uptime:** `uptime.yml` corre cada hora contra cuatro rutas y abre/cierra el issue
   `uptime` según el resultado.
+- **Sentry:** `@sentry/astro` 11.9.0 activo en cliente y servidor; sin PII, sin tracing.
+  Evento de prueba entregado en local (`e261f256…`). Falta `SENTRY_AUTH_TOKEN` si algún
+  día se quieren source maps y release tags.
 
-### 13.5 Lo que sigue dependiendo del responsable
+### 13.6 Lo que sigue dependiendo del responsable
 
-Piloto y acta (P0-06), Google OAuth (P0-01), notificaciones por email (P2-01), Sentry y
-uptime (P2-04), backup off-site (P2-06) y `srcset`/AVIF (P3-03).
+Piloto y acta (P0-06), Google OAuth (P0-01), notificaciones por email (P2-01), backup
+off-site en R2 (P2-06) y `srcset`/AVIF (P3-03).

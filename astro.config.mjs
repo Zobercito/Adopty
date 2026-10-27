@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import vercel from '@astrojs/vercel';
 import sitemap from '@astrojs/sitemap';
+import sentry from '@sentry/astro';
 
 // https://astro.build/config
 // SITE_URL: dominio de producción. Definir en Vercel → Settings → Environment Variables
@@ -35,7 +36,7 @@ const esRutaPrivada = (page) => {
 export default defineConfig({
   site,
   adapter: vercel(),
-  integrations: [sitemap({ filter: (page) => !esRutaPrivada(page) })],
+  integrations: [sentry({ telemetry: false }), sitemap({ filter: (page) => !esRutaPrivada(page) })],
   vite: {
     plugins: [tailwindcss()],
   },

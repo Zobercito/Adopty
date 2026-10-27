@@ -51,6 +51,8 @@ Si no hay `E2E_BASE_URL`, Playwright levanta `npm run dev` (o reutiliza el que y
 | `PUBLIC_SUPABASE_ANON_KEY`        | cliente+server         | anon key (RLS la protege)                                      |
 | `SUPABASE_SERVICE_ROLE_KEY`       | **solo server/Vercel** | (reservada, hoy sin uso: todo pasa por RLS)                    |
 | `SITE_URL`                        | build                  | dominio prod para sitemap y metadatos (`https://adopty.lat`)   |
+| `SENTRY_DSN`                      | **solo server/Vercel** | errores SSR/API (sin valor, Sentry queda apagado)              |
+| `PUBLIC_SENTRY_DSN`               | cliente+server         | errores en el navegador; el DSN es público por diseño          |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_*` | Supabase               | **F8/pendiente**: credencial OAuth Google (ver `.env.example`) |
 
 ## Seed y cuentas demo (SOLO piloto — rotar antes de producción)

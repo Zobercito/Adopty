@@ -41,6 +41,7 @@
 | Tipos TS/Astro                 | ✅ `npm run check` 0 errores, en el CI                                                 |
 | Cobertura y CI                 | ✅ Umbrales en `vitest.config.ts`, e2e público y axe en CI; Lighthouse semanal         |
 | Monitor de caída y backup      | ✅ `uptime.yml` horario con issue automático; alerta de backup por issue               |
+| Errores en producción          | ✅ Sentry en cliente y servidor, sin PII; prueba local entregada                       |
 | axe 0 críticos / teclado / AA  | ✅ axe 0 en 5 páginas × 4 anchos; teclado y targets ≥ 24 px verificados (2026-10-27)   |
 | Piloto ≥5 / ≥3 / ≥1 + feedback | ⏳ `PILOTO.md` + `ACTA_ENTREGA.md`                                                     |
 | Google OAuth                   | ⏳ pendiente decidido (F8)                                                             |

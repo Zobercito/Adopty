@@ -1,4 +1,8 @@
 import { defineMiddleware } from 'astro:middleware';
+import * as Sentry from '@sentry/astro';
+// Inicializa el SDK también para los endpoints: la integración solo lo inyecta
+// en las páginas SSR y las API quedarían sin captura de errores.
+import '../sentry.server.config';
 import { supabaseServer } from './lib/supabase';
 
 const PROTECTED = [
@@ -72,6 +76,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   } catch (e) {
     console.error('Error en middleware:', e);
+    Sentry.captureException(e);
     // Si falla la sesión, redirige a login en rutas protegidas
     if (esProtegida(context.url.pathname)) {
       return context.redirect('/login');
