@@ -84,9 +84,9 @@ relativas a la raíz del repositorio `adopty/` salvo que se indique lo contrario
 
 El producto es funcionalmente completo para el alcance académico y tiene una base de
 calidad por encima de lo habitual: RLS, Zod en servidor, tests, CI, backups, legales y
-documentación. **No está listo para producción sin cerrar P0**, y tiene **hallazgos
-reales de seguridad/privacidad y reglas de negocio** que conviene corregir antes de un
-piloto abierto.
+documentación. **No queda deuda de seguridad conocida**: los P0 restantes son
+verificaciones operativas (QA manual, piloto, restore) y Google OAuth, que el equipo
+decidió dejar para el final.
 
 ### 1.3 Riesgos principales (ordenados)
 
@@ -117,36 +117,36 @@ piloto abierto.
 
 ### 2.1 Funcionalidad implementada
 
-| Módulo                                            | Estado      | Evidencia principal                                                                                                                                 |
-| ------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Registro/login/logout, recuperación de contraseña | `[HECHO]`   | `src/pages/api/auth/*`, `src/pages/login.astro`, `src/pages/register.astro`, `src/pages/recuperar.astro`                                            |
-| Perfiles persona/organización y edición           | `[HECHO]`   | `src/pages/perfil.astro`, `src/pages/api/perfil.ts`, `src/lib/validation/user.ts`                                                                   |
-| Cambio de correo y contraseña                     | `[HECHO]`   | `src/pages/api/auth/cambiar-email.ts`, `src/pages/api/auth/cambiar-password.ts`                                                                     |
-| Baja de cuenta, exportación de datos              | `[HECHO]`   | `src/pages/api/cuenta/borrar.ts`, `src/pages/api/mis-datos.ts`, RPC en `supabase/migrations/20261006030000_cuenta.sql`                              |
-| CRUD de mascotas con 1–5 fotos                    | `[HECHO]`   | `src/pages/api/mascotas/*`, `src/pages/mascota/nueva.astro`, `src/pages/mascota/[id]/editar.astro`                                                  |
-| Subida optimizada WebP ≤500 KB                    | `[HECHO]`   | `src/lib/storage.ts`, `src/pages/api/mascotas/upload.ts`                                                                                            |
-| Soft-delete y restauración                        | `[HECHO]`   | `src/pages/api/mascotas/[id].ts`, `src/pages/api/admin/mascotas/[id]/restaurar.ts`                                                                  |
-| Búsqueda con filtros, texto, orden y paginación   | `[HECHO]`   | `src/pages/explorar.astro`, `src/pages/api/mascotas/index.ts`, `src/lib/mascotas.ts`                                                                |
-| Slugs y redirección 301 desde UUID                | `[HECHO]`   | `src/pages/mascota/[id].astro:15-27`, migración `20261002010000_slug_pgtrgm.sql`                                                                    |
-| Solicitudes con estados y RPC atómica             | `[HECHO]`   | `src/pages/api/solicitudes/*`, `src/lib/transiciones.ts`, `supabase/migrations/20260925010000_solicitudes_rpc.sql`                                  |
-| Chat interno con Realtime                         | `[HECHO]`   | `src/components/ChatView.astro`, `src/components/MessageThread.astro`, `src/pages/api/mensajes/*`                                                   |
-| No leídos y bandeja                               | `[HECHO]`   | `src/pages/mensajes.astro`, `src/middleware.ts`                                                                                                     |
-| Panel publicador y solicitudes recibidas          | `[HECHO]`   | `src/pages/panel/index.astro`, `src/pages/panel/solicitudes.astro`, `src/lib/panel.ts`                                                              |
-| Favoritos con migración desde localStorage        | `[HECHO]`   | `src/components/FavButton.astro`, `src/pages/favoritos.astro`, `src/pages/api/favoritos.ts`                                                         |
-| Perfil de adoptante y afinidad                    | `[HECHO]`   | `src/lib/match.ts`, `src/pages/api/estilo-de-vida/index.ts`, `src/pages/perfil.astro`                                                               |
-| Moderación: reportes, verificación, suspensión    | `[HECHO]`   | `src/pages/admin/index.astro`, `src/pages/api/admin/*`, `src/lib/admin.ts`                                                                          |
-| Auditoría de acciones                             | `[HECHO]`   | `src/lib/auditoria.ts`, migración `20261002020000_auditoria.sql`                                                                                    |
-| Privacidad de perfiles vía RPC                    | `[HECHO]`   | `src/lib/perfil.ts`, RPC `perfil_publico`, migración `20261006010000_privacidad_perfiles.sql`                                                       |
-| Legales: términos y privacidad                    | `[HECHO]`   | `src/pages/terminos.astro`, `src/pages/privacidad.astro`                                                                                            |
-| PWA básica (manifest + SW + offline)              | `[HECHO]`   | `public/manifest.json`, `public/sw.js`, `src/pages/offline.astro`, `src/layouts/Layout.astro`                                                       |
-| SEO base: sitemap, robots, OG, JSON-LD            | `[PARCIAL]` | `astro.config.mjs`, `src/pages/robots.txt.ts`, `src/layouts/Layout.astro`, `src/lib/seo.ts`; falta sitemap de fichas (P1-05b)                       |
-| Analytics de embudo                               | `[HECHO]`   | `src/lib/analytics.ts`; 6/6 eventos emitidos (`busqueda`, `ver_detalle`, `solicitar`, `solicitud_aprobada`, `mensaje_enviado`, `favorito_agregado`) |
-| Tests unitarios                                   | `[HECHO]`   | 14 archivos `*.test.ts` en `src/lib/` (86 tests)                                                                                                    |
-| E2E público y flujo                               | `[HECHO]`   | `e2e/publico.e2e.ts`, `e2e/flujo.e2e.ts`, `playwright.config.ts`                                                                                    |
-| CI de calidad y e2e de flujo                      | `[HECHO]`   | `.github/workflows/ci.yml`                                                                                                                          |
-| Backup diario                                     | `[HECHO]`   | `.github/workflows/backup.yml`                                                                                                                      |
-| Colección Postman                                 | `[HECHO]`   | `postman/adopty.json`                                                                                                                               |
-| Documentación del proyecto                        | `[HECHO]`   | `README.md`, `AGENTS.md`, `docs/DECISIONES.md`, `docs/*.md`                                                                                         |
+| Módulo                                            | Estado    | Evidencia principal                                                                                                                                 |
+| ------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Registro/login/logout, recuperación de contraseña | `[HECHO]` | `src/pages/api/auth/*`, `src/pages/login.astro`, `src/pages/register.astro`, `src/pages/recuperar.astro`                                            |
+| Perfiles persona/organización y edición           | `[HECHO]` | `src/pages/perfil.astro`, `src/pages/api/perfil.ts`, `src/lib/validation/user.ts`                                                                   |
+| Cambio de correo y contraseña                     | `[HECHO]` | `src/pages/api/auth/cambiar-email.ts`, `src/pages/api/auth/cambiar-password.ts`                                                                     |
+| Baja de cuenta, exportación de datos              | `[HECHO]` | `src/pages/api/cuenta/borrar.ts`, `src/pages/api/mis-datos.ts`, RPC en `supabase/migrations/20261006030000_cuenta.sql`                              |
+| CRUD de mascotas con 1–5 fotos                    | `[HECHO]` | `src/pages/api/mascotas/*`, `src/pages/mascota/nueva.astro`, `src/pages/mascota/[id]/editar.astro`                                                  |
+| Subida optimizada WebP ≤500 KB                    | `[HECHO]` | `src/lib/storage.ts`, `src/pages/api/mascotas/upload.ts`                                                                                            |
+| Soft-delete y restauración                        | `[HECHO]` | `src/pages/api/mascotas/[id].ts`, `src/pages/api/admin/mascotas/[id]/restaurar.ts`                                                                  |
+| Búsqueda con filtros, texto, orden y paginación   | `[HECHO]` | `src/pages/explorar.astro`, `src/pages/api/mascotas/index.ts`, `src/lib/mascotas.ts`                                                                |
+| Slugs y redirección 301 desde UUID                | `[HECHO]` | `src/pages/mascota/[id].astro:15-27`, migración `20261002010000_slug_pgtrgm.sql`                                                                    |
+| Solicitudes con estados y RPC atómica             | `[HECHO]` | `src/pages/api/solicitudes/*`, `src/lib/transiciones.ts`, `supabase/migrations/20260925010000_solicitudes_rpc.sql`                                  |
+| Chat interno con Realtime                         | `[HECHO]` | `src/components/ChatView.astro`, `src/components/MessageThread.astro`, `src/pages/api/mensajes/*`                                                   |
+| No leídos y bandeja                               | `[HECHO]` | `src/pages/mensajes.astro`, `src/middleware.ts`                                                                                                     |
+| Panel publicador y solicitudes recibidas          | `[HECHO]` | `src/pages/panel/index.astro`, `src/pages/panel/solicitudes.astro`, `src/lib/panel.ts`                                                              |
+| Favoritos con migración desde localStorage        | `[HECHO]` | `src/components/FavButton.astro`, `src/pages/favoritos.astro`, `src/pages/api/favoritos.ts`                                                         |
+| Perfil de adoptante y afinidad                    | `[HECHO]` | `src/lib/match.ts`, `src/pages/api/estilo-de-vida/index.ts`, `src/pages/perfil.astro`                                                               |
+| Moderación: reportes, verificación, suspensión    | `[HECHO]` | `src/pages/admin/index.astro`, `src/pages/api/admin/*`, `src/lib/admin.ts`                                                                          |
+| Auditoría de acciones                             | `[HECHO]` | `src/lib/auditoria.ts`, migración `20261002020000_auditoria.sql`                                                                                    |
+| Privacidad de perfiles vía RPC                    | `[HECHO]` | `src/lib/perfil.ts`, RPC `perfil_publico`, migración `20261006010000_privacidad_perfiles.sql`                                                       |
+| Legales: términos y privacidad                    | `[HECHO]` | `src/pages/terminos.astro`, `src/pages/privacidad.astro`                                                                                            |
+| PWA básica (manifest + SW + offline)              | `[HECHO]` | `public/manifest.json`, `public/sw.js`, `src/pages/offline.astro`, `src/layouts/Layout.astro`                                                       |
+| SEO base: sitemap, robots, OG, JSON-LD            | `[HECHO]` | `sitemap-mascotas.xml` SSR, `robots.txt`, canonical/noindex, OG por defecto y JSON-LD con escape seguro                                             |
+| Analytics de embudo                               | `[HECHO]` | `src/lib/analytics.ts`; 6/6 eventos emitidos (`busqueda`, `ver_detalle`, `solicitar`, `solicitud_aprobada`, `mensaje_enviado`, `favorito_agregado`) |
+| Tests unitarios                                   | `[HECHO]` | 14 archivos `*.test.ts` en `src/lib/` (86 tests)                                                                                                    |
+| E2E público y flujo                               | `[HECHO]` | `e2e/publico.e2e.ts`, `e2e/flujo.e2e.ts`, `playwright.config.ts`                                                                                    |
+| CI de calidad y e2e de flujo                      | `[HECHO]` | `.github/workflows/ci.yml`                                                                                                                          |
+| Backup diario                                     | `[HECHO]` | `.github/workflows/backup.yml`                                                                                                                      |
+| Colección Postman                                 | `[HECHO]` | `postman/adopty.json`                                                                                                                               |
+| Documentación del proyecto                        | `[HECHO]` | `README.md`, `AGENTS.md`, `docs/DECISIONES.md`, `docs/*.md`                                                                                         |
 
 ### 2.2 Decisiones de arquitectura que no deben revertirse sin análisis
 

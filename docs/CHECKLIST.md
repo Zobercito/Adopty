@@ -31,7 +31,7 @@
 | Búsqueda p95 < 1 s (1k)        | ✅ local 28 filas; ⏳ repetir en prod                                                  |
 | Imágenes ≤ 500 KB WebP         | ✅ enforced en app y en Storage (`file_size_limit` + MIME)                             |
 | Headers de seguridad           | ✅ verificados en prod (HSTS, nosniff, XFO, referrer, permissions, CSP Report-Only)    |
-| RLS tests 100%                 | ✅ E2E por rol + 12 pruebas de bypass REST (P1-10/P1-11 y transiciones en triggers)    |
+| RLS tests 100%                 | ✅ E2E por rol + 13 pruebas de bypass REST (P1-10/P1-11 y transiciones en triggers)    |
 | Sin secretos en git            | ✅ verificado                                                                          |
 | Validación server total        | ✅ Zod en todas las mutaciones                                                         |
 | Tipos TS/Astro                 | ✅ `npm run check` 0 errores, en el CI                                                 |
