@@ -91,7 +91,7 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           set -euo pipefail
-          WRANGLER="npx -y wrangler@4"
+          WRANGLER="npx -y wrangler@4.154.0"
           # Idempotente: el bucket y la regla se crean solo la primera vez.
           if $WRANGLER r2 bucket list | grep -qF "$R2_BUCKET"; then
             echo "Bucket $R2_BUCKET ya existe"
@@ -102,6 +102,9 @@ jobs:
             $WRANGLER r2 bucket lifecycle add "$R2_BUCKET" 'expirar-180d' \
               --expire-days 180 --abort-multipart-days 7 -y
           fi
+          $WRANGLER r2 bucket lifecycle list "$R2_BUCKET" | grep -qF 'expirar-180d' \
+            || { echo "::error::No se pudo aplicar la retención de 180 días en R2"; exit 1; }
+          echo "Retención aplicada: regla expirar-180d"
           ARCHIVO=$(ls backups/*.sql.gz | head -1)
           CLAVE="db/$(basename "$ARCHIVO")"
           $WRANGLER r2 object put "$R2_BUCKET/$CLAVE" --file="$ARCHIVO" \
@@ -165,7 +168,7 @@ jobs:
         run: |
           set -euo pipefail
           ARCHIVO=$(ls *.sql.gz | head -1)
-          npx -y wrangler@4 r2 object get "$R2_BUCKET/db/$ARCHIVO" \
+          npx -y wrangler@4.154.0 r2 object get "$R2_BUCKET/db/$ARCHIVO" \
             --file=/tmp/r2.sql.gz --remote
           cmp "$ARCHIVO" /tmp/r2.sql.gz
           echo "Copia de R2 idéntica al artefacto ($(stat -c%s "$ARCHIVO") bytes)"
