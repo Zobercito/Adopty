@@ -210,15 +210,20 @@ Francisco Gonzalez · Eira Arrocha — Ing. Software II, Prof. Leovigildo Bosque
 
 ## Operación
 
-| Tarea                                | Cómo                                                                                                                                                                                            |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Backup de la BD**                  | Automático a las **3:00 a. m.** (workflow _Backup base de datos_). También a mano: pestaña _Actions → Run workflow_. Se guarda como artefacto 30 días. Alternativa local: `./scripts/backup.sh` |
-| **Restaurar un backup**              | Descargar el artefacto → `gunzip -c adopty_*.sql.gz \| psql "$DATABASE_URL"`                                                                                                                    |
-| **Regenerar iconos PWA**             | `node scripts/generar-iconos.mjs` (solo si cambia el logo)                                                                                                                                      |
-| **Revisar decisiones de moderación** | Tabla `auditoria`, o la columna `accion` (`admin_reporte_ocultar`, `admin_verificacion_aprobar`, `suspender_cuenta`, `baja_cuenta`, `password_cambiada`…)                                       |
-| **Suspender una cuenta**             | `/admin` → sección **Cuentas** → Suspender. Deja de entrar sin borrar nada (RPC `estado_cuenta`, deja rastro en `auditoria`).                                                                   |
-| **Dar de alta un administrador**     | Ver [`docs/ADMIN.md`](docs/ADMIN.md)                                                                                                                                                            |
+| Tarea                                | Cómo                                                                                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backup de la BD**                  | Automático a las **3:00 a. m.** (workflow _Backup base de datos_). También a mano: pestaña _Actions → Run workflow_. Artefacto 90 días + copia en R2 180 días. Alternativa local: `./scripts/backup.sh` |
+| **Restaurar un backup**              | Artefacto o R2 → `gunzip -c adopty_*.sql.gz \| psql "$DATABASE_URL"`. Desde R2: `npx wrangler r2 object get adopty-backups/db/<archivo> --file=backup.sql.gz`                                           |
+| **Regenerar iconos PWA**             | `node scripts/generar-iconos.mjs` (solo si cambia el logo)                                                                                                                                              |
+| **Revisar decisiones de moderación** | Tabla `auditoria`, o la columna `accion` (`admin_reporte_ocultar`, `admin_verificacion_aprobar`, `suspender_cuenta`, `baja_cuenta`, `password_cambiada`…)                                               |
+| **Suspender una cuenta**             | `/admin` → sección **Cuentas** → Suspender. Deja de entrar sin borrar nada (RPC `estado_cuenta`, deja rastro en `auditoria`).                                                                           |
+| **Dar de alta un administrador**     | Ver [`docs/ADMIN.md`](docs/ADMIN.md)                                                                                                                                                                    |
 
 El backup usa el **connection pooler** de Supabase porque los runners de GitHub Actions
 tienen IP dinámica y no llegan al host directo. El secreto `DATABASE_URL` ya está
 configurado en el repositorio.
+
+La copia off-site usa Cloudflare R2 (`adopty-backups`, retención 180 días). Secrets:
+`CLOUDFLARE_API_TOKEN` (permiso _Workers R2 Storage: Edit_) y `CLOUDFLARE_ACCOUNT_ID`.
+Si faltan, el backup local sigue funcionando y solo se omite la copia externa; cada
+ejecución verifica la retención y descarga el objeto para compararlo con `cmp`.

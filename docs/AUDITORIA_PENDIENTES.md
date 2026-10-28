@@ -594,14 +594,20 @@ decidió dejar para el final.
 
 #### P2-06 — Backup fuera de GitHub
 
-- **Estado:** `[PARCIAL]` (2026-10-27).
+- **Estado:** `[HECHO]` (2026-10-28).
 - **Evidencia:** `.github/workflows/backup.yml` sube el `.sql.gz` con retención de
-  **90 días** (verificado en el artefacto: vence 2027-01-25) y abre un issue si el dump o
-  la verificación fallan. El restore está probado (P0-07).
-- **Pendiente:** copia off-site real (S3/R2/Drive) con lifecycle y cifrado. Requiere
-  credenciales y un bucket del responsable; no se implementó a medias.
-- **Criterio de aceptación:** copia off-site >30 días con restore probado. La alerta y
-  el restore ya están; falta el destino externo.
+  **90 días** (artefacto) y lo copia a **Cloudflare R2** con retención de **180 días**
+  (regla `expirar-180d`, verifica también cargas multipart incompletas). El bucket
+  `adopty-backups` se crea solo si falta y el objeto va a `db/adopty_<fecha>.sql.gz`.
+  Cada ejecución descarga la copia de R2 y la compara con `cmp` contra el artefacto.
+  Si el dump o la verificación fallan, se abre un issue `backup`. El restore está
+  probado (P0-07). R2 cifra en reposo por defecto.
+- **Verificación:** runs 40755259223 y 40755535306 en verde; en el segundo se confirmó
+  `Retención aplicada: regla expirar-180d`, subida correcta y `cmp` idéntico
+  (73 881 bytes). Secrets: `CLOUDFLARE_API_TOKEN` (Workers R2 Storage: Edit) y
+  `CLOUDFLARE_ACCOUNT_ID`.
+- **Criterio de aceptación:** cumplido: copia off-site >30 días (180), verificada en
+  cada ejecución, con restore previamente probado y alerta por issue.
 
 ---
 
@@ -714,7 +720,7 @@ decidió dejar para el final.
 | axe 0 críticos / teclado / AA  | `[HECHO]`   | 0 violaciones en 5 páginas × 4 anchos + smoke axe en CI (10/10)                                               | —                                    |
 | Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | `docs/PILOTO.md`                                                                                              | P0-06                                |
 | Google OAuth                   | `[FALTA]`   | `src/lib/oauth.ts`                                                                                            | P0-01                                |
-| Backup y restore               | `[HECHO]`   | dump diario RPO ≤ 24 h + restore drill 0 errores, conteos idénticos                                           | Copia off-site (P2-06)               |
+| Backup y restore               | `[HECHO]`   | dump diario RPO ≤ 24 h + restore drill + copia R2 180 días verificada por `cmp`                               | —                                    |
 
 ---
 
@@ -756,10 +762,10 @@ decidió dejar para el final.
 
 ### Fase D — Post-piloto (opcional, según tiempo)
 
-P2-01 (emails) y P2-06 (backup off-site), más la cola de pre-moderación (decisión en
-P2-02, implementación diferida). P2-03 (rate-limit distribuido), P2-05b (CI), P3-05
-(presupuesto Lighthouse) y P0-07 (restore) se adelantaron y quedaron hechos el
-2026-10-27. P4-01, P4-02 y P4-03 se adelantaron el 2026-10-26.
+P2-01 (emails), más la cola de pre-moderación (decisión en P2-02, implementación
+diferida). P2-03 (rate-limit distribuido), P2-04 (Sentry/uptime), P2-05b (CI), P2-06
+(backup off-site), P3-05 (presupuesto Lighthouse) y P0-07 (restore) se adelantaron y
+quedaron hechos. P4-01, P4-02 y P4-03 se adelantaron el 2026-10-26.
 
 ---
 
@@ -1247,8 +1253,11 @@ verde. El flujo e2e con escrituras y el job de CI se validan al pushear a `devel
   Evento de prueba entregado en local (`e261f256…`) y DSN presente en el bundle de
   producción (`page.CA_uwgCY.js`). Falta `SENTRY_AUTH_TOKEN` si algún día se quieren
   source maps y release tags.
+- **Backup off-site:** R2 `adopty-backups` con lifecycle de 180 días, verificado en los
+  runs 40755259223 y 40755535306 (subida, descarga y `cmp` idéntico). El token de
+  Cloudflare es de cuenta, limitado a R2 y revocable.
 
 ### 13.6 Lo que sigue dependiendo del responsable
 
-Piloto y acta (P0-06), Google OAuth (P0-01), notificaciones por email (P2-01), backup
-off-site en R2 (P2-06) y `srcset`/AVIF (P3-03).
+Piloto y acta (P0-06), Google OAuth (P0-01), notificaciones por email (P2-01) y
+`srcset`/AVIF (P3-03).
