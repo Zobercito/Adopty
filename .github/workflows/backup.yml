@@ -4,8 +4,10 @@ name: Backup base de datos
 # Corre cada noche a las 3:00 a. m. de Panamá (08:00 UTC) y también a mano
 # desde la pestaña Actions → "Run workflow".
 #
-# Guarda el .sql.gz como artefacto (retención 90 días). Para una copia de
-# largo plazo fuera del repo, añade un paso con aws s3 cp (ver README).
+# Guarda el .sql.gz como artefacto (retención 90 días) y una copia off-site en
+# Cloudflare R2 (retención 180 días). Para R2 hacen falta los secretos
+# CLOUDFLARE_API_TOKEN (permiso Workers R2 Storage: Edit) y CLOUDFLARE_ACCOUNT_ID;
+# sin ellos el backup local sigue funcionando y solo se omite la copia externa.
 
 on:
   schedule:
@@ -31,6 +33,10 @@ jobs:
       # Versión del cliente = versión del servidor (Supabase corre PG 17).
       # Si un día Supabase actualiza, cambia este número también.
       PG_MAJOR: '17'
+      # Copia off-site (Cloudflare R2). Ver comentario de cabecera.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_BUCKET: adopty-backups
 
     steps:
       - name: Instalar cliente pg_dump (misma versión que el servidor)
@@ -79,9 +85,38 @@ jobs:
           name: adopty-backup
           path: backups/*.sql.gz
           retention-days: 90
-          # La copia off-site sigue pendiente (requiere credenciales S3/R2,
-          # ver docs/AUDITORIA_PENDIENTES.md P2-06).
           if-no-files-found: error
+
+      - name: Copia off-site en Cloudflare R2
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          set -euo pipefail
+          WRANGLER="npx -y wrangler@4.154.0"
+          # Idempotente: el bucket y la regla se crean solo la primera vez.
+          if $WRANGLER r2 bucket list | grep -qF "$R2_BUCKET"; then
+            echo "Bucket $R2_BUCKET ya existe"
+          else
+            $WRANGLER r2 bucket create "$R2_BUCKET"
+          fi
+          if ! $WRANGLER r2 bucket lifecycle list "$R2_BUCKET" | grep -qF 'expirar-180d'; then
+            $WRANGLER r2 bucket lifecycle add "$R2_BUCKET" 'expirar-180d' \
+              --expire-days 180 --abort-multipart-days 7 -y
+          fi
+          $WRANGLER r2 bucket lifecycle list "$R2_BUCKET" | grep -qF 'expirar-180d' \
+            || { echo "::error::No se pudo aplicar la retención de 180 días en R2"; exit 1; }
+          echo "Retención aplicada: regla expirar-180d"
+          ARCHIVO=$(ls backups/*.sql.gz | head -1)
+          CLAVE="db/$(basename "$ARCHIVO")"
+          $WRANGLER r2 object put "$R2_BUCKET/$CLAVE" --file="$ARCHIVO" \
+            --content-type application/gzip --remote
+          {
+            echo ""
+            echo "### Copia off-site ✅"
+            echo "- Bucket: \`$R2_BUCKET\`"
+            echo "- Objeto: \`$CLAVE\`"
+            echo "- SHA-256: \`$(sha256sum "$ARCHIVO" | cut -d' ' -f1)\`"
+            echo "- Retención: 180 días"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resumen
         run: |
@@ -101,6 +136,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: dump
     timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_BUCKET: adopty-backups
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -123,6 +162,17 @@ jobs:
             echo "- $(wc -l < /tmp/dump.sql) líneas, $(du -h /tmp/dump.sql | cut -f1)"
             echo "- Tablas `usuarios`, `mascotas`, `solicitudes`, `personas` y `organizaciones` presentes"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verificar copia descargándola desde R2
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          set -euo pipefail
+          ARCHIVO=$(ls *.sql.gz | head -1)
+          npx -y wrangler@4.154.0 r2 object get "$R2_BUCKET/db/$ARCHIVO" \
+            --file=/tmp/r2.sql.gz --remote
+          cmp "$ARCHIVO" /tmp/r2.sql.gz
+          echo "Copia de R2 idéntica al artefacto ($(stat -c%s "$ARCHIVO") bytes)"
+          echo "- Copia en R2 descargada y comparada con \`cmp\`: idéntica" >> "$GITHUB_STEP_SUMMARY"
 
   # Alerta visible sin depender de servicios externos: issue en el repo.
   alertar:
@@ -153,5 +203,6 @@ jobs:
                 `Ejecución: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
                 '',
                 'Revisa el secreto `DATABASE_URL`, la cuota de Supabase y el estado del proyecto.',
+                'Si falló la copia off-site, revisa `CLOUDFLARE_API_TOKEN` (permiso R2 Edit) y el bucket `adopty-backups`.',
               ].join('\n'),
             });

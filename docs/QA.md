@@ -43,6 +43,7 @@ el `noindex` automático de Vercel.
 | RLS por REST (anon)              | ✅ `rate_limits` 401; `usuarios`/`mensajes` `[]`; `mascotas` pública       |
 | Uptime                           | ✅ `uptime.yml` manual: `/`, `/explorar`, `/login`, `/terminos` → 200      |
 | Sentry                           | ✅ Error de prueba entregado en local (eventId `e261f256…`); sin PII       |
+| Backup off-site (R2)             | ✅ Subida + descarga comparada con `cmp`; retención 180 días verificada    |
 | `format:check`/`lint`/`check`    | ✅ 0 errores                                                               |
 | `npm run build`                  | ✅ SSR Vercel + sitemap                                                    |
 
