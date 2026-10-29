@@ -1,5 +1,37 @@
 # Informe QA — Adopty
 
+## Actualización 2026-10-29 — cierre del plan de presentación
+
+Entorno: `develop` local + **https://adopty.lat** (producción). Docker no está
+disponible en el entorno de revisión, así que la instalación limpia y el e2e de flujo
+quedan pendientes de repetir.
+
+| Prueba                            | Resultado                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| `format:check` / `lint` / `check` | ✅ 0 errores (solo warnings de Zod deprecado en `check`)                             |
+| Unitarios (`npm test`)            | ✅ 166/166 en 27 archivos                                                            |
+| Build (`npm run build`)           | ✅ SSR Vercel + sitemap                                                              |
+| E2E público contra producción     | ✅ 32/32 (`E2E_BASE_URL=https://adopty.lat npm run test:e2e`)                        |
+| Responsive                        | ✅ sin scroll horizontal en 8 rutas públicas × 320/390/768 px                        |
+| Enlaces                           | ✅ 15 relativos y 4 externos, 0 rotos                                                |
+| Secretos                          | ✅ sin `.env`, JWT ni `sk-` en el historial                                          |
+| RLS                               | ✅ 14/14 tablas con RLS                                                              |
+| Headers de seguridad              | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions y CSP Report-Only |
+| Dominio                           | ✅ `www.adopty.lat` → 308 a `https://adopty.lat/`                                    |
+| CI en `main`                      | ✅ jobs `calidad` y `e2e` en verde                                                   |
+
+**Seguridad (2026-10-28/29):** cerrados los hallazgos A–F y H–J de
+`.security/plan.md` con 9 migraciones y 13 archivos de tests de regresión. G queda
+aplazado: depende de la allowlist de Redirect URLs de Supabase. Las migraciones están
+en el PR #27 y **pendientes de `supabase db push` en cloud**.
+
+**Presentación:** README orientado a producto, capturas en `docs/screenshots/`,
+`docs/OPERACION.md`, licencia MIT detectada por GitHub y social preview de 1200×630.
+
+**Pendiente:** instalación limpia con Docker, `npm run test:e2e:flujo` contra Supabase
+local, revisión de CORS/Redirect URLs/confirm email/Storage/Sentry en el dashboard y un
+restore drill reciente.
+
 ## Actualización 2026-10-27 — accesibilidad y rendimiento
 
 Entorno: **https://adopty.lat** (producción, merge `e6169b5`) con Supabase cloud.
