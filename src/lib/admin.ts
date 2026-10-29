@@ -208,6 +208,22 @@ export function reporteBadge(e: EstadoReporte): [string, string, string] {
   return ['badge-proceso', '#F59E0B', 'Pendiente'];
 }
 
+/**
+ * URL de evidencia segura para pintar como enlace: solo http/https.
+ *
+ * Devuelve `null` para cualquier otro esquema (`javascript:`, `data:`…), que el
+ * panel muestra como texto plano. Es la última barrera antes del `href`: hay
+ * filas que pueden haberse insertado por PostgREST sin pasar por la API.
+ */
+export function urlEvidenciaSegura(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Badge [clase, color, etiqueta] para estados de verificación. */
 export function verifBadge(e: EstadoVerificacion): [string, string, string] {
   if (e === 'aprobada') return ['badge-disponible', '#10B981', 'Aprobada'];

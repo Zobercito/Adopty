@@ -3,6 +3,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import { supabaseServer } from '../lib/supabase';
+import { mensajeError } from '../lib/errores';
 import { fechaCorta, getMisSolicitudes, solBadge } from '../lib/solicitudes';
 
 if (!Astro.locals.user) return Astro.redirect('/login?next=/mis-solicitudes');
@@ -12,7 +13,7 @@ let errorMsg = '';
 try {
   lista = await getMisSolicitudes(supabase, Astro.locals.user.id);
 } catch (e) {
-  errorMsg = e instanceof Error ? e.message : 'Error al cargar';
+  errorMsg = mensajeError(e, 'GET /mis-solicitudes', 'Error al cargar');
 }
 const abiertas = lista.filter((s) => s.estado === 'pendiente').length;
 const creadas = lista.length;

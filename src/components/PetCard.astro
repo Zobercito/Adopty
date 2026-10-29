@@ -120,12 +120,18 @@ else tags.push({ texto: 'Macho', clase: 'tag-neutral' });
       }
     </div>
 
+    {/*
+      La fila mide ~218 px en la rejilla de 3 columnas. El badge ocupa ~100 px y
+      el CTA "Ver compatibilidad" otros ~141: no caben y el badge quedaba cortado
+      a media palabra ("Dispon"). El CTA se acorta y el badge no se deja encoger;
+      solo el nombre del publicador puede truncarse, que sí puede ser largo.
+    */}
     <div class="pt-3 mt-4 border-t border-line flex items-center justify-between gap-3">
-      <span class="text-[11px] font-bold text-faint min-w-0 truncate">
+      <span class={`text-[11px] font-bold text-faint ${publicador ? 'min-w-0 truncate' : 'shrink-0'}`}>
         {publicador ? <>Por: <strong class="text-body">{publicador}</strong></> : <Badge estado={estadoLabel(estado)} />}
       </span>
       <a href={url} class="shrink-0 px-4 py-2 rounded-xl bg-teal-soft text-teal font-bold text-xs hover:bg-teal hover:text-white transition-colors">
-        Ver compatibilidad
+        Ver perfil
       </a>
     </div>
   </div>

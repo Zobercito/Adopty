@@ -4,6 +4,7 @@ import Layout from '../../layouts/Layout.astro';
 import Navbar from '../../components/Navbar.astro';
 import Badge from '../../components/Badge.astro';
 import { supabaseServer } from '../../lib/supabase';
+import { mensajeError } from '../../lib/errores';
 import { estadoLabel } from '../../lib/mascotas';
 import { fechaCorta } from '../../lib/solicitudes';
 import { getPanelResumen } from '../../lib/panel';
@@ -18,7 +19,7 @@ let errorMsg = '';
 try {
   resumen = await getPanelResumen(supabase, Astro.locals.user.id);
 } catch (e) {
-  errorMsg = e instanceof Error ? e.message : 'Error al cargar';
+  errorMsg = mensajeError(e, 'GET /panel', 'Error al cargar');
 }
 const stats = resumen
   ? [

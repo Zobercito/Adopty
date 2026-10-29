@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mensajeError } from './errores';
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB por foto (política del plan)
 const WEBP_MAX = 500 * 1024; // ≤500 KB tras conversión
@@ -61,7 +62,8 @@ export async function subirFotos(
       contentType: 'image/webp',
       upsert: false,
     });
-    if (error) throw new Error(`No se pudo subir una foto: ${error.message}`);
+    if (error)
+      throw new Error(mensajeError(error, 'storage:mascotas', 'No se pudo subir una foto'));
     paths.push(path);
   }
   return paths;
@@ -109,7 +111,7 @@ export async function subirFotoPerfil(
     contentType: 'image/webp',
     upsert: false,
   });
-  if (error) throw new Error(`No se pudo subir tu foto: ${error.message}`);
+  if (error) throw new Error(mensajeError(error, 'storage:perfiles', 'No se pudo subir tu foto'));
   return path;
 }
 

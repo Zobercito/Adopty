@@ -1,5 +1,10 @@
 import type { APIRoute } from 'astro';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import {
+  avisoCorreoDuplicado,
+  esCorreoYaRegistrado,
+  respuestaEnvioCorreo,
+} from '../../../lib/correo';
 import { supabaseServer } from '../../../lib/supabase';
 import { registerSchema } from '../../../lib/validation/user';
 
@@ -34,10 +39,22 @@ export const POST: APIRoute = async ({ request, cookies, redirect, url }) => {
       emailRedirectTo: `${url.origin}/api/auth/callback?next=/perfil`,
     },
   });
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) {
+    // Misma respuesta que un alta correcta: no se puede distinguir si el correo
+    // ya tenía cuenta (hallazgo I). El aviso real va por correo.
+    if (esCorreoYaRegistrado(error)) {
+      avisoCorreoDuplicado('register');
+      return Response.json({ ...respuestaEnvioCorreo(), confirmaEmail: true });
+    }
+    console.error(`[auth] register: signUp falló (${error.code ?? 'sin-código'})`);
+    return Response.json(
+      { error: 'No se pudo crear la cuenta. Inténtalo de nuevo en unos minutos.' },
+      { status: 400 },
+    );
+  }
   // Si el proyecto exige confirmación de email, no hay sesión todavía.
   if (!data.session) {
-    return Response.json({ ok: true, confirmaEmail: true });
+    return Response.json({ ...respuestaEnvioCorreo(), confirmaEmail: true });
   }
   return redirect('/perfil', 302);
 };

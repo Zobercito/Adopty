@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { z } from 'zod';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -70,7 +71,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     if (error.code === '23514') {
       return Response.json({ error: 'No puedes reportar tu propia publicación' }, { status: 403 });
     }
-    return Response.json({ error: error.message }, { status: 400 });
+    return Response.json({ error: mensajeError(error, 'POST /api/reportes') }, { status: 400 });
   }
 
   return Response.json({ ok: true }, { status: 201 });

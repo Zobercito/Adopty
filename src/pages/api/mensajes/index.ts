@@ -3,6 +3,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { mensajeSchema } from '../../../lib/validation/message';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { nombresPublicos, SIN_CUENTA } from '../../../lib/perfil';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -34,7 +35,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
   if (mascotaId) query = query.eq('id_mascota', mascotaId);
 
   const { data, error } = await query;
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) return Response.json({ error: mensajeError(error, 'api/mensajes') }, { status: 400 });
 
   // Agrupar por hilo: key = mascota_id + otra_parte_id
   const hilos = new Map<
@@ -162,7 +163,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     })
     .select('id, id_emisor, id_receptor, id_mascota, contenido, leido, fecha_envio')
     .single();
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) return Response.json({ error: mensajeError(error, 'api/mensajes') }, { status: 400 });
 
   return Response.json({ mensaje: data }, { status: 201 });
 };

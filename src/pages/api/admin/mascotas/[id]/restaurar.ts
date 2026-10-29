@@ -4,6 +4,7 @@ import { supabaseServer } from '../../../../../lib/supabase';
 import { esAdmin } from '../../../../../lib/admin';
 import { registrarAuditoria } from '../../../../../lib/auditoria';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../../../lib/ratelimit';
+import { mensajeError } from '../../../../../lib/errores';
 
 export const prerender = false;
 
@@ -38,7 +39,11 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     .maybeSingle();
 
   const { error } = await supabase.rpc('restaurar_publicacion', { p_mascota_id: id });
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json(
+      { error: mensajeError(error, 'POST /api/admin/mascotas/:id/restaurar') },
+      { status: 400 },
+    );
 
   await registrarAuditoria(supabase, {
     id_usuario: user.id,

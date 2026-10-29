@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { estiloVidaSchema } from '../../../lib/validation/user';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -17,7 +18,8 @@ export const GET: APIRoute = async ({ cookies }) => {
     .select('*')
     .eq('id_persona', user.id)
     .maybeSingle();
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json({ error: mensajeError(error, 'api/estilo-de-vida') }, { status: 400 });
   return Response.json({ perfil: data ?? null });
 };
 
@@ -43,6 +45,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   const { error } = await supabase
     .from('perfil_estilo_vida')
     .upsert({ id_persona: user.id, ...parsed.data });
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json({ error: mensajeError(error, 'api/estilo-de-vida') }, { status: 400 });
   return Response.json({ ok: true });
 };

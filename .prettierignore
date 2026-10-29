@@ -10,3 +10,4 @@ dist/
 .continue/
 .kiro/
 skills-lock.json
+.security/

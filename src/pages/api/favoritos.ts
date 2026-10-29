@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { supabaseServer } from '../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../lib/ratelimit';
+import { mensajeError } from '../../lib/errores';
 
 export const prerender = false;
 
@@ -24,7 +25,7 @@ export const GET: APIRoute = async ({ cookies }) => {
     .from('favoritos')
     .select('id_mascota')
     .eq('id_usuario', user.id);
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) return Response.json({ error: mensajeError(error, 'api/favoritos') }, { status: 400 });
   return Response.json({ favoritos: (data ?? []).map((f) => f.id_mascota) });
 };
 
@@ -50,7 +51,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       { id_usuario: user.id, id_mascota: parsed.data.id_mascota },
       { onConflict: 'id_usuario,id_mascota' },
     );
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) return Response.json({ error: mensajeError(error, 'api/favoritos') }, { status: 400 });
   return Response.json({ ok: true });
 };
 
@@ -71,6 +72,6 @@ export const DELETE: APIRoute = async ({ url, cookies }) => {
     .delete()
     .eq('id_usuario', user.id)
     .eq('id_mascota', parsed.data);
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) return Response.json({ error: mensajeError(error, 'api/favoritos') }, { status: 400 });
   return Response.json({ ok: true });
 };

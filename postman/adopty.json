@@ -4,7 +4,11 @@
     "description": "Colección QA de la API Adopty. Variables: baseUrl (local http://localhost:4321 o preview Vercel). Flujo sugerido: Auth → Mascotas → Solicitudes → Mensajes → Favoritos.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [{ "key": "baseUrl", "value": "http://localhost:4321" }],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4321" },
+    { "key": "demo_password", "value": "" },
+    { "key": "qa_password", "value": "" }
+  ],
   "item": [
     {
       "name": "Auth",
@@ -17,7 +21,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"nombre\":\"QA Test\",\"correo\":\"qa@adopty.pa\",\"password\":\"Adopty123!\",\"tipo_usuario\":\"persona\"}"
+              "raw": "{\"nombre\":\"QA Test\",\"correo\":\"qa@adopty.pa\",\"password\":\"{{qa_password}}\",\"tipo_usuario\":\"persona\"}"
             }
           }
         },
@@ -29,7 +33,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"correo\":\"patitas@adopty.pa\",\"password\":\"Adopty123!\"}"
+              "raw": "{\"correo\":\"patitas@adopty.pa\",\"password\":\"{{demo_password}}\"}"
             }
           }
         },

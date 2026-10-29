@@ -4,6 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import { supabaseServer } from '../lib/supabase';
+import { mensajeError } from '../lib/errores';
 import {
   buscarMascotas,
   edadLabel,
@@ -45,7 +46,7 @@ let errorMsg = '';
 try {
   resultado = await buscarMascotas(supabaseServer(Astro.cookies), b);
 } catch (e) {
-  errorMsg = e instanceof Error ? e.message : 'Error al buscar';
+  errorMsg = mensajeError(e, 'GET /explorar', 'Error al buscar');
 }
 
 // Ranking por afinidad (solo en modo match).

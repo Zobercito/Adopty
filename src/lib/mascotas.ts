@@ -52,10 +52,22 @@ export interface ResultadoBusqueda {
   totalPages: number;
 }
 
-/** Ruta de storage → URL pública; '/assets/…' se sirve tal cual desde el sitio. */
+/**
+ * Ruta de storage → URL pública. Solo se aceptan dos formas, las mismas que el
+ * CHECK de `20261028070000_rutas_foto_check.sql` (E):
+ * - `userId/uuid.webp` del bucket `mascotas`;
+ * - `/assets/<archivo>.(jpeg|jpg|png|webp)` servido por el propio sitio.
+ * Cualquier otra cosa (en especial `http(s)://` de un tercero, que filtraría la
+ * IP/Referer de cada visitante) devuelve `''`: la ficha se queda sin imagen en
+ * vez de cargar un recurso ajeno.
+ */
+const RUTA_STORAGE = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.webp$/;
+const RUTA_ASSET = /^\/assets\/[A-Za-z0-9_.-]+\.(jpe?g|png|webp)$/i;
+
 export function fotoUrl(path: string | null | undefined): string {
   if (!path) return '';
-  if (path.startsWith('/') || path.startsWith('http')) return path;
+  if (RUTA_ASSET.test(path)) return path;
+  if (!RUTA_STORAGE.test(path)) return '';
   const base = import.meta.env.PUBLIC_SUPABASE_URL;
   return `${base}/storage/v1/object/public/mascotas/${path}`;
 }

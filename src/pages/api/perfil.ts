@@ -4,6 +4,7 @@ import { rateLimitDistribuido, respuestaRateLimit } from '../../lib/ratelimit';
 import { organizacionSchema, personaSchema, redesVacias } from '../../lib/validation/user';
 import { borrarFotoPerfilStorage, subirFotoPerfil } from '../../lib/storage';
 import { fotoUrl } from '../../lib/mascotas';
+import { mensajeError } from '../../lib/errores';
 
 export const prerender = false;
 
@@ -127,7 +128,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     if (borrarFoto) cambios.foto_perfil = null;
 
     const { error } = await supabase.from('personas').update(cambios).eq('id', user.id);
-    if (error) return Response.json({ error: error.message }, { status: 400 });
+    if (error) return Response.json({ error: mensajeError(error, 'api/perfil') }, { status: 400 });
   } else {
     const parsed = organizacionSchema.safeParse({
       nombre_oficial: fd.get('nombre_oficial'),
@@ -181,7 +182,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
         ...(logoPath ? { logo: logoPath } : {}),
       })
       .eq('id', user.id);
-    if (error) return Response.json({ error: error.message }, { status: 400 });
+    if (error) return Response.json({ error: mensajeError(error, 'api/perfil') }, { status: 400 });
   }
 
   return Response.json({ ok: true, foto_url: fotoPath ? fotoUrl(fotoPath) : null });

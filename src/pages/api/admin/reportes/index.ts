@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../../lib/supabase';
 import { esAdmin, listarReportes, type EstadoReporte } from '../../../../lib/admin';
+import { mensajeError } from '../../../../lib/errores';
 
 export const prerender = false;
 
@@ -23,7 +24,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     return Response.json({ reportes: await listarReportes(supabase, estado) });
   } catch (e) {
     return Response.json(
-      { error: e instanceof Error ? e.message : 'Error al cargar reportes' },
+      { error: mensajeError(e, 'GET /api/admin/reportes', 'Error al cargar reportes') },
       { status: 400 },
     );
   }
