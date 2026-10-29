@@ -1,6 +1,6 @@
 # Diccionario de datos — Adopty (resumen; detalle SQL en `supabase/migrations/`)
 
-Actualizado al 2026-10-27 (22 migraciones). Diagrama: `docs/DER.dbml`.
+Actualizado al 2026-10-29. Diagrama: `docs/DER.dbml`.
 
 ## ENUMs
 

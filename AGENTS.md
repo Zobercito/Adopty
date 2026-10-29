@@ -122,7 +122,8 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
 
 | Archivo                        | Contenido                                       |
 | ------------------------------ | ----------------------------------------------- |
-| `README.md`                    | Instalación, variables, rutas, operación.       |
+| `README.md`                    | Producto, arquitectura, instalación y rutas.    |
+| `docs/OPERACION.md`            | Despliegue, backups, restauración e incidentes. |
 | `docs/AUDITORIA_PENDIENTES.md` | Hallazgos, prioridades, roadmap y verificación. |
 | `docs/DECISIONES.md`           | ADR resumidas y consecuencias.                  |
 | `docs/QA.md`                   | Último informe de calidad y diferidos.          |

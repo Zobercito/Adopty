@@ -54,7 +54,9 @@ Las tareas pendientes derivadas viven en `docs/AUDITORIA_PENDIENTES.md`.
   verificadas); lo público se obtiene de `perfil_publico`, que devuelve solo
   campos seguros y anonimiza cuentas dadas de baja.
 - **Consecuencias:** cualquier campo nuevo que deba mostrarse públicamente exige
-  actualizar la RPC. No relajar policies con `OR` sin revisar las existentes.
+  actualizar la RPC. No relajar policies con `OR` sin revisar las existentes: al
+  restringir el acceso hubo que eliminar también `org_select USING (true)`, que venía
+  de la migración original y se combinaba con la policy nueva.
 
 ## ADR-005 — Chat interno en lugar de exponer contacto
 
