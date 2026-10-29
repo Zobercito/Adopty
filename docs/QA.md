@@ -2,9 +2,9 @@
 
 ## Actualización 2026-10-29 — cierre del plan de presentación
 
-Entorno: `develop` local + **https://adopty.lat** (producción). Docker no está
-disponible en el entorno de revisión, así que la instalación limpia y el e2e de flujo
-quedan pendientes de repetir.
+Entorno: `develop` local + **https://adopty.lat** (producción, release `c1a865c`).
+Docker no está disponible en la máquina de revisión, pero el job `e2e` de CI corre
+sobre un runner limpio y cubre lo mismo (ver más abajo).
 
 | Prueba                            | Resultado                                                                            |
 | --------------------------------- | ------------------------------------------------------------------------------------ |
@@ -12,25 +12,40 @@ quedan pendientes de repetir.
 | Unitarios (`npm test`)            | ✅ 166/166 en 27 archivos                                                            |
 | Build (`npm run build`)           | ✅ SSR Vercel + sitemap                                                              |
 | E2E público contra producción     | ✅ 32/32 (`E2E_BASE_URL=https://adopty.lat npm run test:e2e`)                        |
+| Instalación limpia + flujo        | ✅ job `e2e` de CI: `npm ci` → `supabase start` → `test:e2e` + `test:e2e:flujo`      |
 | Responsive                        | ✅ sin scroll horizontal en 8 rutas públicas × 320/390/768 px                        |
 | Enlaces                           | ✅ 15 relativos y 4 externos, 0 rotos                                                |
 | Secretos                          | ✅ sin `.env`, JWT ni `sk-` en el historial                                          |
 | RLS                               | ✅ 14/14 tablas con RLS                                                              |
 | Headers de seguridad              | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions y CSP Report-Only |
 | Dominio                           | ✅ `www.adopty.lat` → 308 a `https://adopty.lat/`                                    |
-| CI en `main`                      | ✅ jobs `calidad` y `e2e` en verde                                                   |
+| CI en `main`                      | ✅ jobs `calidad` y `e2e` en verde (run del merge #32)                               |
+| RLS por REST con JWT real         | ✅ `usuarios` 1 fila, mensajes y solicitudes solo propios, `rate_limits` 403         |
+| Guardas de rol                    | ✅ persona y organización contra `/admin` → 404; `soy_admin` false/false/true        |
+| Recorrido autenticado             | ✅ 3 cuentas demo: panel, solicitudes, mensajes, perfil, favoritos y `/admin`        |
+
+**Cuentas demo probadas en producción** (organización, rescatista y admin): login
+correcto y todas sus rutas con 200 y sin errores en pantalla. `cuenta_activa()` responde
+`true` para las tres y `rate_limits` devuelve 403 incluso con sesión.
 
 **Seguridad (2026-10-28/29):** cerrados los hallazgos A–F y H–J de
-`.security/plan.md` con 9 migraciones y 13 archivos de tests de regresión. G queda
-aplazado: depende de la allowlist de Redirect URLs de Supabase. Las migraciones están
-en el PR #27 y **pendientes de `supabase db push` en cloud**.
+`.security/plan.md`. **Las 33 migraciones del repo están aplicadas en cloud**
+(comprobado contra `supabase_migrations.schema_migrations`), incluidas
+`cuenta_activa()`, `registrar_auditoria`, `consumir_rate_limit_ip` y `pg_trgm`
+en el esquema `extensions`. Storage tiene 4 policies de escritura que exigen
+`cuenta_activa()`. Queda abierto **G**: depende de la allowlist de Redirect URLs,
+que no se puede leer desde el repo.
+
+**Config de Auth verificada en producción** (`/auth/v1/settings`):
+`mailer_autoconfirm = false`, proveedor `email` activo y registro abierto.
 
 **Presentación:** README orientado a producto, capturas en `docs/screenshots/`,
-`docs/OPERACION.md`, licencia MIT detectada por GitHub y social preview de 1200×630.
+`docs/OPERACION.md`, licencia MIT detectada por GitHub, social preview de 1200×630 y
+GIF del recorrido (`docs/screenshots/demo.gif`, regenerable con `scripts/grabar-demo.mjs`).
 
-**Pendiente:** instalación limpia con Docker, `npm run test:e2e:flujo` contra Supabase
-local, revisión de CORS/Redirect URLs/confirm email/Storage/Sentry en el dashboard y un
-restore drill reciente.
+**Pendiente real:** allowlist de Redirect URLs de Supabase (hallazgo G), rotar la
+contraseña de Postgres y sacar `.env.db` de la carpeta sincronizada en MEGA
+(hallazgo K), y pasar la CSP de Report-Only a enforcing.
 
 ## Actualización 2026-10-27 — accesibilidad y rendimiento
 
