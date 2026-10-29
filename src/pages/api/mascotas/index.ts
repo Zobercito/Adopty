@@ -4,6 +4,7 @@ import { buscarMascotas, paramsFrom } from '../../../lib/mascotas';
 import { petSchema } from '../../../lib/validation/pet';
 import { registrarAuditoria } from '../../../lib/auditoria';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -18,7 +19,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     return Response.json(resultado);
   } catch (e) {
     return Response.json(
-      { error: e instanceof Error ? e.message : 'Error de búsqueda' },
+      { error: mensajeError(e, 'GET /api/mascotas', 'Error de búsqueda') },
       { status: 500 },
     );
   }
@@ -51,7 +52,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     .select('id')
     .single();
   if (error || !creada) {
-    return Response.json({ error: error?.message ?? 'No se pudo crear' }, { status: 400 });
+    return Response.json(
+      { error: mensajeError(error, 'POST /api/mascotas', 'No se pudo crear') },
+      { status: 400 },
+    );
   }
   const filas = fotos.map((url_foto, i) => ({
     id_mascota: creada.id,
@@ -61,9 +65,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }));
   const { error: errFotos } = await supabase.from('fotos_mascota').insert(filas);
   if (errFotos) {
-    // rollback lógico: no queda mascota sin fotos visibles
-    await supabase.from('mascotas').delete().eq('id', creada.id);
-    return Response.json({ error: errFotos.message }, { status: 400 });
+    // rollback lógico: no queda mascota sin fotos visibles (el DELETE físico
+    // está revocado y arrastraría reportes/solicitudes/mensajes en cascada)
+    await supabase
+      .from('mascotas')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', creada.id);
+    return Response.json({ error: mensajeError(errFotos, 'POST /api/mascotas') }, { status: 400 });
   }
   await registrarAuditoria(supabase, {
     id_usuario: user.id,

@@ -3,6 +3,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { getMisSolicitudes, getSolicitudesRecibidas } from '../../../lib/solicitudes';
 import { solicitudSchema } from '../../../lib/validation/request';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -25,13 +26,19 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     try {
       return Response.json({ solicitudes: await getMisSolicitudes(supabase, user.id) });
     } catch (e) {
-      return Response.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 400 });
+      return Response.json(
+        { error: mensajeError(e, 'GET /api/solicitudes', 'Error') },
+        { status: 400 },
+      );
     }
   }
   try {
     return Response.json({ solicitudes: await getSolicitudesRecibidas(supabase, user.id) });
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 400 });
+    return Response.json(
+      { error: mensajeError(e, 'GET /api/solicitudes', 'Error') },
+      { status: 400 },
+    );
   }
 };
 
@@ -94,7 +101,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (error) {
     const dup = error.code === '23505';
     return Response.json(
-      { error: dup ? 'Ya tienes una solicitud pendiente por esta mascota' : error.message },
+      {
+        error: dup
+          ? 'Ya tienes una solicitud pendiente por esta mascota'
+          : mensajeError(error, 'POST /api/solicitudes'),
+      },
       { status: dup ? 409 : 400 },
     );
   }

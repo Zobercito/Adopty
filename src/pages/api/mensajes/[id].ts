@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { supabaseServer } from '../../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -33,7 +34,8 @@ export const PATCH: APIRoute = async ({ params, cookies }) => {
     .select('id')
     .maybeSingle();
 
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json({ error: mensajeError(error, 'api/mensajes/:id') }, { status: 400 });
   if (!data) return Response.json({ error: 'Mensaje no encontrado o ya leído' }, { status: 404 });
 
   return Response.json({ ok: true });

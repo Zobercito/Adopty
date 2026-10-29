@@ -1,6 +1,11 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import {
+  avisoCorreoDuplicado,
+  esCorreoYaRegistrado,
+  respuestaEnvioCorreo,
+} from '../../../lib/correo';
 import { cambiarCorreoSchema } from '../../../lib/validation/user';
 
 export const prerender = false;
@@ -36,31 +41,22 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     return Response.json({ error: 'Escribe un correo distinto al actual' }, { status: 400 });
   }
 
-  const { data: existe } = await supabase
-    .from('usuarios')
-    .select('id')
-    .eq('correo', correo)
-    .maybeSingle();
-  if (existe) {
-    return Response.json({ error: 'Ese correo ya está en uso' }, { status: 409 });
-  }
-
+  // Sin consultar `usuarios`: esa comprobación previa revelaba qué correos tienen
+  // cuenta (hallazgo I). La respuesta es deliberadamente indistinguible.
   const { error } = await supabase.auth.updateUser({ email: correo });
   if (error) {
-    const yaRegistrado =
-      error.message.toLowerCase().includes('already') ||
-      error.message.toLowerCase().includes('registered');
-    return Response.json(
-      { error: yaRegistrado ? 'Ese correo ya está en uso' : error.message },
-      { status: yaRegistrado ? 409 : 400 },
-    );
+    // El correo ya registrado se trata como éxito: el aviso real va a la bandeja
+    // del titular actual y el detalle queda solo en el log, sin PII.
+    if (esCorreoYaRegistrado(error)) {
+      avisoCorreoDuplicado('cambiar-email');
+      return Response.json(respuestaEnvioCorreo());
+    }
+    console.error(`[auth] cambiar-email: updateUser falló (${error.code ?? 'sin-código'})`);
+    return Response.json({ error: 'No se pudo enviar el correo de confirmación' }, { status: 400 });
   }
 
   // No podemos saber desde la app si el cambio quedó pendiente de confirmación o
   // se aplicó ya (depende del ajuste "Secure email change" de Supabase), así que la
   // respuesta pide revisar el correo en ambos casos.
-  return Response.json({
-    ok: true,
-    mensaje: 'Revisa tu correo para confirmar el cambio. Te avisamos al anterior si algo sale mal.',
-  });
+  return Response.json(respuestaEnvioCorreo());
 };

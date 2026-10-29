@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../../lib/supabase';
 import { esAdmin, listarVerificaciones, type EstadoVerificacion } from '../../../../lib/admin';
+import { mensajeError } from '../../../../lib/errores';
 
 export const prerender = false;
 
@@ -20,7 +21,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     return Response.json({ verificaciones: await listarVerificaciones(supabase, estado) });
   } catch (e) {
     return Response.json(
-      { error: e instanceof Error ? e.message : 'Error al cargar verificaciones' },
+      { error: mensajeError(e, 'GET /api/admin/verificaciones', 'Error al cargar verificaciones') },
       { status: 400 },
     );
   }

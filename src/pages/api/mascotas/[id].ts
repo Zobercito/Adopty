@@ -6,6 +6,7 @@ import { borrarFotosStorage } from '../../../lib/storage';
 import { registrarAuditoria } from '../../../lib/auditoria';
 import { transicionMascota, type EstadoMascota } from '../../../lib/transiciones';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -19,7 +20,8 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle();
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json({ error: mensajeError(error, 'api/mascotas/:id') }, { status: 400 });
   if (!data) return Response.json({ error: 'No encontrada' }, { status: 404 });
   const { fotos_mascota, ...pet } = data as MascotaRow & { fotos_mascota: FotoRow[] };
   return Response.json({ ...pet, fotos: fotosOrdenadas(fotos_mascota) });
@@ -67,7 +69,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
   }
   if (Object.keys(updates).length) {
     const { error } = await supabase.from('mascotas').update(updates).eq('id', id);
-    if (error) return Response.json({ error: error.message }, { status: 400 });
+    if (error)
+      return Response.json({ error: mensajeError(error, 'api/mascotas/:id') }, { status: 400 });
   }
 
   if (fotos_keep || fotos_new) {
@@ -91,7 +94,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
           'id',
           quitar.map((f) => f.id),
         );
-      if (error) return Response.json({ error: error.message }, { status: 400 });
+      if (error)
+        return Response.json({ error: mensajeError(error, 'api/mascotas/:id') }, { status: 400 });
       await borrarFotosStorage(
         supabase,
         quitar.map((f) => f.url_foto),
@@ -106,7 +110,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
           orden: keep.length + i,
         })),
       );
-      if (error) return Response.json({ error: error.message }, { status: 400 });
+      if (error)
+        return Response.json({ error: mensajeError(error, 'api/mascotas/:id') }, { status: 400 });
     }
     // una sola principal: la de menor orden
     const { data: todas } = await supabase
@@ -147,7 +152,8 @@ export const DELETE: APIRoute = async ({ params, request, cookies }) => {
     .from('mascotas')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id);
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json({ error: mensajeError(error, 'api/mascotas/:id') }, { status: 400 });
   await registrarAuditoria(supabase, {
     id_usuario: user.id,
     accion: 'mascota_eliminar',

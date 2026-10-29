@@ -8,6 +8,7 @@ import {
 import { solicitudAccionSchema } from '../../../lib/validation/request';
 import { registrarAuditoria } from '../../../lib/auditoria';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -53,7 +54,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
   if (accion === 'aprobar') {
     // transacción RPC: aprobada + mascota en_proceso + auto-rechaza resto
     const { error } = await supabase.rpc('aprobar_solicitud', { p_solicitud_id: id });
-    if (error) return Response.json({ error: error.message }, { status: 400 });
+    if (error)
+      return Response.json({ error: mensajeError(error, 'api/solicitudes/:id') }, { status: 400 });
     await registrarAuditoria(supabase, {
       id_usuario: user.id,
       accion: 'solicitud_aprobar',
@@ -66,7 +68,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     return Response.json({ ok: true });
   }
   const { error } = await supabase.from('solicitudes').update({ estado: t.siguiente }).eq('id', id);
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json({ error: mensajeError(error, 'api/solicitudes/:id') }, { status: 400 });
   await registrarAuditoria(supabase, {
     id_usuario: user.id,
     accion: `solicitud_${accion}`,

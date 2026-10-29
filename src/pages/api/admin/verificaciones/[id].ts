@@ -4,6 +4,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { esAdmin } from '../../../../lib/admin';
 import { registrarAuditoria } from '../../../../lib/auditoria';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../../lib/ratelimit';
+import { mensajeError } from '../../../../lib/errores';
 
 export const prerender = false;
 
@@ -52,7 +53,11 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     p_aprobada: aprobar,
     p_notas: notas ?? null,
   });
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error)
+    return Response.json(
+      { error: mensajeError(error, 'POST /api/admin/verificaciones/:id') },
+      { status: 400 },
+    );
 
   await registrarAuditoria(supabase, {
     id_usuario: user.id,

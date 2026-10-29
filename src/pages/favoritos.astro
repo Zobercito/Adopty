@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.astro';
 import Badge from '../components/Badge.astro';
 import { supabaseServer } from '../lib/supabase';
 import { estadoLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
+import { mensajeError } from '../lib/errores';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login?next=/favoritos');
@@ -42,7 +43,7 @@ const reales = ((favs ?? []) as { id_mascota: string; mascotas: unknown }[])
       fotos,
     };
   });
-const errorMsg = error?.message ?? '';
+const errorMsg = error ? mensajeError(error, 'GET /favoritos') : '';
 ---
 
 <Layout title="Adopty — Mis favoritos" noindex>

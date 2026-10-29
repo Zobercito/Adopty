@@ -56,9 +56,9 @@ describe('gradFor', () => {
 
 describe('fotoUrl', () => {
   afterEach(() => vi.unstubAllEnvs());
-  it('respeta rutas absolutas y del sitio', () => {
+  it('respeta los assets del sitio y descarta rutas desconocidas', () => {
     expect(fotoUrl('/assets/1.jpeg')).toBe('/assets/1.jpeg');
-    expect(fotoUrl('https://x.com/foto.jpg')).toBe('https://x.com/foto.jpg');
+    expect(fotoUrl('https://x.com/foto.jpg')).toBe('');
     expect(fotoUrl('')).toBe('');
   });
   it('resuelve rutas de storage con la URL pública', () => {
@@ -80,7 +80,7 @@ describe('fotoRender', () => {
     expect(fotoRender('uid/foto.webp')).toBe(
       'https://xyz.supabase.co/storage/v1/object/public/mascotas/uid/foto.webp',
     );
-    expect(fotoRender('https://x.com/a.jpg')).toBe('https://x.com/a.jpg');
+    expect(fotoRender('https://x.com/a.jpg')).toBe('');
     vi.unstubAllEnvs();
   });
 });

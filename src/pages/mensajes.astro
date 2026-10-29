@@ -35,7 +35,7 @@ try {
     .select('id, id_emisor, id_receptor, id_mascota, contenido, leido, fecha_envio, mascotas!inner(id, nombre, estado, fotos_mascota(url_foto, es_principal, orden))')
     .or(`id_emisor.eq.${currentUserId},id_receptor.eq.${currentUserId}`)
     .order('fecha_envio', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw error;
 
   // Agrupar por hilo
   const hilosMap = new Map<string, { id_mascota: string; otra_parte: string; ultimo: string; no_leidos: number; mascota: any }>();

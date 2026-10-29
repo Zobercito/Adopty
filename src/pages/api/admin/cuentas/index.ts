@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../../lib/ratelimit';
+import { mensajeError } from '../../../../lib/errores';
 
 export const prerender = false;
 
@@ -40,8 +41,16 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
     p_activo: activo,
   });
   if (error) {
-    if (error.code === '42501') return Response.json({ error: error.message }, { status: 403 });
-    return Response.json({ error: error.message }, { status: 400 });
+    // 42501 = rol insuficiente; el cliente no necesita el texto de Postgres.
+    if (error.code === '42501')
+      return Response.json(
+        { error: mensajeError(error, 'PATCH /api/admin/cuentas') },
+        { status: 403 },
+      );
+    return Response.json(
+      { error: mensajeError(error, 'PATCH /api/admin/cuentas') },
+      { status: 400 },
+    );
   }
 
   const fila = (data as { nombre?: string; activo?: boolean }[] | null)?.[0];

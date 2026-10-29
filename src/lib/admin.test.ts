@@ -10,6 +10,7 @@ import {
   listarVerificaciones,
   reporteBadge,
   verifBadge,
+  urlEvidenciaSegura,
 } from './admin';
 
 /** Fake mínimo del query builder (select/eq/in/order + rpc) para probar sin DB. */
@@ -226,5 +227,20 @@ describe('listarVerificaciones', () => {
     expect(r).toHaveLength(1);
     expect(r[0].organizacion.nombre_oficial).toBe('Refugio Patitas');
     expect(r[0].organizacion.verificada).toBe(false);
+  });
+});
+
+describe('urlEvidenciaSegura (A.1)', () => {
+  it('devuelve la URL solo para http/https', () => {
+    expect(urlEvidenciaSegura('https://refugio.example/equipo')).toBe(
+      'https://refugio.example/equipo',
+    );
+    expect(urlEvidenciaSegura('http://refugio.example')).toBe('http://refugio.example/');
+  });
+
+  it('anula esquemas ejecutables y valores que no son URL', () => {
+    expect(urlEvidenciaSegura('javascript:alert(document.cookie)')).toBeNull();
+    expect(urlEvidenciaSegura('data:text/html,<script>alert(1)</script>')).toBeNull();
+    expect(urlEvidenciaSegura('no es una url')).toBeNull();
   });
 });

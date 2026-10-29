@@ -12,12 +12,14 @@ import {
   listarVerificaciones,
   reporteBadge,
   verifBadge,
+  urlEvidenciaSegura,
   type CuentaAdmin,
   type EstadoReporte,
   type EstadoVerificacion,
   type ReporteAdmin,
   type VerificacionAdmin,
 } from '../../lib/admin';
+import { mensajeError } from '../../lib/errores';
 import { supabaseServer } from '../../lib/supabase';
 
 const user = Astro.locals.user;
@@ -81,7 +83,7 @@ if (esAdminUser) {
     pendientesVerif = ve === 'pendiente' ? listaVe.length : (pendVe?.length ?? 0);
     suspendidas = listaCuentas.filter((c) => !c.activo).length;
   } catch (e) {
-    errorMsg = e instanceof Error ? e.message : 'Error al cargar el panel';
+    errorMsg = mensajeError(e, 'GET /admin', 'Error al cargar el panel');
   }
 }
 
@@ -290,6 +292,7 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
               <div class="grid gap-4 mt-3">
                 {verificaciones.map((v) => {
                   const [cls, dot, etiqueta] = verifBadge(v.estado);
+                  const urlSegura = urlEvidenciaSegura(v.url_evidencia);
                   return (
                     <article class="soft-card p-5" data-verif={v.id}>
                       <div class="flex items-center gap-2 flex-wrap">
@@ -338,14 +341,18 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
                           </p>
                         </div>
                       </details>
-                      <a
-                        href={v.url_evidencia}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="link text-xs break-all mt-1 inline-block"
-                      >
-                        {v.url_evidencia}
-                      </a>
+                      {urlSegura ? (
+                        <a
+                          href={urlSegura}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="link text-xs break-all mt-1 inline-block"
+                        >
+                          {v.url_evidencia}
+                        </a>
+                      ) : (
+                        <span class="text-xs break-all mt-1 inline-block">{v.url_evidencia}</span>
+                      )}
                       {v.descripcion && <p class="text-sm mt-2">“{v.descripcion}”</p>}
                       {v.notas_admin && (
                         <p class="text-xs mt-2 text-muted">

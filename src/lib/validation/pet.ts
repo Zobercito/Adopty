@@ -1,5 +1,22 @@
 import { z } from 'zod';
 
+/**
+ * Ruta de foto del bucket `mascotas`: `userId/uuid.webp`, nunca una URL.
+ * Espeja el CHECK de `20261028070000_rutas_foto_check.sql` (E).
+ */
+const RUTA_FOTO = /^[\w-]+\/[\w-]+\.webp$/;
+
+/**
+ * Asset local del sitio (`/assets/6.JPG`), que usan el seed y `mockPets`.
+ * Solo se admite al **conservar** una foto ya guardada (`fotos_keep`): las
+ * nuevas siempre se suben al bucket. La extensión va con flag `i` para casar
+ * con el CHECK (`~*`) y con `fotoRender`.
+ */
+const RUTA_ASSET = /^\/assets\/[\w.-]+\.(?:jpe?g|png|webp)$/i;
+
+const esRutaFotoGuardada = (valor: string): boolean =>
+  RUTA_FOTO.test(valor) || RUTA_ASSET.test(valor);
+
 /** Zod petSchema (Fase 2) — espeja CHECKs de 001_schema.sql. Cliente solo muestra mensajes. */
 export const petSchema = z.object({
   nombre: z.string().trim().min(2, 'Mínimo 2 caracteres').max(60, 'Máximo 60 caracteres'),
@@ -25,7 +42,7 @@ export const petSchema = z.object({
   apto_ninos: z.boolean().default(true),
   apto_otros: z.boolean().default(true),
   fotos: z
-    .array(z.string().regex(/^[\w-]+\/[\w-]+\.webp$/, 'Ruta de foto inválida'))
+    .array(z.string().regex(RUTA_FOTO, 'Ruta de foto inválida'))
     .min(1, 'Sube al menos 1 foto')
     .max(5, 'Máximo 5 fotos'),
 });
@@ -35,11 +52,13 @@ export const petUpdateSchema = petSchema
   .omit({ fotos: true })
   .partial()
   .extend({
-    fotos_keep: z.array(z.string()).max(5).optional(),
-    fotos_new: z
-      .array(z.string().regex(/^[\w-]+\/[\w-]+\.webp$/))
+    // `fotos_keep` conserva rutas ya guardadas: mismo confinamiento que `fotos`,
+    // más los assets locales que el seed ya tenía.
+    fotos_keep: z
+      .array(z.string().refine(esRutaFotoGuardada, 'Ruta de foto inválida'))
       .max(5)
       .optional(),
+    fotos_new: z.array(z.string().regex(RUTA_FOTO, 'Ruta de foto inválida')).max(5).optional(),
   });
 
 export type PetInput = z.infer<typeof petSchema>;

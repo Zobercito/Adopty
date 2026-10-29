@@ -1,15 +1,10 @@
 import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../lib/supabase';
-import { z } from 'zod';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
+import { verificacionSchema } from '../../../lib/validation/verification';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
-
-const verificacionSchema = z.object({
-  tipo_evidencia: z.enum(['redes_sociales', 'documento', 'sitio_web', 'otro']),
-  url_evidencia: z.string().url('URL inválida').max(500),
-  descripcion: z.string().max(1000).optional().or(z.literal('')),
-});
 
 /** POST /api/verificacion — solicitar verificación de organización */
 export const POST: APIRoute = async ({ request, cookies }) => {
@@ -59,7 +54,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         { status: 409 },
       );
     }
-    return Response.json({ error: error.message }, { status: 400 });
+    return Response.json({ error: mensajeError(error, 'POST /api/verificacion') }, { status: 400 });
   }
 
   return Response.json({ ok: true }, { status: 201 });

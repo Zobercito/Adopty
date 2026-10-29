@@ -3,6 +3,7 @@ export const prerender = false;
 import Layout from '../../layouts/Layout.astro';
 import Navbar from '../../components/Navbar.astro';
 import { supabaseServer } from '../../lib/supabase';
+import { mensajeError } from '../../lib/errores';
 import { fechaCorta, getSolicitudesRecibidas, solBadge } from '../../lib/solicitudes';
 
 if (!Astro.locals.user) return Astro.redirect('/login?next=/panel/solicitudes');
@@ -12,7 +13,7 @@ let errorMsg = '';
 try {
   lista = await getSolicitudesRecibidas(supabase, Astro.locals.user.id);
 } catch (e) {
-  errorMsg = e instanceof Error ? e.message : 'Error al cargar';
+  errorMsg = mensajeError(e, 'GET /panel/solicitudes', 'Error al cargar');
 }
 const pendientes = lista.filter((s) => s.estado === 'pendiente').length;
 // Las pendientes primero: es la cola de trabajo real del publicador.

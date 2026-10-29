@@ -3,9 +3,9 @@
 -- Los UUIDs son fijos para que el seed sea idempotente (ON CONFLICT DO NOTHING).
 
 -- Publicadores demo: se crean como usuarios REALES de auth.users.
--- Contraseña inicial 'Adopty123!' — SOLO para entornos locales.
--- En staging/producción cámbiala con: UPDATE auth.users SET encrypted_password = crypt('<nueva>', gen_salt('bf')) WHERE email = '...';
--- SOLO para pruebas locales/piloto — cambiar o borrar antes de producción).
+-- Cuentas demo NO para entornos enlazados: la contraseña es aleatoria y no sirve para entrar.
+-- Para usarlas en local, fija una clave manualmente con:
+--   UPDATE auth.users SET encrypted_password = crypt('<nueva>', gen_salt('bf')) WHERE email = '...';
 -- El trigger handle_new_user crea las filas espejo en usuarios/personas/organizaciones.
 -- IMPORTANTE: TODAS las columnas token de auth.users deben ir en '' y nunca NULL —
 -- GoTrue (v2.197) las escanea como string y NULL provoca 500 "Database error querying
@@ -16,12 +16,12 @@ INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, e
   email_change_token_current, phone_change, phone_change_token, reauthentication_token)
 VALUES
   ('00000000-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111',
-   'authenticated', 'authenticated', 'patitas@adopty.pa', crypt('Adopty123!', gen_salt('bf')), now(),
+   'authenticated', 'authenticated', 'patitas@adopty.pa', crypt(gen_random_uuid()::text, gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}',
    '{"tipo_usuario":"organizacion","nombre":"Refugio Patitas Felices"}', now(), now(),
    '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '22222222-2222-2222-2222-222222222222',
-   'authenticated', 'authenticated', 'rescatista@adopty.pa', crypt('Adopty123!', gen_salt('bf')), now(),
+   'authenticated', 'authenticated', 'rescatista@adopty.pa', crypt(gen_random_uuid()::text, gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}',
    '{"tipo_usuario":"persona","nombre":"Eira R. (rescatista)"}', now(), now(),
    '', '', '', '', '', '', '', '')

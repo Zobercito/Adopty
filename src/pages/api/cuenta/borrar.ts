@@ -3,6 +3,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { borrarFotoPerfilStorage } from '../../../lib/storage';
 import { borrarCuentaSchema } from '../../../lib/validation/user';
+import { mensajeError } from '../../../lib/errores';
 
 export const prerender = false;
 
@@ -61,9 +62,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const { data, error } = await supabase.rpc('eliminar_mi_cuenta');
   if (error) {
     // P0001 = regla de negocio (adopción en curso); 28000 = sesión inválida.
-    if (error.code === 'P0001') return Response.json({ error: error.message }, { status: 409 });
+    if (error.code === 'P0001')
+      return Response.json(
+        { error: mensajeError(error, 'POST /api/cuenta/borrar') },
+        { status: 409 },
+      );
     if (error.code === '28000') return Response.json({ error: 'No autenticado' }, { status: 401 });
-    return Response.json({ error: error.message }, { status: 400 });
+    return Response.json(
+      { error: mensajeError(error, 'POST /api/cuenta/borrar') },
+      { status: 400 },
+    );
   }
 
   // Borrar el objeto exige seguir autenticado (política por carpeta del dueño).

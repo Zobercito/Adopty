@@ -17,6 +17,10 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.correo, {
     redirectTo: `${url.origin}/api/auth/callback?next=/perfil`,
   });
-  if (error) return Response.json({ error: error.message }, { status: 400 });
+  if (error) {
+    // Respuesta uniforme (hallazgo I): el texto de GoTrue puede delatar si el
+    // correo tiene cuenta. El detalle queda en el log, sin PII.
+    console.warn(`[auth] recuperar: no se pudo enviar (${error.code ?? 'sin-código'})`);
+  }
   return Response.json({ ok: true });
 };
