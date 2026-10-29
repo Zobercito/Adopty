@@ -13,6 +13,8 @@ mensajería en un solo lugar, sin exponer el número personal de nadie.
 
 ![Búsqueda de mascotas en Adopty](docs/screenshots/explorar.png)
 
+![Recorrido: portada, explorar, filtro por especie y ficha de la mascota](docs/screenshots/demo.gif)
+
 ## Estado del proyecto
 
 |                    |                                                                                   |
@@ -51,6 +53,7 @@ mensajería en un solo lugar, sin exponer el número personal de nadie.
 8. Entra como organización para ver la gestión de mascotas o como admin en `/admin`.
 
 El guion completo de sustentación está en [`docs/GUION_DEMO.md`](docs/GUION_DEMO.md).
+El GIF del README se regenera con `node scripts/grabar-demo.mjs` contra el servidor local.
 
 ## Cómo probarlo
 
