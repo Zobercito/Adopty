@@ -70,18 +70,18 @@ ignora en `.gitignore`/`.prettierignore`. Los cambios de skills (`.agents/`,
 
 ### 3.2 Producción
 
-| Comprobación                                    | Resultado                                                                          |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `GET /`                                         | ✅ 200 (0,65 s)                                                                    |
-| `www.adopty.lat`                                | ✅ 308 → `https://adopty.lat/`                                                     |
-| `GET /explorar`, `/robots.txt`                  | ✅ 200                                                                             |
-| `GET /sitemap-mascotas.xml`                     | ✅ 200, 6 fichas                                                                   |
-| `GET /panel` sin sesión                         | ✅ 302 → `/login?next=%2Fpanel`                                                    |
-| Headers                                         | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions                 |
-| CSP                                             | 🟡 prod sirve `Report-Only`; el código nuevo la emite enforcing (pendiente deploy) |
-| E2E público (`E2E_BASE_URL=https://adopty.lat`) | ✅ 32/32                                                                           |
-| axe (`e2e/a11y.e2e.ts` contra producción)       | ✅ 10/10, 0 violaciones                                                            |
-| Inventario público                              | 6 mascotas disponibles, 1 página                                                   |
+| Comprobación                                    | Resultado                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------ |
+| `GET /`                                         | ✅ 200 (0,65 s)                                                          |
+| `www.adopty.lat`                                | ✅ 308 → `https://adopty.lat/`                                           |
+| `GET /explorar`, `/robots.txt`                  | ✅ 200                                                                   |
+| `GET /sitemap-mascotas.xml`                     | ✅ 200, 6 fichas                                                         |
+| `GET /panel` sin sesión                         | ✅ 302 → `/login?next=%2Fpanel`                                          |
+| Headers                                         | ✅ HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer, permissions       |
+| CSP                                             | ✅ enforcing en producción desde el 2026-11-25; 0 violaciones en 7 rutas |
+| E2E público (`E2E_BASE_URL=https://adopty.lat`) | ✅ 32/32                                                                 |
+| axe (`e2e/a11y.e2e.ts` contra producción)       | ✅ 10/10, 0 violaciones                                                  |
+| Inventario público                              | 6 mascotas disponibles, 1 página                                         |
 
 ### 3.3 CI/CD y dependencias
 

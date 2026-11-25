@@ -205,7 +205,7 @@ follow` en páginas privadas o fichas no públicas.
 
 ## ADR-017 — Headers de seguridad en Vercel y CSP enforcing con Astro
 
-- **Fecha:** 2026-10-26; CSP enforcing: 2026-11-23.
+- **Fecha:** 2026-10-26; CSP enforcing: 2026-11-23, desplegada el 2026-11-25.
 - **Estado:** aceptada (sustituye la CSP en `Report-Only`).
 - **Contexto:** faltaban HSTS, `nosniff`, frame policy, referrer y CSP. Las páginas
   estáticas y los assets no pasan por el middleware de Astro en producción. Astro 7
