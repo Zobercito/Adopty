@@ -61,6 +61,9 @@ let adoptanteBaja: APIRequestContext;
 let adminListo = false;
 let mascotaPublicable = '';
 let solicitudPendiente = '';
+let mascotaChat = '';
+let solicitudChat = '';
+let idAdoptante = '';
 
 /** Contraseña vigente por rol: cambia si un test la modifica. */
 const passwords: Record<string, string> = {};
@@ -175,10 +178,13 @@ async function publicar(ctx: APIRequestContext, nombre: string): Promise<string>
 }
 
 test.beforeAll(async () => {
-  // Cada corrida crea 5 cuentas y el límite de registro (10/min por IP) persiste
-  // entre corridas; se limpia solo ese cubo, no los de otras suites.
+  // Cada corrida crea varias cuentas y mascotas. Los límites de registro y de
+  // publicación persisten entre corridas: se limpian solo esos cubos (no los de
+  // otras suites) para que la batería sea repetible.
   try {
-    psql("delete from public.rate_limits where clave like 'register:%';");
+    psql(
+      "delete from public.rate_limits where clave like 'register:%' or clave like 'mascota:crear:%';",
+    );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
@@ -543,6 +549,8 @@ test('AC-003-b · edita su mascota y no la ajena', async () => {
 });
 
 test('AC-003-c · el panel cuadra con las filas reales', async () => {
+  // Debe ejecutarse antes de que la organización tenga chats: `interesados` cuenta
+  // adoptantes distintos de solicitudes y mensajes, y aquí solo hay solicitudes.
   const solicitud = await tercero.post('/api/solicitudes', {
     data: { id_mascota: mascotaPublicable, mensaje_inicial: 'Solicitud para el panel.' },
   });
@@ -633,4 +641,105 @@ test('AC-003-e · una mascota adoptada no vuelve a disponible', async () => {
     estado: string;
   };
   expect(detalle.estado).toBe('adoptada');
+});
+
+test('AC-002-d / AC-007-b / AC-007-c · solicitud, duplicado, propia y chat cerrado', async () => {
+  mascotaChat = await publicar(organizacion, `Chat ${sello}`);
+  const datos = {
+    id_mascota: mascotaChat,
+    mensaje_inicial: 'Tengo patio y experiencia con perros.',
+  };
+
+  const alta = await adoptante.post('/api/solicitudes', { data: datos });
+  expect(alta.status(), await alta.text()).toBe(201);
+  solicitudChat = ((await alta.json()) as { id: string }).id;
+
+  const duplicada = await adoptante.post('/api/solicitudes', { data: datos });
+  expect(duplicada.status()).toBe(409);
+
+  // El publicador no puede solicitar su propia mascota.
+  const propia = await organizacion.post('/api/solicitudes', {
+    data: { id_mascota: mascotaChat, mensaje_inicial: 'Solicito lo mío.' },
+  });
+  expect(propia.status()).toBe(403);
+
+  // El adoptante no puede aprobar su propia solicitud.
+  const autoaprobar = await adoptante.patch(`/api/solicitudes/${solicitudChat}`, {
+    data: { accion: 'aprobar' },
+  });
+  expect(autoaprobar.status()).toBe(403);
+
+  // Sin aprobación, el chat sigue cerrado.
+  const cerrado = await adoptante.post('/api/mensajes', {
+    data: { id_mascota: mascotaChat, contenido: '¿Puedo visitarla?' },
+  });
+  expect(cerrado.status()).toBe(403);
+});
+
+test('AC-006-e · el chat se abre solo para el adoptante y el publicador', async () => {
+  const lista = await organizacion.get('/api/solicitudes?rol=publicador');
+  expect(lista.status(), await lista.text()).toBe(200);
+  const { solicitudes } = (await lista.json()) as {
+    solicitudes: { id: string; adoptante: { id: string } }[];
+  };
+  const mia = solicitudes.find((s) => s.id === solicitudChat);
+  expect(mia, 'El publicador no ve la solicitud').toBeTruthy();
+  idAdoptante = mia!.adoptante.id;
+
+  const aprobada = await organizacion.patch(`/api/solicitudes/${solicitudChat}`, {
+    data: { accion: 'aprobar' },
+  });
+  expect(aprobada.status(), await aprobada.text()).toBe(200);
+
+  const detalle = await organizacion.get(`/api/mascotas/${mascotaChat}`);
+  expect(((await detalle.json()) as { estado: string }).estado).toBe('en_proceso');
+
+  const ida = await adoptante.post('/api/mensajes', {
+    data: { id_mascota: mascotaChat, contenido: '¡Gracias! ¿Cuándo puedo visitarla?' },
+  });
+  expect(ida.status(), await ida.text()).toBe(201);
+
+  // El tercero tiene su propio hilo (adopción aprobada de otra mascota), así que
+  // el contraste no es "lista vacía": ve el suyo y no el ajeno.
+  const propio = await tercero.post('/api/mensajes', {
+    data: { id_mascota: mascotaPublicable, contenido: 'Hola, sobre mi adopción.' },
+  });
+  expect(propio.status(), await propio.text()).toBe(201);
+
+  const ajena = await tercero.get('/api/mensajes');
+  const { items: ajenos } = (await ajena.json()) as { items: { id_mascota: string }[] };
+  expect(ajenos.map((h) => h.id_mascota)).toContain(mascotaPublicable);
+  expect(ajenos.map((h) => h.id_mascota)).not.toContain(mascotaChat);
+
+  const intruso = await tercero.post('/api/mensajes', {
+    data: { id_mascota: mascotaChat, contenido: 'Hola, ¿puedo entrar?' },
+  });
+  // 404 si la RLS oculta la mascota en proceso; 403 si llegara a verla.
+  expect([403, 404]).toContain(intruso.status());
+});
+
+test('AC-006-f · los no leídos se cuentan para cada parte', async () => {
+  const bandeja = await organizacion.get('/api/mensajes');
+  expect(bandeja.status(), await bandeja.text()).toBe(200);
+  const { items } = (await bandeja.json()) as {
+    items: { id_mascota: string; otra_parte: string; no_leidos: number }[];
+  };
+  const hilo = items.find((h) => h.id_mascota === mascotaChat);
+  expect(hilo?.otra_parte).toBe(idAdoptante);
+  expect(hilo?.no_leidos).toBe(1);
+
+  const vuelta = await organizacion.post('/api/mensajes', {
+    data: { id_mascota: mascotaChat, contenido: 'El sábado a las 10 a. m.' },
+  });
+  expect(vuelta.status(), await vuelta.text()).toBe(201);
+
+  const bandejaB = await adoptante.get('/api/mensajes');
+  const { items: deB } = (await bandejaB.json()) as {
+    items: { id_mascota: string; no_leidos: number }[];
+  };
+  expect(deB.find((h) => h.id_mascota === mascotaChat)?.no_leidos).toBe(1);
+
+  const bandejaC = await tercero.get('/api/mensajes');
+  const { items: deC } = (await bandejaC.json()) as { items: { id_mascota: string }[] };
+  expect(deC.map((h) => h.id_mascota)).not.toContain(mascotaChat);
 });

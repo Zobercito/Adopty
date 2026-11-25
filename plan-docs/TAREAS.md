@@ -61,7 +61,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-006 · Solicitud y chat entre dos cuentas
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-006 · AC-006-e, AC-006-f · REQ-002 · AC-002-d · REQ-007 · AC-007-b, AC-007-c
 - depende: TASK-005
 - test: —
