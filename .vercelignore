@@ -1,0 +1,16 @@
+# Archivos que Vercel no necesita subir (estado local de herramientas y tests).
+.codegraph/
+.agents/
+.continue/
+.kiro/
+.qoder/
+.opencode/
+.security/
+backups/
+docs/
+e2e/
+scripts/
+supabase/
+test-results/
+playwright-report/
+coverage/

@@ -49,3 +49,6 @@ playwright-report/
 .claude/
 .continue/
 .kiro/
+
+# Índice local de CodeGraph (no se versiona)
+.codegraph/
