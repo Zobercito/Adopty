@@ -8,12 +8,12 @@
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
 - [x] Supabase → Auth: **Secure email change** activo (cambio de correo del perfil)
 - [x] Migraciones aplicadas en cloud (las 35 hasta `20261123020000`) y anotadas en `supabase_migrations.schema_migrations`
-- [ ] `resend_api_key` creado en Vault; `net._http_response` con un `200` de Resend
+- [x] `resend_api_key` creado en Vault (2026-11-25); `[ ]` falta ver `net._http_response` con un `200` de Resend en producción
 - [x] Rate-limit distribuido (tabla + RPC `consumir_rate_limit`) aplicado a las mutaciones autenticadas
 - [x] CI: cobertura con umbral, e2e público, smoke de axe y presupuesto Lighthouse semanal
 - [x] Seed **limpio** en cloud: la clave `Adopty123!` ya no abre ninguna cuenta (P0-03)
 - [x] Al menos un administrador dado de alta (`docs/ADMIN.md`)
-- [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
+- [x] Google OAuth: **fuera de alcance por decisión del equipo (2026-11-25)**; el login por correo cubre el piloto
 - [x] `pg_dump` previo al piloto: `backups/adopty_20261027_010248.dump` (385 KB, 52 tablas) validado con `pg_restore -l`; workflow diario (RPO ≤ 24 h) con retención de 90 días y alerta por issue
 - [x] Restore drill en PostgreSQL 17 limpio: 0 errores, conteos idénticos y RLS activa sobre la copia (RTO del restore 0,28 s)
 - [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 en prod → LCP 1.9 / 1.7 / 1.6 s móvil; escritorio Perf 100 y CLS 0; a11y 100 y axe 0

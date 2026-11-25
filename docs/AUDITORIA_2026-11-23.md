@@ -24,13 +24,10 @@ cerrado al 100 %.** El código pasa lint, tipos, 186 tests unitarios y build; pr
 responde y los workflows de CI, backup, uptime y rendimiento están en verde. No hay
 stubs, endpoints sin implementar ni `TODO` en `src/`.
 
-Quedan **dos bloqueantes de entrega**:
-
-1. **Google OAuth** (código listo, provider apagado).
-2. **Piloto real y acta firmada** (métricas y firmas en blanco).
-
-Además, los **avisos por email** están codificados pero pendientes de activación, y
-queda deuda operativa de credenciales.
+Queda **un bloqueante de entrega**: el **piloto real y acta firmada** (métricas y
+firmas en blanco). **Google OAuth se retiró del alcance por decisión del equipo
+(2026-11-25)** y los **avisos por email** ya tienen el secreto en Vault; la entrega
+real no se probó. Persiste deuda operativa de credenciales.
 
 ## 2. Alcance y método
 
@@ -124,34 +121,35 @@ ignora en `.gitignore`/`.prettierignore`. Los cambios de skills (`.agents/`,
 
 ### 5.1 Resumen
 
-| ID     | Prioridad | Estado       | Hallazgo                                                           |
-| ------ | --------- | ------------ | ------------------------------------------------------------------ |
-| AUD-01 | P0        | `[FALTA]`    | Google OAuth sin activar en producción                             |
-| AUD-02 | P0        | `[FALTA]`    | Piloto real y acta de entrega sin ejecutar/firmar                  |
-| AUD-03 | P1        | `[EN CURSO]` | Contraseña de Postgres de producción sin rotar (`.env.db`)         |
-| AUD-04 | P2        | `[HECHO]`    | Redirects de Auth usan `import.meta.env.SITE`, no el Host          |
-| AUD-05 | P2        | `[PARCIAL]`  | Avisos por email codificados; activación Vault/pg_net pendiente    |
-| AUD-06 | P2        | `[HECHO]`    | Filtros de edad, raza y ubicación + tests                          |
-| AUD-07 | P2        | `[HECHO]`    | 1k local: p95 170 ms API y 57 ms `/explorar`                       |
-| AUD-08 | P2        | `[HECHO]`    | Dependencias actualizadas; `npm audit` sin vulnerabilidades        |
-| AUD-09 | P3        | `[PARCIAL]`  | Sin `srcset`/AVIF en las imágenes                                  |
-| AUD-10 | P3        | `[HECHO]`    | CSP enforcing con hashes de Astro; 7 páginas sin violaciones       |
-| AUD-11 | P3        | `[HECHO]`    | Visor de auditoría para admin y autor correcto                     |
-| AUD-12 | P3        | `[HECHO]`    | Zod en `PATCH /api/admin/cuentas` + test                           |
-| AUD-13 | P3        | `[DECISIÓN]` | Paginación por offset, documentada en `ADR-024`                    |
-| AUD-14 | P3        | `[HECHO]`    | `.env.example` alineado con el código y el diseño                  |
-| AUD-15 | P3        | `[HECHO]`    | Node 24 en `.nvmrc`/engines/CI y build local con 24 verificado     |
-| AUD-16 | P4        | `[HECHO]`    | Conteos y vulnerabilidades corregidos en la documentación          |
-| AUD-17 | P4        | `[HECHO]`    | `ADR-010` marcada como sustituida por `ADR-023`                    |
-| AUD-18 | P4        | `[PARCIAL]`  | `format:check` en verde; los archivos de skills siguen sucios      |
-| AUD-19 | P4        | `[HECHO]`    | Alcance documentado + 3 tests de contratos de API                  |
-| AUD-20 | P4        | `[HECHO]`    | Postman con 42 requests; 27/29 rutas (faltan 2 OAuth de navegador) |
+| ID     | Prioridad | Estado       | Hallazgo                                                                     |
+| ------ | --------- | ------------ | ---------------------------------------------------------------------------- |
+| AUD-01 | P0        | `[DECISIÓN]` | Google OAuth fuera de alcance (2026-11-25); login por correo cubre el piloto |
+| AUD-02 | P0        | `[FALTA]`    | Piloto real y acta de entrega sin ejecutar/firmar                            |
+| AUD-03 | P1        | `[EN CURSO]` | Contraseña de Postgres de producción sin rotar (`.env.db`)                   |
+| AUD-04 | P2        | `[HECHO]`    | Redirects de Auth usan `import.meta.env.SITE`, no el Host                    |
+| AUD-05 | P2        | `[PARCIAL]`  | Avisos por email codificados; activación Vault/pg_net pendiente              |
+| AUD-06 | P2        | `[HECHO]`    | Filtros de edad, raza y ubicación + tests                                    |
+| AUD-07 | P2        | `[HECHO]`    | 1k local: p95 170 ms API y 57 ms `/explorar`                                 |
+| AUD-08 | P2        | `[HECHO]`    | Dependencias actualizadas; `npm audit` sin vulnerabilidades                  |
+| AUD-09 | P3        | `[PARCIAL]`  | Sin `srcset`/AVIF en las imágenes                                            |
+| AUD-10 | P3        | `[HECHO]`    | CSP enforcing con hashes de Astro; 7 páginas sin violaciones                 |
+| AUD-11 | P3        | `[HECHO]`    | Visor de auditoría para admin y autor correcto                               |
+| AUD-12 | P3        | `[HECHO]`    | Zod en `PATCH /api/admin/cuentas` + test                                     |
+| AUD-13 | P3        | `[DECISIÓN]` | Paginación por offset, documentada en `ADR-024`                              |
+| AUD-14 | P3        | `[HECHO]`    | `.env.example` alineado con el código y el diseño                            |
+| AUD-15 | P3        | `[HECHO]`    | Node 24 en `.nvmrc`/engines/CI y build local con 24 verificado               |
+| AUD-16 | P4        | `[HECHO]`    | Conteos y vulnerabilidades corregidos en la documentación                    |
+| AUD-17 | P4        | `[HECHO]`    | `ADR-010` marcada como sustituida por `ADR-023`                              |
+| AUD-18 | P4        | `[PARCIAL]`  | `format:check` en verde; los archivos de skills siguen sucios                |
+| AUD-19 | P4        | `[HECHO]`    | Alcance documentado + 3 tests de contratos de API                            |
+| AUD-20 | P4        | `[HECHO]`    | Postman con 42 requests; 27/29 rutas (faltan 2 OAuth de navegador)           |
 
 ### 5.2 P0 — Bloqueantes de entrega
 
 #### AUD-01 — Google OAuth sin activar
 
-- **Estado:** `[FALTA]`. Código completo, provider apagado.
+- **Estado:** `[DECISIÓN]` (2026-11-25). Fuera del alcance por tiempo: la entrega se
+  sostiene con correo/contraseña. El código sigue en el repo y queda para el backlog.
 - **Evidencia:** `src/lib/oauth.ts`, `src/pages/api/auth/google.ts:16-18` (404 si
   `googleActivo` es falso), botón condicionado en `src/pages/login.astro:44` y
   `src/pages/register.astro`, `docs/CHECKLIST.md:15`.
@@ -206,8 +204,8 @@ ignora en `.gitignore`/`.prettierignore`. Los cambios de skills (`.agents/`,
   validando `next` con `rutaInternaSegura`.
 - **Impacto (original):** un Host manipulado + comodín en Redirect URLs podía llevarse
   el `code` a un dominio ajeno.
-- **Pendiente operativo:** revisar Authentication → URL Configuration y dejar solo apex,
-  `www`, previews conocidos y `localhost` (no se puede leer desde el repo).
+- **Operativo (2026-11-25):** la allowlist de Redirect URLs ya estaba configurada con
+  apex, `www`, `localhost` y previews concretos; sin comodines amplios.
 - **Criterio de aceptación:** el `redirectTo` no varía al cambiar el Host; la allowlist
   no contiene comodines amplios.
 
@@ -420,8 +418,8 @@ ignora en `.gitignore`/`.prettierignore`. Los cambios de skills (`.agents/`,
 | Validación server total        | `[PARCIAL]` | Zod en las mutaciones JSON; `upload` valida MIME real y 5 MB  |
 | Tipos TS/Astro                 | `[HECHO]`   | `npm run check` 0 errores                                     |
 | axe 0 críticos / teclado / AA  | `[HECHO]`   | 10/10 contra prod; informe manual de QA                       |
-| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | AUD-02                                                        |
-| Google OAuth                   | `[FALTA]`   | AUD-01                                                        |
+| Piloto ≥5 / ≥3 / ≥1 + feedback | `[FALTA]`   | AUD-02 (único bloqueante restante)                            |
+| Google OAuth                   | `[N/A]`     | Fuera de alcance por decisión del 2026-11-25 (AUD-01)         |
 | Backup y restore               | `[HECHO]`   | Dump diario, copia R2, restore drill documentado              |
 
 ## 7. Riesgos y notas de seguridad
@@ -563,7 +561,7 @@ Queda pendiente el run real de CI (AUD-15), el backfill de variantes de fotos an
 ---
 
 **Conclusión:** el proyecto está listo para demostrar el producto y sostener el piloto,
-pero no para declarar la entrega cerrada. El bloque fácil, todo el medio y los difíciles
-están cerrados; los dos P0 siguen siendo operativos (OAuth y piloto/acta), la activación
-de emails y las migraciones nuevas dependen de Supabase, y queda el backfill de variantes
-antiguas.
+pero no para declarar la entrega cerrada: falta el piloto y el acta. El bloque fácil, todo
+el medio y los difíciles están cerrados; OAuth quedó fuera de alcance por decisión del
+equipo, las migraciones están aplicadas en cloud, el secreto de Resend existe y solo
+quedan el piloto, el backfill de fotos antiguas y la rotación de credenciales.
