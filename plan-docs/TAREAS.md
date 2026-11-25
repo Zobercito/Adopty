@@ -97,7 +97,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-010 · Encolado de avisos y antispam
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-006 · AC-006-g · REQ-008 · AC-008-c
 - depende: TASK-006
 - test: —
@@ -106,7 +106,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-011 · Negativos de acceso y RLS
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-007 · AC-007-a, AC-007-d, AC-007-e · REQ-005 · AC-005-a
 - depende: TASK-001, TASK-002
 - test: —

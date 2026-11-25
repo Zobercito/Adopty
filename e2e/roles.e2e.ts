@@ -52,6 +52,8 @@ const PASSWORD_NUEVA = 'Roles-Adopty-2026-Nueva!';
 /** Correo vigente por rol: cambia si un test lo modifica. */
 const correos: Record<string, string> = {};
 const correo = (rol: string) => correos[rol] ?? `roles-${rol}-${sello}@adopty.test`;
+/** Rol de cada contexto, para limpiar solo su cubo de rate-limit. */
+const rolDe = new WeakMap<APIRequestContext, string>();
 
 let adoptante: APIRequestContext;
 let organizacion: APIRequestContext;
@@ -126,6 +128,7 @@ async function registrar(
       maxRedirects: 0,
     });
     expect(res.status(), await res.text()).toBe(302);
+    rolDe.set(ctx, rol);
     return ctx;
   } catch (error) {
     // Sin esto, un fallo en la aserción deja el contexto abierto y la cookie viva.
@@ -151,6 +154,20 @@ function nuevoContexto(): Promise<APIRequestContext> {
 
 /** Publica una mascota con foto (la usa el publicador u organización). */
 async function publicar(ctx: APIRequestContext, nombre: string): Promise<string> {
+  // Varias tareas publican en la misma corrida y el cubo es 5/h por usuario:
+  // se limpia solo el del publicador, no el de otras cuentas ni suites.
+  const rol = rolDe.get(ctx);
+  if (rol) {
+    try {
+      psql(`delete from public.rate_limits
+             where clave = 'mascota:crear:' || (
+               select id::text from public.usuarios where correo = '${correo(rol)}'
+             );`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+
   const png = await sharp({
     create: { width: 320, height: 240, channels: 3, background: '#0ea5e9' },
   })
@@ -177,6 +194,22 @@ async function publicar(ctx: APIRequestContext, nombre: string): Promise<string>
   });
   expect(res.status(), await res.text()).toBe(201);
   return ((await res.json()) as { id: string }).id;
+}
+
+/** Extrae el access token de la cookie de Supabase SSR (con o sin trocear). */
+function accessToken(state: { cookies: { name: string; value: string }[] }): string | undefined {
+  const chunks = state.cookies
+    .filter((c) => /auth-token(\.\d+)?$/.test(c.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  if (!chunks.length) return undefined;
+  const raw = chunks.map((c) => c.value.replace(/^base64-/, '')).join('');
+  try {
+    const parsed = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+    const first = Array.isArray(parsed) ? parsed[0] : parsed;
+    return typeof first?.access_token === 'string' ? first.access_token : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 test.beforeAll(async () => {
@@ -983,4 +1016,80 @@ test('AC-006-c/d/h · suspender oculta la mascota, reactivar la devuelve y queda
                                 and datos_nuevos ->> 'id_objetivo' = '${orgId}'
                                 and accion in ('suspender_cuenta', 'reactivar_cuenta');`);
   expect(conObjetivo).toBe('2');
+});
+
+test('AC-006-g · la solicitud encola un aviso y el antispam evita duplicados', async () => {
+  const id = await publicar(organizacion, `Aviso ${sello}`);
+  const orgId = psql(`select id from usuarios where correo = '${correo('organizacion')}';`);
+
+  const primera = await adoptante.post('/api/solicitudes', {
+    data: { id_mascota: id, mensaje_inicial: 'Primera solicitud para probar el aviso.' },
+  });
+  expect(primera.status(), await primera.text()).toBe(201);
+
+  // Otro adoptante sobre la misma mascota: mismo tipo/mascota/destinatario/hora.
+  const segunda = await tercero.post('/api/solicitudes', {
+    data: { id_mascota: id, mensaje_inicial: 'Segunda solicitud para el antispam.' },
+  });
+  expect(segunda.status(), await segunda.text()).toBe(201);
+
+  // Antispam por cubo horario: ninguna hora puede tener dos avisos iguales.
+  const maxPorHora = Number(
+    psql(`select coalesce(max(c), 0) from (
+            select count(*) c
+              from notificaciones_log
+             where tipo = 'solicitud_nueva'
+               and id_mascota = '${id}'
+               and id_destinatario = '${orgId}'
+             group by fecha_hora
+          ) t;`),
+  );
+  expect(maxPorHora).toBe(1);
+});
+
+test('AC-007-a/d/e · negativos de acceso y RLS', async () => {
+  const idOrg = psql(`select id from usuarios where correo = '${correo('organizacion')}';`);
+
+  // a) Un tercero no edita la mascota de A ni toca su solicitud.
+  expect(
+    (await tercero.patch(`/api/mascotas/${mascotaReportable}`, { data: { raza: 'X' } })).status(),
+  ).toBe(403);
+  const solicitudAjena = await tercero.patch(`/api/solicitudes/${solicitudChat}`, {
+    data: { accion: 'aprobar' },
+  });
+  expect([403, 404]).toContain(solicitudAjena.status());
+
+  // d) Rutas de admin sin sesión: 401 (y /admin redirige a login).
+  const anon = await nuevoContexto();
+  try {
+    expect((await anon.get('/api/admin/reportes')).status()).toBe(401);
+    expect((await anon.get('/api/admin/verificaciones')).status()).toBe(401);
+    expect(
+      (await anon.patch('/api/admin/cuentas', { data: { id: idOrg, activo: false } })).status(),
+    ).toBe(401);
+    expect((await anon.get('/admin', { maxRedirects: 0 })).status()).toBe(302);
+  } finally {
+    await anon.dispose();
+  }
+
+  // e) `notificaciones_log` no se puede leer por REST ni con sesión.
+  const token = accessToken(await adoptante.storageState());
+  const base = process.env.PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
+  const key = process.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+  expect(key, 'Falta PUBLIC_SUPABASE_ANON_KEY en el entorno').toBeTruthy();
+  expect(token, 'No se pudo extraer el access token de la cookie').toBeTruthy();
+  const headers = { apikey: key, Authorization: `Bearer ${token}` };
+
+  // Control positivo: las mismas cabeceras sí leen una tabla pública.
+  const control = await fetch(`${base}/rest/v1/mascotas?select=id&limit=1`, { headers });
+  expect(control.status).toBe(200);
+
+  const rest = await fetch(`${base}/rest/v1/notificaciones_log?select=id&limit=1`, { headers });
+  // 403 = la tabla existe y está cerrada; sin clave sería 401 y no probaría nada.
+  expect(rest.status).toBe(403);
+
+  // AC-005-a: un usuario normal no entra en las APIs de admin.
+  expect(
+    (await adoptante.patch('/api/admin/cuentas', { data: { id: idOrg, activo: false } })).status(),
+  ).toBe(403);
 });
