@@ -1,5 +1,24 @@
 # Informe QA — Adopty
 
+## Verificación funcional por roles — 2026-11-25
+
+Suite nueva `e2e/roles.e2e.ts`: entra como cada rol con sesión real y comprueba
+los efectos cruzados entre cuentas (reporte → admin, suspensión → usuario,
+verificación → badge, aprobación → chat).
+
+| Prueba                                    | Resultado                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| Suite por roles (25 casos, AC-001…AC-007) | ✅ 3 corridas seguidas, 0 fallos                                    |
+| Tiempo de las 3 corridas                  | ✅ 87 s (< 10 min)                                                  |
+| Migraciones desde cero                    | ✅ `db reset` aplica las 37 y el seed                               |
+| Limpieza                                  | ✅ `db reset` al terminar (los objetos de Storage de prueba quedan) |
+
+Cubre: sesión por rol, perfil/estilo/favoritos/avisos, contraseña/correo/baja,
+publicador y panel, solicitud y chat con no-leídos, reporte y moderación,
+verificación de organización, suspensión/reactivación con auditoría, antispam de
+avisos y negativos de RLS. Guardas: solo con `E2E_FLUJO=1`, Supabase y destino
+locales; el admin se crea con SQL local, sin service role.
+
 ## Actualización 2026-11-23/24 — bloques fácil, medio y difíciles
 
 Entorno: `develop` local y producción solo lectura. Sin cambios de comportamiento.

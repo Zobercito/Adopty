@@ -115,7 +115,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-012 · Evidencia, repetición y limpieza
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-008 · AC-008-a, AC-008-b · REQ-009 · AC-009-a, AC-009-b, AC-009-c
 - depende: TASK-003, TASK-004, TASK-006, TASK-007, TASK-008, TASK-009, TASK-010, TASK-011
 - test: —
