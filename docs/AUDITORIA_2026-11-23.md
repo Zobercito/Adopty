@@ -125,13 +125,13 @@ ignora en `.gitignore`/`.prettierignore`. Los cambios de skills (`.agents/`,
 | ------ | --------- | ------------ | ---------------------------------------------------------------------------- |
 | AUD-01 | P0        | `[DECISIÓN]` | Google OAuth fuera de alcance (2026-11-25); login por correo cubre el piloto |
 | AUD-02 | P0        | `[FALTA]`    | Piloto real y acta de entrega sin ejecutar/firmar                            |
-| AUD-03 | P1        | `[EN CURSO]` | Contraseña de Postgres de producción sin rotar (`.env.db`)                   |
+| AUD-03 | P1        | `[DECISIÓN]` | Riesgo aceptado: no se rota la contraseña (`.env.db` en MEGA)                |
 | AUD-04 | P2        | `[HECHO]`    | Redirects de Auth usan `import.meta.env.SITE`, no el Host                    |
-| AUD-05 | P2        | `[PARCIAL]`  | Avisos por email codificados; activación Vault/pg_net pendiente              |
+| AUD-05 | P2        | `[PARCIAL]`  | Migraciones y secreto en Vault; falta probar la entrega real                 |
 | AUD-06 | P2        | `[HECHO]`    | Filtros de edad, raza y ubicación + tests                                    |
 | AUD-07 | P2        | `[HECHO]`    | 1k local: p95 170 ms API y 57 ms `/explorar`                                 |
 | AUD-08 | P2        | `[HECHO]`    | Dependencias actualizadas; `npm audit` sin vulnerabilidades                  |
-| AUD-09 | P3        | `[PARCIAL]`  | Sin `srcset`/AVIF en las imágenes                                            |
+| AUD-09 | P3        | `[HECHO]`    | `srcset` 640/1280 con fallback; no hay fotos en Storage que migrar           |
 | AUD-10 | P3        | `[HECHO]`    | CSP enforcing con hashes de Astro; 7 páginas sin violaciones                 |
 | AUD-11 | P3        | `[HECHO]`    | Visor de auditoría para admin y autor correcto                               |
 | AUD-12 | P3        | `[HECHO]`    | Zod en `PATCH /api/admin/cuentas` + test                                     |
@@ -140,7 +140,7 @@ ignora en `.gitignore`/`.prettierignore`. Los cambios de skills (`.agents/`,
 | AUD-15 | P3        | `[HECHO]`    | Node 24 en `.nvmrc`/engines/CI y build local con 24 verificado               |
 | AUD-16 | P4        | `[HECHO]`    | Conteos y vulnerabilidades corregidos en la documentación                    |
 | AUD-17 | P4        | `[HECHO]`    | `ADR-010` marcada como sustituida por `ADR-023`                              |
-| AUD-18 | P4        | `[PARCIAL]`  | `format:check` en verde; los archivos de skills siguen sucios                |
+| AUD-18 | P4        | `[HECHO]`    | Skills consolidadas y commiteadas; `.env` y `.codegraph` ignorados           |
 | AUD-19 | P4        | `[HECHO]`    | Alcance documentado + 3 tests de contratos de API                            |
 | AUD-20 | P4        | `[HECHO]`    | Postman con 42 requests; 27/29 rutas (faltan 2 OAuth de navegador)           |
 
