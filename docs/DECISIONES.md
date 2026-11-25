@@ -118,12 +118,11 @@ Las tareas pendientes derivadas viven en `docs/AUDITORIA_PENDIENTES.md`.
 ## ADR-010 — Rate limit en memoria (limitación conocida)
 
 - **Fecha:** 2026-09.
-- **Estado:** aceptada temporalmente.
+- **Estado:** sustituida por [ADR-023](#adr-023--rate-limit-distribuido-en-postgres-sin-servicio-extra).
 - **Contexto:** el piloto corre en pocas instancias y no se quería añadir Redis/KV.
 - **Decisión:** cubetas en un `Map` por proceso (`src/lib/ratelimit.ts`).
 - **Consecuencias:** no es consistente entre instancias serverless; sirve como
-  freno básico. Migrar a Upstash/KV o RPC atómica en Supabase si el tráfico crece
-  (P2-03).
+  freno básico. Se mantiene solo como fallback si la RPC atómica falla (ADR-023).
 
 ## ADR-011 — Service worker con lista blanca de rutas públicas
 
@@ -176,8 +175,9 @@ follow` en páginas privadas o fichas no públicas.
   transitivas seguras (`zod` a 4.6.7 y `path-to-regexp` a 6.3.0) mediante
   `overrides`; CI ejecuta `npm audit --audit-level=high` y Dependabot agrupa
   minor/patch semanalmente.
-- **Consecuencias:** el lockfile queda con 0 vulnerabilidades conocidas. Revisar
-  los overrides al actualizar `@astrojs/vercel`; si upstream deja de necesitarlos,
+- **Consecuencias:** el lockfile quedó sin vulnerabilidades conocidas en esa fecha;
+  el 2026-11-24, tras `npm update`, hay 0 vulnerabilidades (Astro 7.4.12). Revisar los
+  overrides al actualizar `@astrojs/vercel`; si upstream deja de necesitarlos,
   eliminarlos.
 
 ## ADR-015 — E2E separados por efecto secundario
@@ -203,20 +203,23 @@ follow` en páginas privadas o fichas no públicas.
 - **Consecuencias:** la retención es limitada y depende de GitHub; para producción
   real, mover a almacenamiento off-site con cifrado y alertas (P2-06).
 
-## ADR-017 — Headers de seguridad en Vercel con CSP en Report-Only
+## ADR-017 — Headers de seguridad en Vercel y CSP enforcing con Astro
 
-- **Fecha:** 2026-10-26.
-- **Estado:** aceptada.
+- **Fecha:** 2026-10-26; CSP enforcing: 2026-11-23.
+- **Estado:** aceptada (sustituye la CSP en `Report-Only`).
 - **Contexto:** faltaban HSTS, `nosniff`, frame policy, referrer y CSP. Las páginas
-  estáticas y los assets no pasan por el middleware de Astro en producción.
-- **Decisión:** `vercel.json` aplica los headers a `/(.*)`. La CSP se emite como
-  `Content-Security-Policy-Report-Only` con orígenes explícitos para Supabase,
-  Google Fonts y Vercel Analytics; Astro usa scripts inline, así que endurecerla
-  exige nonces/hashes.
-- **Consecuencias:** la protección contra clickjacking/MIME sniffing/referrer es
-  efectiva desde el deploy; la CSP solo reporta en consola por ahora. Pasar a
-  enforcing cuando se migre a nonces y se valide en un preview. No mover estos
-  headers al middleware: dejaría sin cobertura los archivos estáticos.
+  estáticas y los assets no pasan por el middleware de Astro en producción. Astro 7
+  emite CSP con hashes de los scripts que procesa.
+- **Decisión:** `vercel.json` aplica los headers que no son CSP a `/(.*)` (HSTS,
+  `nosniff`, `X-Frame-Options`, referrer, permissions). La CSP la emite
+  `security.csp` de Astro: header `Content-Security-Policy` en SSR y `<meta>` en
+  prerenderizadas, con hashes SHA-256 en `script-src` y `frame-ancestors` en el
+  header. `style-src` conserva `'unsafe-inline'` por los atributos `style`
+  dinámicos.
+- **Consecuencias:** `script-src` deja de aceptar inline sin hash. No se pueden usar
+  `is:inline` ni `define:vars` (no se hashean): los datos van en `data-*` y se leen
+  con `dataset`. No poner CSP en `vercel.json` (sobrescribiría el header con hashes).
+  Validar en `build` + preview; `dev` no aplica CSP.
 
 ## ADR-018 — Límites de Storage y escritura por carpeta del dueño
 
@@ -318,3 +321,35 @@ follow` en páginas privadas o fichas no públicas.
   por petición limitada; las filas vencidas se limpian dentro de la propia RPC. Los
   límites siguen siendo por clave (IP o usuario), no globales. Un cliente podría inflar
   la cuota de otra clave si conoce su valor, pero no leer ni borrar la tabla.
+
+## ADR-024 — Paginación por offset en el catálogo
+
+- **Fecha:** 2026-11-23.
+- **Estado:** aceptada (revisar si el catálogo crece a miles de fichas).
+- **Contexto:** la Fase 3 del plan pedía paginación por cursor. El catálogo real del
+  piloto tiene decenas de mascotas y la búsqueda ya filtra por `estado`, `especie`,
+  `tamano`, `sexo` y texto; el paginador necesita URLs compartibles (`?page=2`) y un
+  total exacto para mostrar “Página X de Y”.
+- **Decisión:** `page` + `.range()` en `buscarMascotas` (`src/lib/mascotas.ts`), 20 por
+  página con tope de 60. PostgREST devuelve 416 si la página queda fuera de rango y el
+  helper la recorta a la última válida.
+- **Consecuencias:** URLs simples y paginador predecible; el coste es que `OFFSET`
+  profundo se degrada con muchas filas y que una inserción entre páginas puede duplicar
+  o saltar un elemento. Si el catálogo supera unos miles de registros, migrar a cursor
+  por `(fecha_publicacion, id)`; el contrato de la API mantendría `items` y `total`.
+
+## ADR-025 — Avisos por email desde Postgres con `pg_net` y Vault
+
+- **Fecha:** 2026-11-23.
+- **Estado:** aceptada; activación pendiente del secreto de Vault.
+- **Contexto:** hay que avisar de solicitudes y mensajes sin exponer el correo del
+  destinatario a la app ni usar `SUPABASE_SERVICE_ROLE_KEY`, que el proyecto prohíbe.
+- **Decisión:** la RPC `encolar_notificacion` (`SECURITY DEFINER`) valida la relación
+  llamante→destinatario, el opt-out y un antispam por hora; `notificar_email` lee el
+  correo dentro de la base y lo manda con `pg_net` a Resend usando un secreto de Vault.
+  La app solo llama a la RPC y nunca ve el correo. El remitente es
+  `no-reply@adopty.lat`.
+- **Consecuencias:** el email no sale de Postgres; no hay service role ni Edge Function.
+  Requiere `pg_net` y `resend_api_key` en Vault; sin ellos las funciones no hacen nada.
+  `pg_net` es asíncrono y no hay reintentos automáticos: los fallos quedan en
+  `net._http_response`. El enlace de los emails usa `https://adopty.lat` fijo.

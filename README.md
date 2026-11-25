@@ -69,7 +69,7 @@ mensajes hace falta iniciar sesión.
 
 | Herramienta  | Versión o requisito                               |
 | ------------ | ------------------------------------------------- |
-| Node.js      | `>=22.23.4` (definido en `engines`)               |
+| Node.js      | `>=24` (definido en `engines` y `.nvmrc`)         |
 | npm          | 10+ (lockfile v3)                                 |
 | Supabase CLI | 2.x (`supabase@^2.122.0` en `devDependencies`)    |
 | Docker       | Necesario para `supabase start`                   |
@@ -134,16 +134,16 @@ WHERE email = 'patitas@adopty.pa';
 
 ### Comandos frecuentes
 
-| Propósito                                   | Comando                                                   |
-| ------------------------------------------- | --------------------------------------------------------- |
-| Desarrollo                                  | `npm run dev`                                             |
-| Validación                                  | `npm run format:check` · `npm run lint` · `npm run check` |
-| Tests unitarios                             | `npm test` · `npm run test:coverage`                      |
-| E2E públicos (solo lectura)                 | `npm run test:e2e`                                        |
-| E2E de flujo (escribe; solo Supabase local) | `npm run test:e2e:flujo`                                  |
-| Build de producción                         | `npm run build`                                           |
-| Reset de base local                         | `supabase db reset`                                       |
-| Rendimiento de búsqueda                     | `node scripts/perf.mjs [base]`                            |
+| Propósito                                   | Comando                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------ |
+| Desarrollo                                  | `npm run dev`                                                      |
+| Validación                                  | `npm run format:check` · `npm run lint` · `npm run check`          |
+| Tests unitarios                             | `npm test` · `npm run test:coverage`                               |
+| E2E públicos (solo lectura)                 | `npm run test:e2e`                                                 |
+| E2E de flujo (escribe; solo Supabase local) | `npm run test:e2e:flujo`                                           |
+| Build de producción                         | `npm run build`                                                    |
+| Reset de base local                         | `supabase db reset`                                                |
+| Rendimiento de búsqueda                     | `node scripts/perf.mjs [base]` (dataset 1k: `scripts/seed-1k.sql`) |
 
 ## Arquitectura
 
@@ -196,13 +196,19 @@ Más detalle en [`docs/DECISIONES.md`](docs/DECISIONES.md) y
 
 ## Tests
 
-Medido el **2026-10-29**:
+Medido el **2026-10-29**; unitarios, e2e público y cobertura re-verificados el
+**2026-11-23**.
 
-| Suite                                   | Resultado                                                          |
-| --------------------------------------- | ------------------------------------------------------------------ |
-| Unitarios (`npm test`)                  | vitest: dominio, validación Zod, transiciones, RLS y contratos SQL |
-| E2E públicos (`npm run test:e2e`)       | 32 tests, solo lectura                                             |
-| E2E de flujo (`npm run test:e2e:flujo`) | Registro → publicar → solicitar → aprobar → chat → reportar        |
+| Suite                                   | Resultado                                                                           |
+| --------------------------------------- | ----------------------------------------------------------------------------------- |
+| Unitarios (`npm test`)                  | 186/186 en 33 archivos (dominio, validación Zod, transiciones, RLS y contratos SQL) |
+| Cobertura (`npm run test:coverage`)     | 68,34 / 59,86 / 66,66 / 72,06 (stmts / ramas / funcs / líneas); umbral 65/52/62/70  |
+| E2E públicos (`npm run test:e2e`)       | 32 tests, solo lectura                                                              |
+| E2E de flujo (`npm run test:e2e:flujo`) | Registro → publicar → solicitar → aprobar → chat → reportar                         |
+
+La cobertura mide **solo `src/lib/**`**. No incluye `src/pages/api/**`, componentes ni
+middleware; esos se cubren parcialmente con los e2e. El número no debe leerse como
+cobertura de toda la aplicación.
 
 La suite pública se puede correr contra producción:
 
@@ -242,10 +248,10 @@ e2e/{publico,flujo}.e2e.ts    # Playwright
 supabase/migrations/*.sql     # migraciones: schema, RLS, storage, RPC,
                               # auditoría, moderación, admin, cuenta y triggers
 supabase/seed.sql             # 2 publicadores + 30 mascotas (solo local)
-vercel.json                   # headers de seguridad (HSTS, CSP Report-Only…)
+vercel.json                   # headers de seguridad no-CSP (HSTS, frame, referrer…)
 docs/                         # arquitectura, operación, QA y runbooks
 postman/adopty.json           # colección de la API
-scripts/                      # backup, rendimiento y generación de iconos
+scripts/                      # backup, rendimiento, iconos, seed 1k y backfill de imágenes
 ```
 
 ## Seguridad y privacidad
@@ -269,8 +275,13 @@ del repositorio.
 - **Google OAuth está pendiente**; el acceso por correo funciona.
 - **La revocación de sesiones no es inmediata**: el middleware corta en la petición
   siguiente al detectar `usuarios.activo = false`.
-- **La CSP está en Report-Only** por los scripts inline de Astro. Pasar a enforcing
-  requiere nonces/hashes y validarlo en un preview.
+- **La CSP la emite Astro en modo enforcing** (`security.csp`) con hashes SHA-256 para
+  `script-src`; `style-src` conserva `'unsafe-inline'` por los atributos `style`
+  dinámicos. No uses `is:inline` ni `define:vars`: sus scripts no se hashean. Pasa los
+  datos con `data-*` y lee `dataset`.
+- **Los avisos por email requieren activación**: el código está listo (Postgres +
+  `pg_net` + Vault), pero hasta crear `resend_api_key` y aplicar la migración no se envía
+  nada. La key nunca va en `.env`.
 - **Las fotos de producción pueden ser de muestra**: muchas mascotas del piloto no
   tienen foto propia.
 - **El estado `adoptada` es terminal**: la API responde 409 y la UI deshabilita el
@@ -312,6 +323,8 @@ npm run format:check && npm run lint && npm run check && npm test && npm run bui
 | [`docs/ADMIN.md`](docs/ADMIN.md)                                | Alta de administradores y moderación                |
 | [`docs/DECISIONES.md`](docs/DECISIONES.md)                      | ADRs y consecuencias                                |
 | [`docs/AUDITORIA_PENDIENTES.md`](docs/AUDITORIA_PENDIENTES.md)  | Hallazgos, prioridades y roadmap                    |
+| [`docs/AUDITORIA_2026-11-23.md`](docs/AUDITORIA_2026-11-23.md)  | Auditoría independiente: estado real y pendientes   |
+| [`docs/SESION_2026-11-25.md`](docs/SESION_2026-11-25.md)        | Resumen compacto de la sesión de cierre             |
 | [`docs/QA.md`](docs/QA.md)                                      | Último informe de calidad y diferidos               |
 | [`docs/DFD.md`](docs/DFD.md) · [`docs/DER.dbml`](docs/DER.dbml) | Diagramas de flujo y modelo de datos                |
 | [`docs/DICCIONARIO.md`](docs/DICCIONARIO.md)                    | Diccionario de datos                                |

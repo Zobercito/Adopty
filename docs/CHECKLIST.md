@@ -7,7 +7,8 @@
 - [x] Supabase → Auth → URL Configuration: Site URL + Redirects (`/api/auth/callback` del dominio)
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
 - [x] Supabase → Auth: **Secure email change** activo (cambio de correo del perfil)
-- [x] Migraciones aplicadas en cloud (las 22 de `supabase/migrations/`, hasta `20261027030000`) y anotadas en `supabase_migrations.schema_migrations`
+- [x] Migraciones aplicadas en cloud (las 35 hasta `20261123020000`) y anotadas en `supabase_migrations.schema_migrations`
+- [ ] `resend_api_key` creado en Vault; `net._http_response` con un `200` de Resend
 - [x] Rate-limit distribuido (tabla + RPC `consumir_rate_limit`) aplicado a las mutaciones autenticadas
 - [x] CI: cobertura con umbral, e2e público, smoke de axe y presupuesto Lighthouse semanal
 - [x] Seed **limpio** en cloud: la clave `Adopty123!` ya no abre ninguna cuenta (P0-03)
@@ -31,10 +32,10 @@
 | Preview deploy verificado      | ✅ 2026-10-26: prod `adopty.lat` con páginas/API/DB/login/guards/sitemap               |
 | Redirects preview en Supabase  | ✅ signup con `emailRedirectTo` al preview aceptado                                    |
 | Register con `emailRedirectTo` | ✅ fix deployado; E2E completo pendiente de cuota email/hora                           |
-| Búsqueda p95 < 1 s (1k)        | ✅ 15/15 por ruta, p95 máx 608 ms en producción (2026-10-27)                           |
+| Búsqueda p95 < 1 s (1k)        | ✅ 1k local: p95 170 ms API / 57 ms `/explorar` (2026-11-25)                           |
 | Lighthouse LCP < 2.5 s móvil   | ✅ 1.9 s `/`, 1.7 s `/explorar`, 1.6 s ficha (Lighthouse 13.5, 2026-10-27)             |
 | Imágenes ≤ 500 KB WebP         | ✅ enforced en app y en Storage (`file_size_limit` + MIME)                             |
-| Headers de seguridad           | ✅ verificados en prod (HSTS, nosniff, XFO, referrer, permissions, CSP Report-Only)    |
+| Headers de seguridad           | ✅ HSTS, nosniff, XFO, referrer, permissions; CSP enforcing con Astro (validar prod)   |
 | RLS tests 100%                 | ✅ E2E por rol + 13 pruebas de bypass REST + RLS validada en el restore drill          |
 | Sin secretos en git            | ✅ verificado                                                                          |
 | Validación server total        | ✅ Zod en todas las mutaciones                                                         |
