@@ -52,7 +52,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-005 · Publicador: publicar, editar, panel y borrado lógico
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-003 · AC-003-a, AC-003-b, AC-003-c, AC-003-d, AC-003-e
 - depende: TASK-001
 - test: —

@@ -59,6 +59,8 @@ let tercero: APIRequestContext;
 let admin: APIRequestContext;
 let adoptanteBaja: APIRequestContext;
 let adminListo = false;
+let mascotaPublicable = '';
+let solicitudPendiente = '';
 
 /** Contraseña vigente por rol: cambia si un test la modifica. */
 const passwords: Record<string, string> = {};
@@ -499,4 +501,136 @@ test('AC-002-h · la baja se bloquea con la adopción en curso y se permite al c
   } finally {
     await ctx.dispose();
   }
+});
+
+/** Lee un contador del panel por su etiqueta (tolerante a los atributos de Astro). */
+function statPanel(html: string, etiqueta: string): number | null {
+  const re = new RegExp(
+    `tabular"[^>]*>(\\d+)</p>\\s*<p class="text-xs mt-1 text-muted"[^>]*>${etiqueta}</p>`,
+  );
+  const m = html.match(re);
+  return m ? Number(m[1]) : null;
+}
+
+test('AC-003-a · el publicador publica con foto y aparece en el listado', async () => {
+  const nombre = `Publicable ${sello}`;
+  const id = await publicar(organizacion, nombre);
+  mascotaPublicable = id;
+
+  const detalle = await organizacion.get(`/api/mascotas/${id}`);
+  expect(detalle.status(), await detalle.text()).toBe(200);
+  const pet = (await detalle.json()) as { estado: string; fotos: unknown[] };
+  expect(pet.estado).toBe('disponible');
+  expect(pet.fotos).toHaveLength(1);
+
+  const listado = await organizacion.get(`/api/mascotas?q=${encodeURIComponent(nombre)}`);
+  expect(listado.status(), await listado.text()).toBe(200);
+  const { items } = (await listado.json()) as { items: { id: string }[] };
+  expect(items.map((p) => p.id)).toContain(id);
+});
+
+test('AC-003-b · edita su mascota y no la ajena', async () => {
+  const id = mascotaPublicable;
+  expect(id).toBeTruthy();
+
+  const propia = await organizacion.patch(`/api/mascotas/${id}`, { data: { raza: 'Labrador' } });
+  expect(propia.status(), await propia.text()).toBe(200);
+  const leida = (await (await organizacion.get(`/api/mascotas/${id}`)).json()) as { raza: string };
+  expect(leida.raza).toBe('Labrador');
+
+  const ajena = await tercero.patch(`/api/mascotas/${id}`, { data: { raza: 'Poodle' } });
+  expect(ajena.status()).toBe(403);
+});
+
+test('AC-003-c · el panel cuadra con las filas reales', async () => {
+  const solicitud = await tercero.post('/api/solicitudes', {
+    data: { id_mascota: mascotaPublicable, mensaje_inicial: 'Solicitud para el panel.' },
+  });
+  expect(solicitud.status(), await solicitud.text()).toBe(201);
+  solicitudPendiente = ((await solicitud.json()) as { id: string }).id;
+
+  const esperadas = Number(
+    psql(`select count(*) from mascotas m
+            join usuarios u on u.id = m.id_publicador
+           where u.correo = '${correo('organizacion')}'
+             and m.deleted_at is null;`),
+  );
+  expect(esperadas).toBeGreaterThan(0);
+
+  const pendientes = Number(
+    psql(`select count(*) from solicitudes s
+            join mascotas m on m.id = s.id_mascota
+            join usuarios u on u.id = m.id_publicador
+           where u.correo = '${correo('organizacion')}'
+             and m.deleted_at is null and s.estado = 'pendiente';`),
+  );
+  const interesados = Number(
+    psql(`select count(distinct s.id_adoptante) from solicitudes s
+            join mascotas m on m.id = s.id_mascota
+            join usuarios u on u.id = m.id_publicador
+           where u.correo = '${correo('organizacion')}'
+             and m.deleted_at is null;`),
+  );
+  expect(pendientes).toBeGreaterThan(0);
+  expect(interesados).toBeGreaterThan(0);
+
+  const panel = await organizacion.get('/panel');
+  expect(panel.status(), await panel.text()).toBe(200);
+  const html = await panel.text();
+
+  expect(statPanel(html, 'Publicadas'), 'No se encontró «Publicadas»').toBe(esperadas);
+  expect(statPanel(html, 'Solicitudes pendientes')).toBe(pendientes);
+  expect(statPanel(html, 'Interesados')).toBe(interesados);
+
+  // La lista de filas también cuadra, no solo los contadores.
+  const filas = (html.match(/aria-label="Ver /g) ?? []).length;
+  expect(filas).toBe(esperadas);
+});
+
+test('AC-003-d · el borrado lógico la saca de público y conserva la fila', async () => {
+  const id = await publicar(organizacion, `Descartable ${sello}`);
+
+  const visible = await organizacion.get(`/api/mascotas/${id}`);
+  expect(visible.status()).toBe(200);
+
+  const baja = await organizacion.delete(`/api/mascotas/${id}`);
+  expect(baja.status(), await baja.text()).toBe(200);
+
+  const publica = await organizacion.get(`/api/mascotas/${id}`);
+  expect(publica.status()).toBe(404);
+
+  const listado = await organizacion.get(
+    `/api/mascotas?q=${encodeURIComponent(`Descartable ${sello}`)}`,
+  );
+  const { items } = (await listado.json()) as { items: { id: string }[] };
+  expect(items.map((p) => p.id)).not.toContain(id);
+
+  const fila = psql(`select count(*) from mascotas where id = '${id}' and deleted_at is not null;`);
+  expect(fila).toBe('1');
+});
+
+test('AC-003-e · una mascota adoptada no vuelve a disponible', async () => {
+  const id = mascotaPublicable;
+  expect(id).toBeTruthy();
+  expect(solicitudPendiente).toBeTruthy();
+
+  const aprobada = await organizacion.patch(`/api/solicitudes/${solicitudPendiente}`, {
+    data: { accion: 'aprobar' },
+  });
+  expect(aprobada.status(), await aprobada.text()).toBe(200);
+
+  const adoptada = await organizacion.patch(`/api/mascotas/${id}`, {
+    data: { estado: 'adoptada' },
+  });
+  expect(adoptada.status(), await adoptada.text()).toBe(200);
+
+  const retroceso = await organizacion.patch(`/api/mascotas/${id}`, {
+    data: { estado: 'disponible' },
+  });
+  expect(retroceso.status()).toBe(409);
+
+  const detalle = (await (await organizacion.get(`/api/mascotas/${id}`)).json()) as {
+    estado: string;
+  };
+  expect(detalle.estado).toBe('adoptada');
 });
