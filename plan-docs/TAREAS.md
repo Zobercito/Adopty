@@ -79,7 +79,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-008 · Organización verificada y badge
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-004 · AC-004-a, AC-004-b, AC-004-c
 - depende: TASK-001, TASK-002
 - test: —

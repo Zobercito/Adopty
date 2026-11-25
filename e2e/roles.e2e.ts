@@ -58,12 +58,14 @@ let organizacion: APIRequestContext;
 let tercero: APIRequestContext;
 let admin: APIRequestContext;
 let adoptanteBaja: APIRequestContext;
+let organizacion2: APIRequestContext;
 let adminListo = false;
 let mascotaPublicable = '';
 let solicitudPendiente = '';
 let mascotaChat = '';
 let solicitudChat = '';
 let idAdoptante = '';
+let mascotaReportable = '';
 
 /** Contraseña vigente por rol: cambia si un test la modifica. */
 const passwords: Record<string, string> = {};
@@ -194,6 +196,7 @@ test.beforeAll(async () => {
   tercero = await registrar(`Tercero Roles ${sello}`, 'tercero', 'persona');
   admin = await registrar(`Admin Roles ${sello}`, 'admin', 'persona');
   adoptanteBaja = await registrar(`Baja Roles ${sello}`, 'baja', 'persona');
+  organizacion2 = await registrar(`Refugio Dos ${sello}`, 'organizacion2', 'organizacion');
   // Si Docker no existe, los casos de admin se omiten; un fixture roto debe fallar.
   try {
     hacerAdmin(correo('admin'));
@@ -214,6 +217,7 @@ test.afterAll(async () => {
     tercero?.dispose(),
     admin?.dispose(),
     adoptanteBaja?.dispose(),
+    organizacion2?.dispose(),
   ]);
 });
 
@@ -749,6 +753,7 @@ test('AC-006-a / AC-005-b · el reporte llega al admin y ocultar/restaurar cambi
 
   const nombre = `Reportable ${sello}`;
   const id = await publicar(organizacion, nombre);
+  mascotaReportable = id;
   const q = encodeURIComponent(nombre);
   const listaPublica = async () => {
     const res = await tercero.get(`/api/mascotas?q=${q}`);
@@ -808,4 +813,76 @@ test('AC-006-a / AC-005-b · el reporte llega al admin y ocultar/restaurar cambi
   };
   const restaurado = conNota.find((r) => r.id === encontrado!.id);
   expect(restaurado?.notas_admin).toContain('restaurada');
+});
+
+test('AC-004-a/b/c · verificación de organización con badge público', async () => {
+  test.skip(!adminListo, 'Fixture de admin no disponible (docker/psql)');
+
+  const evidencia = (cuenta: string) => ({
+    tipo_evidencia: 'redes_sociales' as const,
+    url_evidencia: `https://instagram.com/${cuenta}`,
+    descripcion: 'Cuenta de la organización.',
+  });
+  const alta1 = await organizacion.post('/api/verificacion', {
+    data: evidencia(`refugio-${sello}`),
+  });
+  expect(alta1.status(), await alta1.text()).toBe(201);
+  const alta2 = await organizacion2.post('/api/verificacion', {
+    data: evidencia(`refugio-dos-${sello}`),
+  });
+  expect(alta2.status(), await alta2.text()).toBe(201);
+
+  const lista = await admin.get('/api/admin/verificaciones?estado=pendiente');
+  expect(lista.status(), await lista.text()).toBe(200);
+  const { verificaciones } = (await lista.json()) as {
+    verificaciones: { id: string; organizacion: { nombre_oficial: string } }[];
+  };
+  const v1 = verificaciones.find((v) => v.organizacion.nombre_oficial === `Refugio Roles ${sello}`);
+  const v2 = verificaciones.find((v) => v.organizacion.nombre_oficial === `Refugio Dos ${sello}`);
+  expect(v1, 'No llegó la solicitud de la organización 1').toBeTruthy();
+  expect(v2, 'No llegó la solicitud de la organización 2').toBeTruthy();
+
+  const aprobar = await admin.post(`/api/admin/verificaciones/${v1!.id}`, {
+    data: { aprobar: true },
+  });
+  expect(aprobar.status(), await aprobar.text()).toBe(200);
+  const rechazar = await admin.post(`/api/admin/verificaciones/${v2!.id}`, {
+    data: { aprobar: false, notas: 'Evidencia insuficiente.' },
+  });
+  expect(rechazar.status(), await rechazar.text()).toBe(200);
+
+  const perfil1 = (await (await organizacion.get('/api/perfil')).json()) as {
+    detalle: { verificada?: boolean };
+  };
+  expect(perfil1.detalle.verificada).toBe(true);
+
+  const perfil2 = (await (await organizacion2.get('/api/perfil')).json()) as {
+    detalle: { verificada?: boolean };
+  };
+  expect(perfil2.detalle.verificada).toBe(false);
+
+  // El badge se ve en la ficha pública de una mascota de la organización aprobada.
+  const detalle = (await (await organizacion.get(`/api/mascotas/${mascotaReportable}`)).json()) as {
+    slug: string;
+  };
+  const ficha = await tercero.get(`/mascota/${detalle.slug}`);
+  expect(ficha.status(), await ficha.text()).toBe(200);
+  expect(await ficha.text()).toContain('Organización verificada');
+
+  // La rechazada no tiene el distintivo ni en su perfil ni en su ficha pública.
+  const petSinVerificar = await publicar(organizacion2, `Sin Verificar ${sello}`);
+  const detalleSin = (await (
+    await organizacion2.get(`/api/mascotas/${petSinVerificar}`)
+  ).json()) as { slug: string };
+  const fichaSin = await tercero.get(`/mascota/${detalleSin.slug}`);
+  expect(fichaSin.status(), await fichaSin.text()).toBe(200);
+  const htmlFichaSin = await fichaSin.text();
+  expect(htmlFichaSin).toContain('Publicador particular');
+  expect(htmlFichaSin).not.toContain('Organización verificada');
+
+  const perfilHtml = await organizacion2.get('/perfil');
+  expect(perfilHtml.status()).toBe(200);
+  const htmlPerfil = await perfilHtml.text();
+  expect(htmlPerfil).toContain('pendiente de verificación');
+  expect(htmlPerfil).not.toContain('✓ Verificada');
 });
