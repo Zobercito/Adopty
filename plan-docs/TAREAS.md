@@ -88,7 +88,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-009 · Suspensión, reactivación y auditoría
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-006 · AC-006-c, AC-006-d, AC-006-h · REQ-005 · AC-005-c, AC-005-d · REQ-001 · AC-001-d
 - depende: TASK-002, TASK-005
 - test: —

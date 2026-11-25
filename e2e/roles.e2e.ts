@@ -180,12 +180,11 @@ async function publicar(ctx: APIRequestContext, nombre: string): Promise<string>
 }
 
 test.beforeAll(async () => {
-  // Cada corrida crea varias cuentas y mascotas. Los límites de registro y de
-  // publicación persisten entre corridas: se limpian solo esos cubos (no los de
-  // otras suites) para que la batería sea repetible.
+  // Cada corrida crea varias cuentas, mascotas y logins. Los límites persisten
+  // entre corridas: se limpian solo esos cubos (no los de otras suites).
   try {
     psql(
-      "delete from public.rate_limits where clave like 'register:%' or clave like 'mascota:crear:%';",
+      "delete from public.rate_limits where clave like 'register:%' or clave like 'mascota:crear:%' or clave like 'login:%';",
     );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -885,4 +884,103 @@ test('AC-004-a/b/c · verificación de organización con badge público', async 
   const htmlPerfil = await perfilHtml.text();
   expect(htmlPerfil).toContain('pendiente de verificación');
   expect(htmlPerfil).not.toContain('✓ Verificada');
+});
+
+test('AC-006-c/d/h · suspender oculta la mascota, reactivar la devuelve y queda auditoría', async () => {
+  test.skip(!adminListo, 'Fixture de admin no disponible (docker/psql)');
+
+  const orgId = psql(`select id from usuarios where correo = '${correo('organizacion')}';`);
+  expect(orgId).toMatch(/^[0-9a-f-]{36}$/);
+
+  // Punto de partida: la cuenta opera y la mascota es pública, también para anónimos.
+  expect((await organizacion.get('/api/perfil')).status()).toBe(200);
+  expect((await tercero.get(`/api/mascotas/${mascotaReportable}`)).status()).toBe(200);
+  const qReportable = encodeURIComponent(`Reportable ${sello}`);
+  const anonAntes = await nuevoContexto();
+  try {
+    expect((await anonAntes.get(`/api/mascotas/${mascotaReportable}`)).status()).toBe(200);
+    const listaAnon = (await (await anonAntes.get(`/api/mascotas?q=${qReportable}`)).json()) as {
+      items: { id: string }[];
+    };
+    expect(listaAnon.items.map((p) => p.id)).toContain(mascotaReportable);
+  } finally {
+    await anonAntes.dispose();
+  }
+
+  const suspender = await admin.patch('/api/admin/cuentas', {
+    data: { id: orgId, activo: false },
+  });
+  expect(suspender.status(), await suspender.text()).toBe(200);
+
+  // La sesión abierta del suspendido deja de operar (el middleware la cierra).
+  const mutacion = await organizacion.patch(`/api/mascotas/${mascotaReportable}`, {
+    data: { raza: 'No debería guardarse' },
+  });
+  expect([401, 403]).toContain(mutacion.status());
+
+  // Tampoco puede volver a entrar.
+  const ctxSuspendido = await nuevoContexto();
+  try {
+    const loginSuspendido = await ctxSuspendido.post('/api/auth/login', {
+      data: { correo: correo('organizacion'), password: passwordDe('organizacion') },
+      maxRedirects: 0,
+    });
+    expect(loginSuspendido.status()).toBe(403);
+    const cuerpo = (await loginSuspendido.json()) as { error?: string };
+    expect(cuerpo.error).toContain('dada de baja');
+  } finally {
+    await ctxSuspendido.dispose();
+  }
+
+  // Sus publicaciones desaparecen del catálogo y de la ficha, también sin sesión.
+  expect((await tercero.get(`/api/mascotas/${mascotaReportable}`)).status()).toBe(404);
+  const anonDespues = await nuevoContexto();
+  try {
+    expect((await anonDespues.get(`/api/mascotas/${mascotaReportable}`)).status()).toBe(404);
+    const listaAnon = (await (await anonDespues.get(`/api/mascotas?q=${qReportable}`)).json()) as {
+      items: { id: string }[];
+    };
+    expect(listaAnon.items.map((p) => p.id)).not.toContain(mascotaReportable);
+  } finally {
+    await anonDespues.dispose();
+  }
+  const ocultas = await tercero.get(`/api/mascotas?q=${encodeURIComponent(`Reportable ${sello}`)}`);
+  const { items: ocultasItems } = (await ocultas.json()) as { items: { id: string }[] };
+  expect(ocultasItems.map((p) => p.id)).not.toContain(mascotaReportable);
+
+  const reactivar = await admin.patch('/api/admin/cuentas', {
+    data: { id: orgId, activo: true },
+  });
+  expect(reactivar.status(), await reactivar.text()).toBe(200);
+
+  // Vuelve a entrar y a operar; la mascota reaparece sin tocar la fila.
+  await login(organizacion, 'organizacion');
+  expect((await organizacion.get('/api/perfil')).status()).toBe(200);
+  const visible = await tercero.get(`/api/mascotas/${mascotaReportable}`);
+  expect(visible.status(), await visible.text()).toBe(200);
+
+  const anonReactivada = await nuevoContexto();
+  try {
+    expect((await anonReactivada.get(`/api/mascotas/${mascotaReportable}`)).status()).toBe(200);
+  } finally {
+    await anonReactivada.dispose();
+  }
+
+  const edicion = await organizacion.patch(`/api/mascotas/${mascotaReportable}`, {
+    data: { raza: 'Mestizo' },
+  });
+  expect(edicion.status(), await edicion.text()).toBe(200);
+
+  // Auditoría: actor = admin, objetivo = organización, en ambas acciones.
+  const filas = psql(`select count(*) from auditoria a
+                         join usuarios u on u.id = a.id_usuario
+                        where u.correo = '${correo('admin')}'
+                          and a.accion in ('suspender_cuenta', 'reactivar_cuenta')
+                          and a.id_registro = '${orgId}';`);
+  expect(filas).toBe('2');
+  const conObjetivo = psql(`select count(*) from auditoria
+                              where id_registro = '${orgId}'
+                                and datos_nuevos ->> 'id_objetivo' = '${orgId}'
+                                and accion in ('suspender_cuenta', 'reactivar_cuenta');`);
+  expect(conObjetivo).toBe('2');
 });
