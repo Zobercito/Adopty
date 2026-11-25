@@ -25,8 +25,22 @@ function supabaseUrl(): string {
 }
 
 const esLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(supabaseUrl());
+
+/** El destino de las peticiones también debe ser local: un preview apunta a la BD cloud. */
+function destinoLocal(): boolean {
+  try {
+    const { hostname } = new URL(process.env.E2E_BASE_URL ?? 'http://localhost:4321');
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
 test.skip(process.env.E2E_FLUJO !== '1', 'Flujo con escrituras: activar con E2E_FLUJO=1');
-test.skip(!esLocal, 'El flujo solo corre contra Supabase local: escribe cuentas y mascotas');
+test.skip(
+  !esLocal || !destinoLocal(),
+  'El flujo solo corre contra Supabase local y un destino local: escribe cuentas y mascotas',
+);
 
 test.describe.configure({ mode: 'serial' });
 
