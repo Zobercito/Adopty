@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseServer } from '../../../../lib/supabase';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../../lib/ratelimit';
 import { mensajeError } from '../../../../lib/errores';
+import { cuentaEstadoSchema } from '../../../../lib/validation/admin';
 
 export const prerender = false;
 
@@ -22,15 +23,14 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
   const rl = await rateLimitDistribuido(supabase, `admin:cuenta:${user.id}`, 60, 60 * 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 3600);
 
-  const body = (await request.json().catch(() => null)) as {
-    id?: string;
-    activo?: boolean;
-  } | null;
-  const id = body?.id;
-  const activo = body?.activo;
-  if (!id || typeof activo !== 'boolean') {
-    return Response.json({ error: 'Datos inválidos' }, { status: 400 });
+  const parsed = cuentaEstadoSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json(
+      { error: parsed.error.issues[0]?.message ?? 'Datos inválidos' },
+      { status: 400 },
+    );
   }
+  const { id, activo } = parsed.data;
   // Un admin no se puede suspender a sí mismo y quedar fuera de la plataforma.
   if (id === user.id && !activo) {
     return Response.json({ error: 'No puedes suspender tu propia cuenta' }, { status: 400 });

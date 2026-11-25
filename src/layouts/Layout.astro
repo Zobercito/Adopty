@@ -188,8 +188,27 @@ const canonical = new URL(rutaCanonica, base).toString();
     <Analytics />
     <script>
       import { trackEvento } from '../lib/analytics';
-      // Expone el tracker para los scripts inline (define:vars) que no pueden importar.
+      // Expone el tracker para los scripts de página que no importan el módulo.
       window.adoptyTrack = trackEvento;
+      // CSP enforcing: sin `onerror` inline. El error de <img> no burbujea, así que
+      // se escucha en captura y se retira la imagen rota (deja el fondo del contenedor).
+      document.addEventListener(
+        'error',
+        (evento) => {
+          const img = evento.target;
+          if (!(img instanceof HTMLImageElement)) return;
+          // Subidas antiguas sin variantes: si el srcset falla, se cae al original.
+          if (img.srcset && img.dataset.src) {
+            const principal = img.dataset.src;
+            img.removeAttribute('srcset');
+            img.removeAttribute('src');
+            img.src = principal; // fuerza recarga del original
+            return;
+          }
+          img.remove();
+        },
+        true,
+      );
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');
       }

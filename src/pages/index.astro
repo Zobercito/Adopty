@@ -4,7 +4,15 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import PetCard from '../components/PetCard.astro';
 import { supabaseServer } from '../lib/supabase';
-import { buscarMascotas, edadLabel, fotoRender, gradFor, type MascotaRow, type FotoRow } from '../lib/mascotas';
+import {
+  buscarMascotas,
+  edadLabel,
+  fotoRender,
+  fotoSrcset,
+  gradFor,
+  type MascotaRow,
+  type FotoRow,
+} from '../lib/mascotas';
 import { PETS } from '../data/mockPets';
 
 type Card = {
@@ -72,6 +80,7 @@ if (!conDb) {
 const user = Astro.locals.user ?? null;
 
 const heroFoto = hero[0] ? fotoRender(hero[0].fotos[0]?.url_foto) : '';
+const heroSrcset = hero[0] ? fotoSrcset(hero[0].fotos[0]?.url_foto) : undefined;
 const heroGrad = hero[0] ? gradFor(hero[0].id) : 'pet-grad-1';
 
 const PASOS = [
@@ -182,6 +191,9 @@ const jsonLd = [
                 heroFoto && (
                   <img
                     src={heroFoto}
+                    srcset={heroSrcset}
+                    data-src={heroFoto}
+                    sizes="(min-width: 1024px) 560px, 90vw"
                     alt={hero[0] ? `Foto de ${hero[0].nombre}` : 'Mascota en adopción'}
                     loading="eager"
                     fetchpriority="high"
@@ -189,7 +201,7 @@ const jsonLd = [
                     width="800"
                     height="840"
                     class="absolute inset-0 w-full h-full object-cover"
-                    onerror="this.remove()"
+
                   />
                 )
               }
@@ -494,7 +506,7 @@ const jsonLd = [
   }
 </style>
 
-<script is:inline>
+<script>
   // Carrusel por pasos: 4 tarjetas visibles, salto cada pocos segundos y
   // flechas a los extremos. La fila se clona al inicio para el bucle de vuelta.
   (() => {
@@ -509,7 +521,7 @@ const jsonLd = [
     // Copiamos las primeras tarjetas al final para poder saltar sin corte.
     const copias = Math.min(4, total);
     for (let i = 0; i < copias; i++) {
-      const clon = track.children[i].cloneNode(true);
+      const clon = track.children[i].cloneNode(true) as HTMLElement;
       clon.setAttribute('aria-hidden', 'true');
       clon.inert = true;
       clon.querySelectorAll('a, button, input').forEach((n) => n.setAttribute('tabindex', '-1'));
@@ -520,7 +532,9 @@ const jsonLd = [
     let stride = 0;
     const viewport = root.querySelector('.carousel-viewport');
     const medir = () => {
-      stride = track.children[1].offsetLeft - track.children[0].offsetLeft;
+      stride =
+        (track.children[1] as HTMLElement).offsetLeft -
+        (track.children[0] as HTMLElement).offsetLeft;
     };
     // Las tarjetas que quedan fuera (o a medias) no deben ser clicables ni
     // enfocables: si no, el tabulador entra en tarjetas invisibles y una
@@ -528,7 +542,7 @@ const jsonLd = [
     const sincronizarInertes = () => {
       if (!viewport) return;
       const vp = viewport.getBoundingClientRect();
-      for (const el of track.children) {
+      for (const el of Array.from(track.children) as HTMLElement[]) {
         if (el.getAttribute('aria-hidden') === 'true') {
           el.inert = true; // copias de bucle: solo decorativas
           continue;
@@ -538,9 +552,9 @@ const jsonLd = [
       }
     };
     const bloquearTarjetas = () => {
-      for (const el of track.children) el.inert = true;
+      for (const el of Array.from(track.children) as HTMLElement[]) el.inert = true;
     };
-    const aplicar = (animar) => {
+    const aplicar = (animar: boolean) => {
       if (!animar) track.style.transition = 'none';
       track.style.transform = `translateX(${-index * stride}px)`;
       if (!animar) {
@@ -548,7 +562,7 @@ const jsonLd = [
         track.style.transition = '';
       }
     };
-    const ir = (i, animar = true) => {
+    const ir = (i: number, animar = true) => {
       index = i;
       // Durante el movimiento no hay tarjeta "segura" que pulsar: se bloquean
       // todas y se rehabilitan las visibles al terminar la transición.
@@ -585,7 +599,7 @@ const jsonLd = [
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const reanudable = () => !reduce && !document.hidden;
     let activo = reanudable();
-    let reanudarTimer;
+    let reanudarTimer: ReturnType<typeof setTimeout> | undefined;
 
     // Se mantiene unos segundos en cada posición antes del siguiente salto.
     setInterval(() => {
@@ -651,7 +665,7 @@ const jsonLd = [
   // con la misma transición suave que los enlaces del navbar.
   (() => {
     const lg = window.matchMedia('(min-width: 1024px)');
-    let positions = [];
+    let positions: number[] = [];
     let hayAlta = false;
     let lock = false;
     let acc = 0;
@@ -659,8 +673,8 @@ const jsonLd = [
 
     const medir = () => {
       const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 81;
-      const targets = [].slice.call(
-        document.querySelectorAll('html.snap-home .snap-sec, html.snap-home footer'),
+      const targets = Array.from(
+        document.querySelectorAll<HTMLElement>('html.snap-home .snap-sec, html.snap-home footer'),
       );
       positions = targets.map((el) =>
         Math.round(el.getBoundingClientRect().top + window.scrollY - pad),
@@ -684,7 +698,7 @@ const jsonLd = [
       return idx;
     };
 
-    const paso = (dir) => {
+    const paso = (dir: number) => {
       if (lock || positions.length < 2) return;
       const idx = indiceActual();
       const next = Math.min(positions.length - 1, Math.max(0, idx + dir));
@@ -713,7 +727,7 @@ const jsonLd = [
 
     window.addEventListener('keydown', (e) => {
       if (!lg.matches || positions.length < 2 || hayAlta) return;
-      const t = e.target;
+      const t = e.target as HTMLElement | null;
       if (
         t &&
         (t.tagName === 'INPUT' ||
@@ -750,13 +764,13 @@ const jsonLd = [
 
   // Scroll-spy: el subrayado del navbar sigue la sección visible de la portada.
   (() => {
-    const enlaces = [].slice.call(
-      document.querySelectorAll('.nav-link[href^="/#"], .nav-movil-link[href^="/#"]'),
+    const enlaces = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('.nav-link[href^="/#"], .nav-movil-link[href^="/#"]'),
     );
     if (!enlaces.length) return;
     const objetivos = ['#inicio', '#mascotas', '#como-funciona', '#nosotros', '#contacto']
       .map((h) => ({ h, el: document.getElementById(h.slice(1)) }))
-      .filter((o) => o.el);
+      .filter((o): o is { h: string; el: HTMLElement } => o.el !== null);
 
     const actualizar = () => {
       const ref = window.scrollY + 101; // un poco por debajo de la barra

@@ -7,12 +7,13 @@
 - [x] Supabase → Auth → URL Configuration: Site URL + Redirects (`/api/auth/callback` del dominio)
 - [x] Supabase → Storage: buckets `mascotas` y `perfiles` públicos (500 KB, WebP); Database → Realtime activo en `mensajes`
 - [x] Supabase → Auth: **Secure email change** activo (cambio de correo del perfil)
-- [x] Migraciones aplicadas en cloud (las 22 de `supabase/migrations/`, hasta `20261027030000`) y anotadas en `supabase_migrations.schema_migrations`
+- [x] Migraciones aplicadas en cloud (las 35 hasta `20261123020000`) y anotadas en `supabase_migrations.schema_migrations`
+- [x] `resend_api_key` creado en Vault (2026-11-25); `[ ]` falta ver `net._http_response` con un `200` de Resend en producción
 - [x] Rate-limit distribuido (tabla + RPC `consumir_rate_limit`) aplicado a las mutaciones autenticadas
 - [x] CI: cobertura con umbral, e2e público, smoke de axe y presupuesto Lighthouse semanal
 - [x] Seed **limpio** en cloud: la clave `Adopty123!` ya no abre ninguna cuenta (P0-03)
 - [x] Al menos un administrador dado de alta (`docs/ADMIN.md`)
-- [ ] Google OAuth: crear credencial → Providers ON → redirects prod (**pendiente decidido**)
+- [x] Google OAuth: **fuera de alcance por decisión del equipo (2026-11-25)**; el login por correo cubre el piloto
 - [x] `pg_dump` previo al piloto: `backups/adopty_20261027_010248.dump` (385 KB, 52 tablas) validado con `pg_restore -l`; workflow diario (RPO ≤ 24 h) con retención de 90 días y alerta por issue
 - [x] Restore drill en PostgreSQL 17 limpio: 0 errores, conteos idénticos y RLS activa sobre la copia (RTO del restore 0,28 s)
 - [x] Lighthouse (LCP < 2.5 s) + axe (0 críticos): 2026-10-27 en prod → LCP 1.9 / 1.7 / 1.6 s móvil; escritorio Perf 100 y CLS 0; a11y 100 y axe 0
@@ -31,10 +32,10 @@
 | Preview deploy verificado      | ✅ 2026-10-26: prod `adopty.lat` con páginas/API/DB/login/guards/sitemap               |
 | Redirects preview en Supabase  | ✅ signup con `emailRedirectTo` al preview aceptado                                    |
 | Register con `emailRedirectTo` | ✅ fix deployado; E2E completo pendiente de cuota email/hora                           |
-| Búsqueda p95 < 1 s (1k)        | ✅ 15/15 por ruta, p95 máx 608 ms en producción (2026-10-27)                           |
+| Búsqueda p95 < 1 s (1k)        | ✅ 1k local: p95 170 ms API / 57 ms `/explorar` (2026-11-25)                           |
 | Lighthouse LCP < 2.5 s móvil   | ✅ 1.9 s `/`, 1.7 s `/explorar`, 1.6 s ficha (Lighthouse 13.5, 2026-10-27)             |
 | Imágenes ≤ 500 KB WebP         | ✅ enforced en app y en Storage (`file_size_limit` + MIME)                             |
-| Headers de seguridad           | ✅ verificados en prod (HSTS, nosniff, XFO, referrer, permissions, CSP Report-Only)    |
+| Headers de seguridad           | ✅ HSTS, nosniff, XFO, referrer, permissions; CSP enforcing con Astro (validar prod)   |
 | RLS tests 100%                 | ✅ E2E por rol + 13 pruebas de bypass REST + RLS validada en el restore drill          |
 | Sin secretos en git            | ✅ verificado                                                                          |
 | Validación server total        | ✅ Zod en todas las mutaciones                                                         |

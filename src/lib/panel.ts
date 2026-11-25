@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fotoUrl, fotosOrdenadas, type FotoRow } from './mascotas';
+import { fotoSrcset, fotoUrl, fotosOrdenadas, type FotoRow } from './mascotas';
 
 export interface PanelMascota {
   id: string;
@@ -8,6 +8,8 @@ export interface PanelMascota {
   estado: string;
   fecha_publicacion: string;
   foto: string;
+  /** `srcset` de las variantes 640/1280; undefined en fotos locales. */
+  srcset: string | undefined;
   solicitudes: number;
   pendientes: number;
   aprobadas: number;
@@ -90,6 +92,7 @@ export async function getPanelResumen(
       estado: p.estado,
       fecha_publicacion: p.fecha_publicacion,
       foto: fotoUrl(fotos[0]?.url_foto),
+      srcset: fotoSrcset(fotos[0]?.url_foto),
       solicitudes: sol.length,
       pendientes: sol.filter((s) => s.estado === 'pendiente').length,
       aprobadas: sol.filter((s) => s.estado === 'aprobada').length,

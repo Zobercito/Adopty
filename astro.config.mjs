@@ -37,6 +37,39 @@ export default defineConfig({
   site,
   adapter: vercel(),
   integrations: [sentry({ telemetry: false }), sitemap({ filter: (page) => !esRutaPrivada(page) })],
+  // CSP por página con hashes de Astro (script-src) y `style-src 'unsafe-inline'`
+  // porque la UI usa atributos `style` dinámicos. El header de `vercel.json` añade
+  // `frame-ancestors` (ignorado en <meta>) y actúa de respaldo en páginas sin meta.
+  security: {
+    csp: {
+      algorithm: 'SHA-256',
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data: blob: https://*.supabase.co",
+        "font-src 'self' data:",
+        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.vercel-insights.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
+        'frame-src https://vercel.live https://*.vercel.live',
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "object-src 'none'",
+        "manifest-src 'self'",
+        "worker-src 'self'",
+        'upgrade-insecure-requests',
+      ],
+      scriptDirective: {
+        resources: [
+          "'self'",
+          'https://va.vercel-scripts.com',
+          'https://vercel.live',
+          'https://*.vercel.live',
+        ],
+      },
+      styleDirective: {
+        resources: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
   },

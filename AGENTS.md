@@ -1,5 +1,31 @@
 # AGENTS.md — Adopty
 
+<!-- opencode-bootstrap:start -->
+
+## Proyecto
+
+- **Stack:** node (astro, tailwind, supabase, vitest, playwright, typescript)
+- **Gestor de paquetes:** npm
+
+## Comandos
+
+| Acción         | Comando                  |
+| -------------- | ------------------------ |
+| dev            | `npm run dev`            |
+| build          | `npm run build`          |
+| test           | `npm test`               |
+| lint           | `npm run lint`           |
+| format         | `npm run format`         |
+| test:coverage  | `npm run test:coverage`  |
+| test:e2e       | `npm run test:e2e`       |
+| test:e2e:flujo | `npm run test:e2e:flujo` |
+
+## Definición de terminado
+
+Un cambio está terminado cuando el comando real de verificación se ha
+ejecutado y ha pasado. No vale «debería funcionar».
+<!-- opencode-bootstrap:end -->
+
 Guía operativa para agentes de IA que trabajen en este repositorio. El contexto
 funcional completo está en `README.md`; el estado y la deuda técnica, en
 `docs/AUDITORIA_PENDIENTES.md`; las decisiones de arquitectura, en
@@ -106,8 +132,13 @@ Si tocaste PWA, revisa también `node --check public/sw.js`.
 - `SITE_URL` define el dominio del sitemap y de los metadatos absolutos; en local
   se usa el fallback de `astro.config.mjs`. El sitemap de fichas es SSR
   (`/sitemap-mascotas.xml`) y se descubre por `robots.txt`.
-- Los headers de seguridad viven en `vercel.json` para cubrir también estáticos y
-  assets; no los muevas al middleware. La CSP está en Report-Only.
+- Los headers de seguridad no-CSP viven en `vercel.json` para cubrir también estáticos y
+  assets; no los muevas al middleware. La CSP la emite Astro (`security.csp`) en modo
+  enforcing: no la pongas en `vercel.json`, usa scripts procesados (nada de `is:inline`
+  ni `define:vars`) y pasa datos con `data-*`.
+- Los avisos por email viven en Postgres (`encolar_notificacion` y `notificar_email`):
+  la app solo llama la RPC y la key de Resend está en Vault (`resend_api_key`), nunca en
+  `.env`. Sin `pg_net` o sin el secreto no se envía nada y la app sigue igual.
 - Producción es `https://adopty.lat`; `www` redirige 308 al apex. El correo de Auth
   sale por Resend (`no-reply@adopty.lat`), no por el SMTP integrado de Supabase.
 - En cloud la confirmación de correo está activa (`mailer_autoconfirm=false`): el

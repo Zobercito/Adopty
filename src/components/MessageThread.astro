@@ -1,5 +1,5 @@
 ---
-import { fotoUrl, fotosOrdenadas } from '../lib/mascotas';
+import { fotoSrcset, fotoUrl, fotosOrdenadas } from '../lib/mascotas';
 import { solBadge } from '../lib/solicitudes';
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
 const { id_mascota, otra_parte, nombre_otra, ultima, no_leidos, mascota, solicitud, activo } = Astro.props as Props;
 const fotos = fotosOrdenadas(mascota?.fotos_mascota ?? []);
 const foto = fotoUrl(fotos[0]?.url_foto);
+const fotoSet = fotoSrcset(fotos[0]?.url_foto);
 const hoy = new Date(ultima).toDateString() === new Date().toDateString();
 const fecha = hoy
   ? new Date(ultima).toLocaleTimeString('es-PA', { hour: '2-digit', minute: '2-digit' })
@@ -36,13 +37,16 @@ const sol = solicitud ? solBadge(solicitud) : null;
       foto ? (
         <img
           src={foto}
+          srcset={fotoSet}
+          data-src={foto}
+          sizes="56px"
           alt=""
           loading="lazy"
           decoding="async"
           width="56"
           height="56"
           class="w-full h-full object-cover"
-          onerror="this.remove()"
+
         />
       ) : (
         <span class="text-faint text-xs font-bold" aria-hidden="true">

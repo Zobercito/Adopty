@@ -4,6 +4,7 @@ import {
   edadLabel,
   estadoLabel,
   fotoRender,
+  fotoSrcset,
   fotoUrl,
   fotosOrdenadas,
   gradFor,
@@ -85,6 +86,19 @@ describe('fotoRender', () => {
   });
 });
 
+describe('fotoSrcset', () => {
+  it('genera 640/1280 para storage y nada para assets', () => {
+    vi.stubEnv('PUBLIC_SUPABASE_URL', 'https://xyz.supabase.co');
+    expect(fotoSrcset('uid/foto.webp')).toBe(
+      'https://xyz.supabase.co/storage/v1/object/public/mascotas/uid/foto-640.webp 640w, ' +
+        'https://xyz.supabase.co/storage/v1/object/public/mascotas/uid/foto-1280.webp 1280w',
+    );
+    expect(fotoSrcset('/assets/1.jpeg')).toBeUndefined();
+    expect(fotoSrcset('https://x.com/a.jpg')).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+});
+
 describe('paramsFrom', () => {
   const sp = (s: string) => paramsFrom(new URLSearchParams(s));
   it('normaliza tamaño insensible a mayúsculas/tilde', () => {
@@ -98,6 +112,14 @@ describe('paramsFrom', () => {
     expect(sp('page=abc').page).toBe(1);
     expect(sp('orden=antiguos').orden).toBe('antiguos');
     expect(sp('orden=x').orden).toBe('recientes');
+  });
+  it('normaliza edad, raza y ubicación', () => {
+    expect(sp('edad=cachorro').edad).toBe('cachorro');
+    expect(sp('edad=senior').edad).toBe('senior');
+    expect(sp('edad=mini').edad).toBeUndefined();
+    expect(sp('raza=Labrador').raza).toBe('Labrador');
+    expect(sp('ubicacion=Bethania').ubicacion).toBe('Bethania');
+    expect(sp('raza=a,b(c)%_d').raza).toBe('a b c   d');
   });
 });
 

@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import Badge from '../components/Badge.astro';
 import { supabaseServer } from '../lib/supabase';
-import { estadoLabel, fotoUrl, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
+import { estadoLabel, fotoSrcset, fotoUrl, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
 import { mensajeError } from '../lib/errores';
 
 const user = Astro.locals.user;
@@ -89,13 +89,16 @@ const errorMsg = error ? mensajeError(error, 'GET /favoritos') : '';
                   {p.fotos[0] && (
                     <img
                       src={fotoUrl(p.fotos[0].url_foto)}
+                      srcset={fotoSrcset(p.fotos[0].url_foto)}
+                      data-src={fotoUrl(p.fotos[0].url_foto)}
+                      sizes="(min-width: 1280px) 380px, (min-width: 640px) 45vw, 100vw"
                       alt={p.nombre}
                       loading="lazy"
                       decoding="async"
                       width="640"
                       height="384"
                       class="absolute inset-0 w-full h-full object-cover"
-                      onerror="this.remove()"
+
                     />
                   )}
                 </div>

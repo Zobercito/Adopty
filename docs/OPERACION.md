@@ -20,7 +20,7 @@ los pasos completos. Rutas relativas a la raíz del repositorio `adopty/`.
 4. Verificación:
 
    ```sh
-   curl -I https://adopty.lat/        # 200 + CSP Report-Only + HSTS
+   curl -I https://adopty.lat/        # 200 + CSP (header/meta) + HSTS
    curl -I https://www.adopty.lat/    # 308 → https://adopty.lat/
    ```
 
@@ -43,6 +43,30 @@ remitente `no-reply@adopty.lat`) con el dominio verificado (DKIM + DMARC). Susti
 el límite de 2 correos/hora del SMTP integrado. Si el correo falla, revisar primero
 el estado del dominio en Resend y los logs de Auth en Supabase.
 
+### Avisos de la app (solicitudes y mensajes)
+
+La migración `20261123010000_notificaciones_email.sql` añade los avisos de solicitud
+nueva, aprobada/rechazada y mensaje nuevo. El correo se envía desde Postgres con
+`pg_net` y el secreto de Vault; **no** se usa service role en la app.
+
+Activación (una vez):
+
+```sql
+-- En el SQL Editor de Supabase, como owner del proyecto.
+select vault.create_secret('<re_...>', 'resend_api_key');
+```
+
+Comprobaciones:
+
+1. `supabase db push` (o aplicar la migración y registrarla).
+2. `select * from net._http_response order by created desc limit 5;` tras crear una
+   solicitud de prueba; debe haber un `200` de `api.resend.com`.
+3. Sin el secreto o sin `pg_net`, la RPC no hace nada y la app sigue funcionando.
+4. La preferencia se controla en `/perfil` → “Avisos por email” (opt-out).
+5. No hay reintentos automáticos: si Resend falla, el detalle queda en
+   `net._http_response`. Reenviar es volver a llamar a la RPC con la misma solicitud
+   dentro de la hora (el antispam es por hora).
+
 ## 3. Migraciones
 
 Están en `supabase/migrations/` y se aplican con `supabase db push` o desde el SQL
@@ -55,6 +79,11 @@ Antes de desplegar:
 ```sh
 npm run format:check && npm run lint && npm run check && npm test && npm run build
 ```
+
+> Las migraciones `20261123010000_notificaciones_email.sql` y
+> `20261123020000_auditoria_admin.sql` ya están aplicadas en cloud (2026-11-25). El
+> código que usa `usuarios.notificaciones_email` y el visor de auditoría puede
+> desplegarse. Falta crear `resend_api_key` en Vault para que se envíen los correos.
 
 ## 4. Backups y restauración
 
@@ -80,21 +109,37 @@ restauración está documentado en [`QA.md`](QA.md).
 
 ## 5. Tareas de mantenimiento
 
-| Tarea                        | Cómo                                                                                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Regenerar iconos PWA         | `node scripts/generar-iconos.mjs` (solo si cambia el logo)                                                                                            |
-| Revisar moderación           | Tabla `auditoria` o columna `accion` (`admin_reporte_ocultar`, `admin_verificacion_aprobar`, `suspender_cuenta`, `baja_cuenta`, `password_cambiada`…) |
-| Suspender una cuenta         | `/admin` → **Cuentas** → Suspender. Deja de entrar sin borrar nada (RPC `estado_cuenta`, con rastro en `auditoria`)                                   |
-| Dar de alta un administrador | [`ADMIN.md`](ADMIN.md)                                                                                                                                |
-| Comprobar uptime             | Workflow _Uptime de producción_                                                                                                                       |
-| Presupuesto de rendimiento   | Workflow _Rendimiento — presupuesto Lighthouse_                                                                                                       |
+| Tarea                        | Cómo                                                                                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Regenerar iconos PWA         | `node scripts/generar-iconos.mjs` (solo si cambia el logo)                                                                                                                           |
+| Revisar moderación           | `/admin` → **Auditoría reciente**; o tabla `auditoria` con `accion` (`admin_reporte_ocultar`, `admin_verificacion_aprobar`, `suspender_cuenta`, `baja_cuenta`, `password_cambiada`…) |
+| Backfill de imágenes         | `SUPABASE_URL=... SUPABASE_ANON_KEY=... ADOPTY_EMAIL=... ADOPTY_PASSWORD=... node scripts/backfill-srcset.mjs` (por publicador; `--dry-run` para listar)                             |
+| Dataset 1k (local)           | `npx supabase db reset` → `npx supabase db execute --file scripts/seed-1k.sql` → `node scripts/perf.mjs`                                                                             |
+| Suspender una cuenta         | `/admin` → **Cuentas** → Suspender. Deja de entrar sin borrar nada (RPC `estado_cuenta`, con rastro en `auditoria`)                                                                  |
+| Dar de alta un administrador | [`ADMIN.md`](ADMIN.md)                                                                                                                                                               |
+| Comprobar uptime             | Workflow _Uptime de producción_                                                                                                                                                      |
+| Presupuesto de rendimiento   | Workflow _Rendimiento — presupuesto Lighthouse_                                                                                                                                      |
 
 ## 6. Cabeceras y CSP
 
-Los headers viven en `vercel.json` para cubrir también estáticos y assets: HSTS,
-`nosniff`, frame policy, referrer, permissions y CSP. La CSP está en
-**Report-Only** por los scripts inline de Astro. Pasar a enforcing requiere
-nonces/hashes y validarlo primero en un preview.
+Los headers que no son CSP viven en `vercel.json` para cubrir también estáticos y
+assets: HSTS, `nosniff`, frame policy, referrer y permissions.
+
+La CSP la emite **Astro** (`security.csp` en `astro.config.mjs`):
+
+- Páginas SSR: header `Content-Security-Policy` con hashes SHA-256 de los scripts y
+  `frame-ancestors 'none'`.
+- Páginas prerenderizadas: `<meta http-equiv="content-security-policy">` con los
+  mismos hashes; `frame-ancestors` no aplica en meta y lo cubre `X-Frame-Options`.
+- `script-src` **no** lleva `'unsafe-inline'`; `style-src` sí lo mantiene porque la UI
+  usa atributos `style` dinámicos (badges, `object-position`).
+- **No pongas CSP en `vercel.json`**: sobrescribiría el header con hashes de Astro.
+- Los scripts deben ser procesados por Astro: no uses `is:inline` ni `define:vars`.
+  Pasa los datos con `data-*` y léelos con `dataset`; los `onerror` inline se
+  sustituyeron por un listener global en `Layout.astro`.
+
+Para validar un cambio de CSP: `npm run build`, servir el output y comprobar que no
+hay `securitypolicyviolation` en las rutas públicas. En `dev` Astro no aplica CSP.
 
 ## 7. Respuesta ante incidentes
 

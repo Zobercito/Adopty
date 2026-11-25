@@ -1,5 +1,39 @@
 # Informe QA — Adopty
 
+## Actualización 2026-11-23/24 — bloques fácil, medio y difíciles
+
+Entorno: `develop` local y producción solo lectura. Sin cambios de comportamiento.
+
+| Prueba                            | Resultado                                               |
+| --------------------------------- | ------------------------------------------------------- |
+| `format:check` / `lint` / `check` | ✅ 0 errores (18 hints de Zod 4)                        |
+| Unitarios (`npm test`)            | ✅ 186/186 en 33 archivos                               |
+| Cobertura (`src/lib`)             | ✅ 68,34 / 59,86 / 66,66 / 72,06                        |
+| Build                             | ✅ SSR Vercel + sitemap; también con Node 24.13.0       |
+| `npm audit --audit-level=high`    | ✅ 0 vulnerabilidades                                   |
+| E2E público contra producción     | ✅ 32/32 (2026-11-24)                                   |
+| axe contra producción             | ✅ 10/10 (2026-11-23)                                   |
+| CSP enforcing (build local)       | ✅ 7 rutas públicas, 0 violaciones; carrusel OK         |
+| Migración de avisos (Postgres 17) | ✅ 6 escenarios con stubs de auth/vault/net             |
+| Dependencias                      | ✅ Astro 7.4.12; 0 vulnerabilidades                     |
+| Filtros edad/raza/ubicación       | ✅ paramsFrom + query + UI + tests                      |
+| Visor de auditoría                | ✅ policy admin + panel + autor correcto                |
+| Variantes de imagen               | ✅ 640/1280 en upload y `srcset` con fallback           |
+| Benchmark 1k                      | ✅ p95 170 ms API / 57 ms `/explorar` (998 disponibles) |
+
+**Cambios:** Zod en `PATCH /api/admin/cuentas` (+3 tests), `.env.example` sin service
+role y con `SITE_URL`, `ADR-010` sustituida y `ADR-024` (paginación offset), Node 24 en
+`.nvmrc`/engines/CI, `.qoder/` ignorado, conteos a 35 migraciones / 186 tests / 0
+moderadas, Postman con 42 requests, **CSP enforcing** con hashes de Astro (sin
+`is:inline`/`define:vars`, `onerror` global), **avisos por email** desde Postgres
+(`pg_net` + Vault, con opt-out y antispam; activación pendiente), filtros de
+edad/raza/ubicación, `srcset` 640/1280 y visor de auditoría para admin. Detalle en
+[`AUDITORIA_2026-11-23.md`](AUDITORIA_2026-11-23.md) §11.
+
+**Bugs corregidos al probar contra Supabase local:** ambigüedad de `id` en
+`estado_cuenta` y comparación enum/texto en el aviso de aprobación; ambos se
+corrigieron y se reaplicaron antes del flujo 11/11.
+
 ## Actualización 2026-10-29 — cierre del plan de presentación
 
 Entorno: `develop` local + **https://adopty.lat** (producción, release `c1a865c`).

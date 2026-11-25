@@ -13,12 +13,13 @@ if (!user) return Astro.redirect('/login?next=/perfil');
 const supabase = supabaseServer(Astro.cookies);
 const { data: perfil } = await supabase
   .from('usuarios')
-  .select('tipo_usuario, correo, activo, borrado_en')
+  .select('tipo_usuario, correo, activo, borrado_en, notificaciones_email')
   .eq('id', user.id)
   .single();
 const tipo = perfil?.tipo_usuario ?? 'persona';
 const esOrg = tipo === 'organizacion';
 const correo = perfil?.correo ?? user.email ?? '';
+const notifEmail = perfil?.notificaciones_email !== false;
 
 let detalle: Record<string, string | boolean | null> = {};
 let verificada = false;
@@ -654,6 +655,20 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         </details>
       </section>
 
+      <!-- ---------- Avisos por email ---------- -->
+      <section class="mt-6 border-t border-line pt-5" aria-labelledby="t-notif">
+        <h2 id="t-notif" class="font-display font-bold text-base">Avisos por email</h2>
+        <p class="text-xs text-muted mt-1">
+          Te avisamos cuando recibes una solicitud, cuando la aprueban o rechazan y cuando tienes un
+          mensaje nuevo. El email no incluye el contenido de los mensajes.
+        </p>
+        <label class="flex items-center gap-3 mt-3 text-sm">
+          <input id="notifEmail" type="checkbox" class="accent-brand" checked={notifEmail} />
+          Quiero recibir avisos por email
+        </label>
+        <p id="notifMsg" class="text-xs mt-2 text-muted hidden" role="status"></p>
+      </section>
+
       <!-- ---------- Tus datos ---------- -->
       <section class="mt-6 border-t border-line pt-5">
         <h2 class="font-display font-bold text-base">Tus datos</h2>
@@ -1079,6 +1094,32 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       };
       tabs.forEach((t) => t.addEventListener('click', () => activar(t.dataset.tab)));
     })();
+
+    // ---------- Avisos por email ----------
+    const notif = document.getElementById('notifEmail') as HTMLInputElement | null;
+    const notifMsg = document.getElementById('notifMsg') as HTMLElement | null;
+    notif?.addEventListener('change', async () => {
+      const valor = notif.checked;
+      try {
+        const res = await fetch('/api/notificaciones', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificaciones_email: valor }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo guardar');
+        if (notifMsg) {
+          notifMsg.textContent = 'Preferencia guardada.';
+          notifMsg.classList.remove('hidden');
+        }
+      } catch (e) {
+        notif.checked = !valor;
+        if (notifMsg) {
+          notifMsg.textContent = (e as Error).message || 'No se pudo guardar';
+          notifMsg.classList.remove('hidden');
+        }
+      }
+    });
   </script>
 </Layout>
 

@@ -9,5 +9,6 @@ dist/
 .agents/
 .continue/
 .kiro/
+.qoder/
 skills-lock.json
 .security/

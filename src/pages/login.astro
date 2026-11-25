@@ -59,7 +59,7 @@ const oauthMsg = Astro.url.searchParams.get('msg') ?? '';
         )
       }
 
-      <form id="loginForm" class="mt-5 grid gap-4">
+      <form id="loginForm" class="mt-5 grid gap-4" data-next={next}>
         <div>
           <label class="label" for="correo">Correo</label>
           <input
@@ -93,10 +93,11 @@ const oauthMsg = Astro.url.searchParams.get('msg') ?? '';
     </div>
   </main>
 
-  <script define:vars={{ next }}>
-    const form = document.getElementById('loginForm');
-    const err = document.getElementById('err');
-    const btn = document.getElementById('loginBtn');
+  <script>
+    const form = document.getElementById('loginForm') as HTMLFormElement;
+    const next = form.dataset.next || '/perfil';
+    const err = document.getElementById('err') as HTMLElement;
+    const btn = document.getElementById('loginBtn') as HTMLButtonElement;
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.classList.add('hidden');

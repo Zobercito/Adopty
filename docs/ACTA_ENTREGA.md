@@ -16,8 +16,8 @@
 - [ ] Perfil del adoptante (experiencia, motivación) + estilo de vida y afinidad
 - [ ] Cuenta: cambiar correo y contraseña, exportar mis datos, darse de baja
 - [ ] Moderación: reportes, verificación de organizaciones, suspensión de cuentas, auditoría
-- [ ] QA: 86 tests unitarios, 43 casos e2e (públicos + flujo), `astro check` en CI, rate-limit, RLS por rol y triggers, legales, backup diario
-- [ ] Pendiente decidido: Google OAuth (código listo, activar en prod)
+- [ ] QA: 186 tests unitarios, 43 casos e2e (públicos + flujo), `astro check` en CI, rate-limit, RLS por rol y triggers, legales, backup diario
+- [x] Google OAuth: fuera de alcance por decisión del equipo (2026-11-25); el login por correo cubre el piloto
 
 ## 2. Métricas del piloto (§13)
 

@@ -37,3 +37,18 @@ test-results/
 playwright-report/
 .vercel
 .env*
+
+# OpenCode (estado local del bootstrap)
+.opencode/
+
+# Qoder (estado local del asistente)
+.qoder/
+
+# Carpetas de symlinks que autoskills crea para otros agentes.
+# Bórralas de aquí si algún día usas Claude Code, Continue o Kiro en este repo.
+.claude/
+.continue/
+.kiro/
+
+# Índice local de CodeGraph (no se versiona)
+.codegraph/

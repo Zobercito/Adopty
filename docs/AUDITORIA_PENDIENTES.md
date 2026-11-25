@@ -20,6 +20,13 @@ sources:
 
 # Auditoría técnica y pendientes — Adopty
 
+> **Actualización 2026-11-23:** hay una auditoría independiente más reciente en
+> [`AUDITORIA_2026-11-23.md`](AUDITORIA_2026-11-23.md). El código sigue en verde
+> (186 tests, build y e2e público), pero este documento tiene conteos desactualizados
+> (22 → 35 migraciones, 86 → 186 tests). `npm audit` volvió a 0 tras `npm update`.
+> Los P0 vigentes siguen siendo Google OAuth (P0-01) y el piloto/acta (P0-06); los
+> pendientes nuevos están en el documento enlazado.
+
 Documento de referencia para humanos y agentes de IA. Consolida **qué está hecho**,
 **qué falta**, **qué está roto o incompleto** y **cómo verificarlo**. Las rutas son
 relativas a la raíz del repositorio `adopty/` salvo que se indique lo contrario.
@@ -70,12 +77,12 @@ relativas a la raíz del repositorio `adopty/` salvo que se indique lo contrario
 | Dimensión     | Estado                                                                                  |
 | ------------- | --------------------------------------------------------------------------------------- |
 | Stack         | Astro v7 + TypeScript strict + Tailwind v4 + Supabase + Zod + Vercel                    |
-| Persistencia  | Postgres/Supabase con 22 migraciones en `supabase/migrations/`                          |
+| Persistencia  | Postgres/Supabase con 35 migraciones en `supabase/migrations/`                          |
 | Backend       | API routes de Astro + RPC SQL; sin service role                                         |
 | Auth          | Email/contraseña + recuperación; Google OAuth codificado pero apagado                   |
 | Páginas       | Aproximadamente 20 vistas `.astro` (públicas, privadas, admin, legales)                 |
-| API           | 28 archivos de rutas en `src/pages/api/`                                                |
-| Tests         | 86 unitarios (14 archivos, vitest) + 2 suites Playwright                                |
+| API           | 29 archivos de rutas en `src/pages/api/`                                                |
+| Tests         | 186 unitarios (33 archivos, vitest) + 3 suites Playwright                               |
 | CI            | 2 jobs (`calidad`, `e2e`) + `npm audit`; Dependabot semanal                             |
 | Backups       | `pg_dump` diario por GitHub Actions, artefacto 30 días                                  |
 | Estado global | Fases 0–7 y todos los P1 cerrados; prod en `adopty.lat`; quedan P0 de operación y P2/P3 |
@@ -100,7 +107,8 @@ decidió dejar para el final.
 5. ~~**Sitemap sin fichas y con rutas privadas**~~ — **resuelto 2026-10-26** (P1-05);
    canonical/noindex/OG también (P1-06).
 6. ~~**Sin headers de seguridad**~~ — **resuelto y verificado en producción**
-   (P1-07): HSTS, `nosniff`, frame policy, referrer, permissions y CSP Report-Only.
+   (P1-07): HSTS, `nosniff`, frame policy, referrer, permissions y CSP; la CSP pasó a
+   enforcing con Astro el 2026-11-24 (pendiente validar en producción).
 7. ~~**Buckets de fotos sin límite de tamaño/MIME ni ruta del dueño**~~ — **resuelto
    2026-10-26** (P1-09).
 8. ~~**Dos policies permitían saltarse reglas de negocio por REST**~~ — **resuelto
@@ -141,7 +149,7 @@ decidió dejar para el final.
 | PWA básica (manifest + SW + offline)              | `[HECHO]` | `public/manifest.json`, `public/sw.js`, `src/pages/offline.astro`, `src/layouts/Layout.astro`                                                       |
 | SEO base: sitemap, robots, OG, JSON-LD            | `[HECHO]` | `sitemap-mascotas.xml` SSR, `robots.txt`, canonical/noindex, OG por defecto y JSON-LD con escape seguro                                             |
 | Analytics de embudo                               | `[HECHO]` | `src/lib/analytics.ts`; 6/6 eventos emitidos (`busqueda`, `ver_detalle`, `solicitar`, `solicitud_aprobada`, `mensaje_enviado`, `favorito_agregado`) |
-| Tests unitarios                                   | `[HECHO]` | 14 archivos `*.test.ts` en `src/lib/` (86 tests)                                                                                                    |
+| Tests unitarios                                   | `[HECHO]` | 33 archivos `*.test.ts` en `src/lib/` y `src/lib/validation/` (186 tests)                                                                           |
 | E2E público y flujo                               | `[HECHO]` | `e2e/publico.e2e.ts`, `e2e/flujo.e2e.ts`, `playwright.config.ts`                                                                                    |
 | CI de calidad y e2e de flujo                      | `[HECHO]` | `.github/workflows/ci.yml`                                                                                                                          |
 | Backup diario                                     | `[HECHO]` | `.github/workflows/backup.yml`                                                                                                                      |
@@ -194,7 +202,7 @@ decidió dejar para el final.
   - Auth → Site URL `https://adopty.lat`; Redirect URLs con apex, `www`, previews,
     `localhost:4321` y `localhost:3000`.
   - **Secure email change** activo; buckets `mascotas` y `perfiles` públicos; Realtime
-    solo en `mensajes`; 22 migraciones registradas en
+    solo en `mensajes`; 35 migraciones registradas en
     `supabase_migrations.schema_migrations`.
   - SMTP de Resend (`smtp.resend.com:465`, remitente `no-reply@adopty.lat`), dominio
     verificado con DKIM y DMARC.
@@ -415,15 +423,14 @@ decidió dejar para el final.
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`
   - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-  - `Content-Security-Policy-Report-Only` con `default-src 'self'`, Supabase
-    (`https://*.supabase.co`, `wss://*.supabase.co`), Google Fonts, Vercel Analytics y
-    `frame-ancestors 'none'`. Se deja en **Report-Only** por los scripts inline de
-    Astro; el objetivo siguiente es migrar a nonces/hashes y pasar a enforcing.
+  - La CSP ya no vive en `vercel.json`: la emite Astro (`security.csp`) en enforcing,
+    con hashes SHA-256 para `script-src`, `frame-ancestors 'none'` y
+    `style-src 'unsafe-inline'` por los atributos `style` dinámicos.
 - **Por qué `vercel.json`:** las páginas estáticas (`/terminos`, `/privacidad`, 404) y
-  los assets no pasan por el middleware de Astro en producción.
-- **Criterio de aceptación:** cumplido: `https://adopty.lat/` responde con HSTS,
-  `nosniff`, `X-Frame-Options: DENY`, referrer, permissions y CSP Report-Only; la app no
-  registra violaciones que rompan la UI.
+  los assets no pasan por el middleware de Astro; conserva ahí los headers no-CSP.
+- **Criterio de aceptación:** cumplido (2026-11-24): `https://adopty.lat/` responde con
+  HSTS, `nosniff`, `X-Frame-Options: DENY`, referrer y permissions; la CSP de Astro
+  aplica hashes y no registra violaciones en las 7 rutas públicas probadas en local.
 
 #### P1-08 — Analytics de embudo incompleto
 
@@ -502,9 +509,11 @@ decidió dejar para el final.
 
 #### P2-01 — Notificaciones por email
 
-- **Estado:** `[FALTA]` (el plan lo dejaba como opcional, pero es relevante para adopciones).
-- **Evidencia:** no hay integración de email transaccional fuera de Supabase Auth; el
-  aviso al publicador/adoptante es solo badge/UI.
+- **Estado:** `[PARCIAL]` (2026-11-24): código, migración y tests listos; activación de
+  Vault/`pg_net` pendiente. Ver `AUDITORIA_2026-11-23.md` §AUD-05.
+- **Evidencia:** `supabase/migrations/20261123010000_notificaciones_email.sql`,
+  `src/lib/notificaciones.ts`, hooks en solicitudes/mensajes y opt-out en `/perfil`. El
+  email se envía desde Postgres con `pg_net` + Vault, sin service role.
 - **Impacto:** si el usuario no vuelve a entrar, no se entera de una solicitud, una
   aprobación o un mensaje; el embudo se enfría.
 - **Acción sugerida:**
@@ -584,7 +593,8 @@ decidió dejar para el final.
 - **Evidencia:** `.github/workflows/ci.yml` ejecuta lint, format, check,
   `test:coverage` con umbrales, build, `npm audit --audit-level=high`, la suite e2e
   pública + smoke de axe y el flujo completo; `.github/dependabot.yml` agrupa
-  minor/patch semanalmente. `npm audit` reporta 0 vulnerabilidades.
+  minor/patch semanalmente. En esa fecha `npm audit` reportaba 0 vulnerabilidades;
+  el 2026-11-24, tras `npm update`, hay 0 vulnerabilidades (Astro 7.4.12).
 - **Añadido (P2-05b):** `vitest.config.ts` con umbrales (65 % statements, 52 %
   branches, 62 % functions, 70 % lines; cobertura actual 69,5 / 57,3 / 67,1 / 73,2);
   `e2e/a11y.e2e.ts` (5 páginas × 360/1280 px, 10 pruebas axe) y el e2e público como
@@ -634,11 +644,11 @@ decidió dejar para el final.
 
 #### P3-03 — Imágenes responsivas (`srcset`/AVIF)
 
-- **Estado:** `[PARCIAL]`.
-- **Evidencia:** las imágenes ya usan WebP, `width`/`height` y `loading="lazy"` en
-  tarjetas, pero no hay `srcset`/`sizes` ni AVIF.
-- **Acción:** generar variantes de tamaño en el upload o en build y usar `srcset`;
-  evaluar AVIF cuando el soporte del navegador lo permita.
+- **Estado:** `[PARCIAL]` (2026-11-24).
+- **Evidencia:** el upload genera variantes `-640.webp`/`-1280.webp` y `fotoSrcset` las
+  usa en tarjetas, hero, ficha, favoritos, panel, chat y formulario; las subidas
+  antiguas caen al `src` si falta la variante. Las fotos `/assets` no tienen variantes.
+- **Acción pendiente:** backfill de fotos antiguas y evaluar AVIF.
 - **Criterio de aceptación:** LCP estable y menor transferencia en móvil; sin CLS.
 
 #### P3-04 — Página offline explícita
@@ -679,7 +689,7 @@ decidió dejar para el final.
 #### P4-02 — Registro de decisiones (ADR breve)
 
 - **Estado:** `[HECHO]` (2026-10-26).
-- **Evidencia:** `docs/DECISIONES.md` con 22 ADR (contexto, decisión y consecuencias),
+- **Evidencia:** `docs/DECISIONES.md` con 24 ADR (contexto, decisión y consecuencias),
   incluidas las nuevas de service worker, SEO/JSON-LD, analytics, dependencias, headers,
   Storage y dominio/correo.
 - **Criterio de aceptación:** cada decisión tiene contexto y consecuencia; las
@@ -711,7 +721,7 @@ decidió dejar para el final.
 | CU-01…CU-08 e2e                | `[PARCIAL]` | `e2e/flujo.e2e.ts`, CI con Supabase local                                                                     | Repetir a mano en prod (P0-06)       |
 | Preview deploy verificado      | `[HECHO]`   | `docs/CHECKLIST.md:23`                                                                                        | Revalidar tras cambios               |
 | Register con `emailRedirectTo` | `[HECHO]`   | `src/pages/api/auth/register.ts`                                                                              | E2E completo sujeto a cuota de email |
-| Búsqueda p95 < 1 s             | `[HECHO]`   | `scripts/perf.mjs`: 15/15, p95 máx 608 ms en prod                                                             | —                                    |
+| Búsqueda p95 < 1 s             | `[HECHO]`   | `scripts/perf.mjs` con 1k local: p95 170 ms API / 57 ms `/explorar` (2026-11-25)                              | —                                    |
 | Imágenes ≤ 500 KB WebP         | `[HECHO]`   | `src/lib/storage.ts`, e2e de upload                                                                           | —                                    |
 | RLS 100 %                      | `[HECHO]`   | Migraciones + e2e por rol + triggers P1-10/P1-11 + bypass REST anon (rate_limits 401; usuarios/mensajes `[]`) | —                                    |
 | Sin secretos en git            | `[HECHO]`   | `.gitignore`, `git ls-files`                                                                                  | Revisar antes de cada push           |
@@ -950,20 +960,20 @@ Los ítems de nivel medio/difícil siguen en sus secciones de la parte 3.
 
 ### 8.1 Ítems cerrados
 
-| ID     | Estado final | Cambio principal                                                                  |
-| ------ | ------------ | --------------------------------------------------------------------------------- |
-| P0-04  | `[HECHO]`    | Trabajo versionado en un commit de cierre; tag `v0.8.0`.                          |
-| P1-01  | `[HECHO]`    | `src/lib/redirect.ts` + tests; usado en callback, login y Google.                 |
-| P1-04  | `[HECHO]`    | `public/sw.js` con lista blanca y `CACHE_NAME=adopty-v2`; sin caché privada.      |
-| P1-05a | `[HECHO]`    | Filtro de sitemap y `src/pages/robots.txt.ts` con URL absoluta.                   |
-| P1-08  | `[HECHO]`    | 6/6 eventos de embudo emitidos sin PII.                                           |
-| P2-05a | `[HECHO]`    | `npm audit --audit-level=high` en CI, Dependabot y overrides; 0 vulnerabilidades. |
-| P3-01  | `[HECHO]`    | `public/og-default.png` 1200×630 y fallback en `Layout.astro`.                    |
-| P3-02  | `[HECHO]`    | JSON-LD `WebSite`/`Organization` y `Pet`/`BreadcrumbList` con escape seguro.      |
-| P3-04  | `[HECHO]`    | `src/pages/offline.astro` + fallback del service worker + e2e público.            |
-| P4-01  | `[HECHO]`    | `AGENTS.md` con reglas operativas para agentes.                                   |
-| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 22; ver §9–§11).                             |
-| P4-03  | `[HECHO]`    | Tag anotado `v0.8.0`.                                                             |
+| ID     | Estado final | Cambio principal                                                              |
+| ------ | ------------ | ----------------------------------------------------------------------------- |
+| P0-04  | `[HECHO]`    | Trabajo versionado en un commit de cierre; tag `v0.8.0`.                      |
+| P1-01  | `[HECHO]`    | `src/lib/redirect.ts` + tests; usado en callback, login y Google.             |
+| P1-04  | `[HECHO]`    | `public/sw.js` con lista blanca y `CACHE_NAME=adopty-v2`; sin caché privada.  |
+| P1-05a | `[HECHO]`    | Filtro de sitemap y `src/pages/robots.txt.ts` con URL absoluta.               |
+| P1-08  | `[HECHO]`    | 6/6 eventos de embudo emitidos sin PII.                                       |
+| P2-05a | `[HECHO]`    | `npm audit --audit-level=high` + Dependabot; 0 vulnerabilidades (2026-11-24). |
+| P3-01  | `[HECHO]`    | `public/og-default.png` 1200×630 y fallback en `Layout.astro`.                |
+| P3-02  | `[HECHO]`    | JSON-LD `WebSite`/`Organization` y `Pet`/`BreadcrumbList` con escape seguro.  |
+| P3-04  | `[HECHO]`    | `src/pages/offline.astro` + fallback del service worker + e2e público.        |
+| P4-01  | `[HECHO]`    | `AGENTS.md` con reglas operativas para agentes.                               |
+| P4-02  | `[HECHO]`    | `docs/DECISIONES.md` con 16 ADR (hoy 24; ver §9–§11).                         |
+| P4-03  | `[HECHO]`    | Tag anotado `v0.8.0`.                                                         |
 
 No se ejecutó P0-03 (rotar seed/administrador cloud) en esa pasada porque requiere
 acceso al proyecto Supabase de producción; se cerró después al verificar el cloud

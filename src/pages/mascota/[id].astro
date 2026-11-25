@@ -5,7 +5,7 @@ import Navbar from '../../components/Navbar.astro';
 import Badge from '../../components/Badge.astro';
 import FavButton from '../../components/FavButton.astro';
 import { supabaseServer } from '../../lib/supabase';
-import { estadoLabel, edadLabel, fotoRender, fotoUrl, fotosOrdenadas, gradFor, type FotoRow, type MascotaRow } from '../../lib/mascotas';
+import { estadoLabel, edadLabel, fotoRender, fotoSrcset, fotoUrl, fotosOrdenadas, gradFor, type FotoRow, type MascotaRow } from '../../lib/mascotas';
 import { perfilesPublicos } from '../../lib/perfil';
 
 const { id } = Astro.params;
@@ -158,7 +158,11 @@ const jsonLdPet =
   noindex={noExiste || pet?.estado !== 'disponible'}
 >
   <Navbar active="explorar" />
-  <main class="max-w-6xl mx-auto px-4 mt-6 mb-4">
+  <main
+    class="max-w-6xl mx-auto px-4 mt-6 mb-4"
+    data-pet-id={pet?.id ?? ''}
+    data-sol-id={miSolicitud?.id ?? ''}
+  >
     {
       noExiste || !pet ? (
         <div class="soft-card p-10 text-center">
@@ -192,6 +196,9 @@ const jsonLdPet =
                 <img
                   data-slide={i}
                   src={fotoRender(f.url_foto)}
+                  srcset={fotoSrcset(f.url_foto)}
+                  data-src={fotoRender(f.url_foto)}
+                  sizes="(min-width: 900px) 900px, 100vw"
                   alt={`${pet.nombre} — foto ${i + 1} de ${fotos.length}`}
                   loading={i === 0 ? 'eager' : 'lazy'}
                   decoding="async"
@@ -199,7 +206,7 @@ const jsonLdPet =
                   height="700"
                   class="absolute inset-0 w-full h-full object-cover slide"
                   style={`display:${i === 0 ? 'block' : 'none'}`}
-                  onerror="this.remove()"
+
                 />
               ))}
               {fotos.length > 1 && (
@@ -475,13 +482,16 @@ const jsonLdPet =
       )
     }
   </main>
-  <script define:vars={{ petId: pet?.id ?? '', solId: miSolicitud?.id ?? '' }}>
+  <script>
+    const pagina = document.querySelector('main');
+    const petId = pagina?.dataset.petId ?? '';
+    const solId = pagina?.dataset.solId ?? '';
     if (petId) window.adoptyTrack?.('ver_detalle', { mascota: petId });
-    const solForm = document.getElementById('solForm');
+    const solForm = document.getElementById('solForm') as HTMLFormElement | null;
     if (solForm) solForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const err = document.getElementById('solErr');
-      const btn = document.getElementById('solBtn');
+      const err = document.getElementById('solErr') as HTMLElement;
+      const btn = document.getElementById('solBtn') as HTMLButtonElement;
       err.classList.add('hidden');
       if (!solForm.reportValidity()) return;
       const mensaje = new FormData(solForm).get('mensaje');
@@ -554,7 +564,7 @@ const jsonLdPet =
           const res = await fetch('/api/reportes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // `petId` vive en el otro <script define:vars>: este no lo ve.
+            // `petId` vive en el data-* de <main>: este script no lo recibe como variable.
             body: JSON.stringify({ id_mascota: reportForm.dataset.petId, motivo }),
           });
           const data = await res.json().catch(() => ({}));

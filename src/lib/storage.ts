@@ -64,6 +64,28 @@ export async function subirFotos(
     });
     if (error)
       throw new Error(mensajeError(error, 'storage:mascotas', 'No se pudo subir una foto'));
+
+    // Variantes para srcset. Si una falla, se registra y la app cae al `src`
+    // principal (el original sigue siendo válido); no se rompe la publicación.
+    const base = path.replace(/\.webp$/i, '');
+    for (const ancho of [640, 1280]) {
+      try {
+        const variante = await sharp(buf)
+          .rotate()
+          .resize({ width: ancho, withoutEnlargement: true })
+          .webp({ quality: 72 })
+          .toBuffer();
+        const { error: errVar } = await supabase.storage
+          .from('mascotas')
+          .upload(`${base}-${ancho}.webp`, variante, {
+            contentType: 'image/webp',
+            upsert: false,
+          });
+        if (errVar) console.warn(`[storage] variante ${ancho}px no subida`);
+      } catch {
+        console.warn(`[storage] variante ${ancho}px no generada`);
+      }
+    }
     paths.push(path);
   }
   return paths;
@@ -71,7 +93,12 @@ export async function subirFotos(
 
 /** Borra objetos del bucket (ignora rutas tipo `/assets/` que no viven en storage). */
 export async function borrarFotosStorage(supabase: SupabaseClient, paths: string[]): Promise<void> {
-  const objetos = paths.filter((p) => p && !p.startsWith('/') && !p.startsWith('http'));
+  const objetos = paths
+    .filter((p) => p && !p.startsWith('/') && !p.startsWith('http'))
+    .flatMap((p) => {
+      const base = p.replace(/\.webp$/i, '');
+      return [p, `${base}-640.webp`, `${base}-1280.webp`];
+    });
   if (objetos.length) await supabase.storage.from('mascotas').remove(objetos);
 }
 
