@@ -43,7 +43,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-004 · Adoptante: contraseña, correo y baja
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-002 · AC-002-f, AC-002-h
 - depende: TASK-001
 - test: —

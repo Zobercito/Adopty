@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, request as apiRequest, test, type APIRequestContext } from '@playwright/test';
+import sharp from 'sharp';
 
 /**
  * Verificación funcional por roles (plan-docs/TAREAS.md).
@@ -46,13 +47,22 @@ test.describe.configure({ mode: 'serial' });
 
 const sello = Date.now().toString(36);
 const PASSWORD = 'Roles-Adopty-2026!';
-const correo = (rol: string) => `roles-${rol}-${sello}@adopty.test`;
+const PASSWORD_NUEVA = 'Roles-Adopty-2026-Nueva!';
+
+/** Correo vigente por rol: cambia si un test lo modifica. */
+const correos: Record<string, string> = {};
+const correo = (rol: string) => correos[rol] ?? `roles-${rol}-${sello}@adopty.test`;
 
 let adoptante: APIRequestContext;
 let organizacion: APIRequestContext;
 let tercero: APIRequestContext;
 let admin: APIRequestContext;
+let adoptanteBaja: APIRequestContext;
 let adminListo = false;
+
+/** Contraseña vigente por rol: cambia si un test la modifica. */
+const passwords: Record<string, string> = {};
+const passwordDe = (rol: string) => passwords[rol] ?? PASSWORD;
 
 /** Ejecuta SQL contra la base local (fixtures de la suite). */
 function psql(sql: string): string {
@@ -120,14 +130,50 @@ async function registrar(
 /** Inicia sesión en un contexto ya existente (para restaurarla tras el logout). */
 async function login(ctx: APIRequestContext, rol: string): Promise<void> {
   const res = await ctx.post('/api/auth/login', {
-    data: { correo: correo(rol), password: PASSWORD },
+    data: { correo: correo(rol), password: passwordDe(rol) },
     maxRedirects: 0,
   });
   expect(res.status(), await res.text()).toBe(302);
 }
 
+/** Contexto sin sesión, con el mismo `baseURL` que la suite. */
+function nuevoContexto(): Promise<APIRequestContext> {
+  const baseURL = test.info().project.use.baseURL;
+  return apiRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL ?? '' } });
+}
+
+/** Publica una mascota con foto (la usa el publicador u organización). */
+async function publicar(ctx: APIRequestContext, nombre: string): Promise<string> {
+  const png = await sharp({
+    create: { width: 320, height: 240, channels: 3, background: '#0ea5e9' },
+  })
+    .png()
+    .toBuffer();
+  const subida = await ctx.post('/api/mascotas/upload', {
+    multipart: { fotos: { name: 'foto.png', mimeType: 'image/png', buffer: png } },
+  });
+  expect(subida.status(), await subida.text()).toBe(200);
+  const { paths } = (await subida.json()) as { paths: string[] };
+
+  const res = await ctx.post('/api/mascotas', {
+    data: {
+      nombre,
+      especie: 'perro',
+      raza: 'Mestizo',
+      edad_meses: 24,
+      sexo: 'Hembra',
+      tamano: 'Mediano',
+      ubicacion: 'Ciudad de Panamá',
+      descripcion: 'Mascota creada por la suite de roles.',
+      fotos: paths,
+    },
+  });
+  expect(res.status(), await res.text()).toBe(201);
+  return ((await res.json()) as { id: string }).id;
+}
+
 test.beforeAll(async () => {
-  // Cada corrida crea 4 cuentas y el límite de registro (10/min por IP) persiste
+  // Cada corrida crea 5 cuentas y el límite de registro (10/min por IP) persiste
   // entre corridas; se limpia solo ese cubo, no los de otras suites.
   try {
     psql("delete from public.rate_limits where clave like 'register:%';");
@@ -139,6 +185,7 @@ test.beforeAll(async () => {
   organizacion = await registrar(`Refugio Roles ${sello}`, 'organizacion', 'organizacion');
   tercero = await registrar(`Tercero Roles ${sello}`, 'tercero', 'persona');
   admin = await registrar(`Admin Roles ${sello}`, 'admin', 'persona');
+  adoptanteBaja = await registrar(`Baja Roles ${sello}`, 'baja', 'persona');
   // Si Docker no existe, los casos de admin se omiten; un fixture roto debe fallar.
   try {
     hacerAdmin(correo('admin'));
@@ -158,6 +205,7 @@ test.afterAll(async () => {
     organizacion?.dispose(),
     tercero?.dispose(),
     admin?.dispose(),
+    adoptanteBaja?.dispose(),
   ]);
 });
 
@@ -344,4 +392,111 @@ test('AC-002-g · la preferencia de avisos persiste en el perfil', async () => {
 
   const conAviso = await (await adoptante.get('/perfil')).text();
   expect(conAviso).toMatch(/id="notifEmail"[^>]*checked/);
+});
+
+test('AC-002-f · cambiar contraseña exige la actual y deja entrar con la nueva', async () => {
+  const mal = await adoptante.post('/api/auth/cambiar-password', {
+    data: { actual: 'no-es-la-actual', nueva: PASSWORD_NUEVA, confirmar: PASSWORD_NUEVA },
+  });
+  expect(mal.status()).toBe(401);
+  const cuerpoMal = (await mal.json()) as { error?: string };
+  // 401 también significa "sin sesión": el mensaje distingue la causa.
+  expect(cuerpoMal.error).toBe('La contraseña actual no es correcta');
+
+  const ok = await adoptante.post('/api/auth/cambiar-password', {
+    data: { actual: PASSWORD, nueva: PASSWORD_NUEVA, confirmar: PASSWORD_NUEVA },
+  });
+  expect(ok.status(), await ok.text()).toBe(200);
+  passwords.adoptante = PASSWORD_NUEVA;
+
+  const ctx = await nuevoContexto();
+  try {
+    const vieja = await ctx.post('/api/auth/login', {
+      data: { correo: correo('adoptante'), password: PASSWORD },
+      maxRedirects: 0,
+    });
+    expect(vieja.status()).toBe(401);
+
+    const nueva = await ctx.post('/api/auth/login', {
+      data: { correo: correo('adoptante'), password: PASSWORD_NUEVA },
+      maxRedirects: 0,
+    });
+    expect(nueva.status(), await nueva.text()).toBe(302);
+  } finally {
+    await ctx.dispose();
+  }
+
+  // La sesión ya abierta sigue viva tras el cambio.
+  expect((await adoptante.get('/api/perfil')).status()).toBe(200);
+});
+
+test('AC-002-f (correo) · el cambio de correo se valida en servidor', async () => {
+  const invalido = await adoptante.put('/api/auth/cambiar-email', {
+    data: { correo: 'no-es-correo' },
+  });
+  expect(invalido.status()).toBe(400);
+
+  const mismo = await adoptante.put('/api/auth/cambiar-email', {
+    data: { correo: correo('adoptante') },
+  });
+  expect(mismo.status()).toBe(400);
+
+  const nuevo = `roles-nuevo-${sello}@adopty.test`;
+  const aceptado = await adoptante.put('/api/auth/cambiar-email', { data: { correo: nuevo } });
+  expect(aceptado.status(), await aceptado.text()).toBe(200);
+  const cuerpo = (await aceptado.json()) as { ok?: boolean; mensaje?: string };
+  expect(cuerpo.ok).toBe(true);
+  expect(cuerpo.mensaje).toBeTruthy();
+
+  // Con "Secure email change" puede quedar pendiente de confirmación (SUP-002).
+  // Si el entorno lo aplica al instante, se actualiza el correo que usa la suite.
+  const perfil = (await (await adoptante.get('/api/perfil')).json()) as { correo?: string };
+  if (perfil.correo === nuevo) correos.adoptante = nuevo;
+});
+
+test('AC-002-h · la baja se bloquea con la adopción en curso y se permite al completarla', async () => {
+  const idMascota = await publicar(organizacion, `Adopcion Roles ${sello}`);
+  const solicitud = await adoptanteBaja.post('/api/solicitudes', {
+    data: { id_mascota: idMascota, mensaje_inicial: 'Quiero adoptarlo.' },
+  });
+  expect(solicitud.status(), await solicitud.text()).toBe(201);
+  const { id } = (await solicitud.json()) as { id: string };
+
+  const aprobada = await organizacion.patch(`/api/solicitudes/${id}`, {
+    data: { accion: 'aprobar' },
+  });
+  expect(aprobada.status(), await aprobada.text()).toBe(200);
+
+  // Mascota en_proceso: la adopción está viva y la baja se bloquea.
+  const bloqueada = await adoptanteBaja.post('/api/cuenta/borrar', {
+    data: { password: PASSWORD, confirmacion: 'ELIMINAR' },
+  });
+  expect(bloqueada.status()).toBe(409);
+  // Ata el bloqueo a esta regla y no a cualquier P0001 futuro.
+  expect(await bloqueada.text()).toContain('adopción');
+
+  // El publicador completa la entrega marcando la mascota como adoptada.
+  const entrega = await organizacion.patch(`/api/mascotas/${idMascota}`, {
+    data: { estado: 'adoptada' },
+  });
+  expect(entrega.status(), await entrega.text()).toBe(200);
+
+  const baja = await adoptanteBaja.post('/api/cuenta/borrar', {
+    data: { password: PASSWORD, confirmacion: 'ELIMINAR' },
+  });
+  expect(baja.status(), await baja.text()).toBe(200);
+
+  const ctx = await nuevoContexto();
+  try {
+    const despues = await ctx.post('/api/auth/login', {
+      data: { correo: correo('baja'), password: PASSWORD },
+      maxRedirects: 0,
+    });
+    // La cuenta sigue en Auth pero inactiva: el login la rechaza con 403.
+    expect(despues.status()).toBe(403);
+    const cuerpo = (await despues.json()) as { error?: string };
+    expect(cuerpo.error).toContain('dada de baja');
+  } finally {
+    await ctx.dispose();
+  }
 });
