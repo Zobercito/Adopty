@@ -34,7 +34,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-003 · Adoptante: perfil, estilo de vida, favoritos y avisos
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-002 · AC-002-a, AC-002-b, AC-002-c, AC-002-e, AC-002-g
 - depende: TASK-001
 - test: —

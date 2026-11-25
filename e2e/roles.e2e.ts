@@ -54,47 +54,41 @@ let tercero: APIRequestContext;
 let admin: APIRequestContext;
 let adminListo = false;
 
+/** Ejecuta SQL contra la base local (fixtures de la suite). */
+function psql(sql: string): string {
+  return execFileSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_adopty',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-tA',
+      '-c',
+      sql,
+    ],
+    { encoding: 'utf8' },
+  ).trim();
+}
+
 /** Fixture local: nombra admin a la cuenta por correo (sin service role). */
 function hacerAdmin(correoAdmin: string): void {
   // El correo lo genera la suite: solo minúsculas, dígitos, punto, guion y @.
   if (!/^[a-z0-9.@-]+$/.test(correoAdmin)) throw new Error('Correo inesperado en el fixture');
-  const base = [
-    'exec',
-    '-i',
-    process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_adopty',
-    'psql',
-    '-U',
-    'postgres',
-    '-d',
-    'postgres',
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-tA',
-  ];
   // Insertar y contar en sentencias separadas: una CTE no ve sus propias filas
   // en el SELECT de la misma sentencia.
-  execFileSync(
-    'docker',
-    [
-      ...base,
-      '-c',
-      `insert into administradores (id)
-       select id from usuarios where correo = '${correoAdmin}'
-       on conflict do nothing;`,
-    ],
-    { stdio: 'pipe' },
-  );
-  const salida = execFileSync(
-    'docker',
-    [
-      ...base,
-      '-c',
-      `select count(*) from administradores a
-        join usuarios u on u.id = a.id
-       where u.correo = '${correoAdmin}';`,
-    ],
-    { encoding: 'utf8' },
-  ).trim();
+  psql(`insert into administradores (id)
+        select id from usuarios where correo = '${correoAdmin}'
+        on conflict do nothing;`);
+  const salida = psql(`select count(*) from administradores a
+                         join usuarios u on u.id = a.id
+                        where u.correo = '${correoAdmin}';`);
   if (salida !== '1') {
     throw new Error(`El fixture de admin no encontró la cuenta ${correoAdmin} (salida: ${salida})`);
   }
@@ -123,7 +117,24 @@ async function registrar(
   }
 }
 
+/** Inicia sesión en un contexto ya existente (para restaurarla tras el logout). */
+async function login(ctx: APIRequestContext, rol: string): Promise<void> {
+  const res = await ctx.post('/api/auth/login', {
+    data: { correo: correo(rol), password: PASSWORD },
+    maxRedirects: 0,
+  });
+  expect(res.status(), await res.text()).toBe(302);
+}
+
 test.beforeAll(async () => {
+  // Cada corrida crea 4 cuentas y el límite de registro (10/min por IP) persiste
+  // entre corridas; se limpia solo ese cubo, no los de otras suites.
+  try {
+    psql("delete from public.rate_limits where clave like 'register:%';");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
   adoptante = await registrar(`Adoptante Roles ${sello}`, 'adoptante', 'persona');
   organizacion = await registrar(`Refugio Roles ${sello}`, 'organizacion', 'organizacion');
   tercero = await registrar(`Tercero Roles ${sello}`, 'tercero', 'persona');
@@ -183,6 +194,10 @@ test('AC-001-c · cerrar sesión deja de autenticar las peticiones privadas', as
 
   const despues = await tercero.get('/api/perfil');
   expect(despues.status()).toBe(401);
+
+  // El resto de la suite necesita el tercero con sesión: se restaura.
+  await login(tercero, 'tercero');
+  expect((await tercero.get('/api/perfil')).status()).toBe(200);
 });
 
 test('AC-005-a · solo el admin abre el panel y las APIs de administración', async () => {
@@ -199,4 +214,134 @@ test('AC-005-a · solo el admin abre el panel y las APIs de administración', as
 
   const apiAjena = await adoptante.get('/api/admin/reportes');
   expect(apiAjena.status()).toBe(403);
+});
+
+test('AC-002-a · el adoptante lee y edita su propio perfil', async () => {
+  const antes = await adoptante.get('/api/perfil');
+  expect(antes.status()).toBe(200);
+
+  const editado = await adoptante.put('/api/perfil', {
+    multipart: {
+      nombre: `Adoptante Editado ${sello}`,
+      descripcion: 'Perfil actualizado por la suite de roles.',
+      experiencia: 'alguna_vez',
+      motivacion: 'Quiero adoptar.',
+    },
+  });
+  expect(editado.status(), await editado.text()).toBe(200);
+
+  const resDespues = await adoptante.get('/api/perfil');
+  expect(resDespues.status(), await resDespues.text()).toBe(200);
+  const despues = (await resDespues.json()) as {
+    detalle: { nombre?: string };
+  };
+  expect(despues.detalle.nombre).toBe(`Adoptante Editado ${sello}`);
+
+  // El cambio no toca el perfil de otra cuenta.
+  const resOtro = await tercero.get('/api/perfil');
+  expect(resOtro.status(), await resOtro.text()).toBe(200);
+  const otro = (await resOtro.json()) as {
+    detalle: { nombre?: string };
+  };
+  expect(otro.detalle.nombre).toBe(`Tercero Roles ${sello}`);
+});
+
+test('AC-002-b · el estilo de vida se guarda y se relee', async () => {
+  const datos = {
+    ambiente: 'apartamento',
+    ninos: false,
+    especie_pref: 'perro',
+    ubicacion: 'Ciudad de Panamá',
+    energia_pref: 'moderada',
+    otras_mascotas: false,
+    edad_pref: 'indiferente',
+  };
+  const guardado = await adoptante.put('/api/estilo-de-vida', { data: datos });
+  expect(guardado.status(), await guardado.text()).toBe(200);
+
+  const leido = (await (await adoptante.get('/api/estilo-de-vida')).json()) as {
+    perfil: Record<string, unknown> | null;
+  };
+  expect(leido.perfil).toMatchObject(datos);
+});
+
+test('AC-002-c · los favoritos son del adoptante y no los ve otra cuenta', async () => {
+  const lista = await adoptante.get('/api/mascotas?page=1');
+  expect(lista.status(), await lista.text()).toBe(200);
+  const { items } = (await lista.json()) as { items: { id: string }[] };
+  const idMascota = items[0]?.id;
+  expect(idMascota, 'No hay mascotas disponibles: aplica supabase/seed.sql').toBeTruthy();
+
+  const alta = await adoptante.post('/api/favoritos', { data: { id_mascota: idMascota } });
+  expect(alta.status(), await alta.text()).toBe(200);
+
+  const resMios = await adoptante.get('/api/favoritos');
+  expect(resMios.status(), await resMios.text()).toBe(200);
+  const mios = (await resMios.json()) as { favoritos: string[] };
+  expect(mios.favoritos).toContain(idMascota);
+
+  const resAjenos = await tercero.get('/api/favoritos');
+  expect(resAjenos.status(), await resAjenos.text()).toBe(200);
+  const ajenos = (await resAjenos.json()) as { favoritos: string[] };
+  expect(ajenos.favoritos).not.toContain(idMascota);
+
+  const baja = await adoptante.delete(`/api/favoritos?id_mascota=${idMascota}`);
+  expect(baja.status()).toBe(200);
+
+  const vacios = (await (await adoptante.get('/api/favoritos')).json()) as { favoritos: string[] };
+  expect(vacios.favoritos).not.toContain(idMascota);
+});
+
+test('AC-002-e · la exportación trae sus datos y ningún dato ajeno', async () => {
+  const lista = await adoptante.get('/api/mascotas?page=1');
+  const { items } = (await lista.json()) as { items: { id: string }[] };
+  const favPropio = items[0]?.id;
+  const favAjeno = items[1]?.id;
+  expect(favPropio && favAjeno).toBeTruthy();
+
+  // Datos reales que deben aparecer (creados en AC-002-a/b) y un favorito ajeno
+  // que no debe filtrarse.
+  await adoptante.post('/api/favoritos', { data: { id_mascota: favPropio } });
+  await tercero.post('/api/favoritos', { data: { id_mascota: favAjeno } });
+
+  const res = await adoptante.get('/api/mis-datos');
+  expect(res.status(), await res.text()).toBe(200);
+
+  const texto = await res.text();
+  const datos = JSON.parse(texto) as {
+    cuenta: { correo?: string };
+    perfil: { nombre?: string } | null;
+    estilo_de_vida: { ambiente?: string } | null;
+    solicitudes_enviadas: unknown[];
+    favoritos: { id_mascota: string }[];
+  };
+  expect(datos.cuenta.correo).toBe(correo('adoptante'));
+  expect(datos.perfil?.nombre).toBe(`Adoptante Editado ${sello}`);
+  expect(datos.estilo_de_vida?.ambiente).toBe('apartamento');
+  expect(Array.isArray(datos.solicitudes_enviadas)).toBe(true);
+
+  const idsFavoritos = datos.favoritos.map((f) => f.id_mascota);
+  expect(idsFavoritos).toContain(favPropio);
+  expect(idsFavoritos).not.toContain(favAjeno);
+  expect(texto).not.toContain(correo('tercero'));
+  expect(texto).not.toContain(correo('admin'));
+});
+
+test('AC-002-g · la preferencia de avisos persiste en el perfil', async () => {
+  const apagar = await adoptante.put('/api/notificaciones', {
+    data: { notificaciones_email: false },
+  });
+  expect(apagar.status(), await apagar.text()).toBe(200);
+
+  const sinAviso = await (await adoptante.get('/perfil')).text();
+  expect(sinAviso).toMatch(/id="notifEmail"[^>]*/);
+  expect(sinAviso).not.toMatch(/id="notifEmail"[^>]*checked/);
+
+  const encender = await adoptante.put('/api/notificaciones', {
+    data: { notificaciones_email: true },
+  });
+  expect(encender.status()).toBe(200);
+
+  const conAviso = await (await adoptante.get('/perfil')).text();
+  expect(conAviso).toMatch(/id="notifEmail"[^>]*checked/);
 });
