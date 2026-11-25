@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Adopty — API (Fase 7)",
-    "description": "Colección QA de la API Adopty. Variables: baseUrl (local http://localhost:4321 o preview Vercel). Flujo sugerido: Auth → Mascotas → Solicitudes → Mensajes → Favoritos.",
+    "description": "Colección QA de la API Adopty. Variables: baseUrl (local http://localhost:4321 o preview Vercel) y las claves demo/QA. Flujo sugerido: Auth → Mascotas → Solicitudes → Mensajes → Favoritos → Perfil y cuenta → Moderación → Reportes/verificación. Las rutas privadas usan la cookie de sesión que deja el Login (Postman la conserva); no hay bearer token porque el SSR autentica por cookies. Sustituye :id y <uuid> por valores reales.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -215,6 +215,207 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "favoritos"],
               "query": [{ "key": "id_mascota", "value": "<uuid>" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Perfil y cuenta",
+      "item": [
+        {
+          "name": "Mi perfil (GET)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/perfil" }
+        },
+        {
+          "name": "Preferencia de avisos por email",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/notificaciones",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"notificaciones_email\":true}" }
+          }
+        },
+        {
+          "name": "Actualizar perfil — persona (form-data)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/perfil",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "nombre", "value": "QA Persona", "type": "text" },
+                { "key": "descripcion", "value": "Perfil de prueba", "type": "text" },
+                { "key": "experiencia", "value": "alguna_vez", "type": "text" },
+                { "key": "motivacion", "value": "Quiero adoptar", "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar perfil — organización (form-data)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/perfil",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "nombre_oficial", "value": "Refugio QA", "type": "text" },
+                { "key": "direccion", "value": "Ciudad de Panamá", "type": "text" },
+                { "key": "descripcion", "value": "Refugio de prueba", "type": "text" },
+                { "key": "sitio_web", "value": "https://example.org", "type": "text" },
+                { "key": "contacto_visible", "value": "1", "type": "text" },
+                { "key": "instagram", "value": "@refugioqa", "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mis datos (JSON)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/mis-datos" }
+        },
+        {
+          "name": "Estilo de vida (GET)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/estilo-de-vida" }
+        },
+        {
+          "name": "Estilo de vida (PUT)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/estilo-de-vida",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"ambiente\":\"apartamento\",\"ninos\":false,\"especie_pref\":\"perro\",\"ubicacion\":\"Bethania\",\"energia_pref\":\"moderada\",\"otras_mascotas\":false,\"edad_pref\":\"adulto\"}"
+            }
+          }
+        },
+        {
+          "name": "Cambiar correo",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/auth/cambiar-email",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"correo\":\"nuevo-correo@adopty.pa\"}" }
+          }
+        },
+        {
+          "name": "Cambiar contraseña",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/cambiar-password",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"actual\":\"{{demo_password}}\",\"nueva\":\"NuevaClave123!\",\"confirmar\":\"NuevaClave123!\"}"
+            }
+          }
+        },
+        {
+          "name": "Baja de cuenta (irreversible)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/cuenta/borrar",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"password\":\"{{demo_password}}\",\"confirmacion\":\"ELIMINAR\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Moderación (admin)",
+      "item": [
+        {
+          "name": "Reportes pendientes (GET)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/reportes?estado=pendiente" }
+        },
+        {
+          "name": "Resolver reporte (ocultar)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/reportes/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accion\":\"ocultar\",\"notas\":\"Revisado desde Postman\"}"
+            }
+          }
+        },
+        {
+          "name": "Verificaciones pendientes (GET)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/verificaciones?estado=pendiente"
+          }
+        },
+        {
+          "name": "Resolver verificación (aprobar)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/verificaciones/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"aprobar\":true,\"notas\":\"Evidencia válida\"}"
+            }
+          }
+        },
+        {
+          "name": "Suspender/reactivar cuenta",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/admin/cuentas",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"id\":\"<uuid>\",\"activo\":false}" }
+          }
+        },
+        {
+          "name": "Restaurar publicación oculta",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/mascotas/:id/restaurar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reportes, verificación y subida",
+      "item": [
+        {
+          "name": "Reportar publicación",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/reportes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id_mascota\":\"<uuid>\",\"motivo\":\"La publicación parece falsa o duplicada.\"}"
+            }
+          }
+        },
+        {
+          "name": "Solicitar verificación (organización)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/verificacion",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"tipo_evidencia\":\"redes_sociales\",\"url_evidencia\":\"https://instagram.com/refugioqa\",\"descripcion\":\"Cuenta oficial del refugio\"}"
+            }
+          }
+        },
+        {
+          "name": "Subir 1–5 fotos (form-data)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/mascotas/upload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "fotos", "type": "file", "src": "/ruta/a/foto.jpg" }]
             }
           }
         }

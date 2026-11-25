@@ -1,5 +1,5 @@
 ---
-import { fotoUrl, type FotoRow, type MascotaRow } from '../lib/mascotas';
+import { fotoSrcset, fotoUrl, type FotoRow, type MascotaRow } from '../lib/mascotas';
 
 interface Props {
   mode: 'create' | 'edit';
@@ -10,7 +10,13 @@ const fotos = [...(pet?.fotos ?? [])];
 const nuevo = mode === 'create';
 ---
 
-<form id="petForm" class="grid gap-5">
+<form
+  id="petForm"
+  class="grid gap-5"
+  data-mode={mode}
+  data-pet-id={pet?.id ?? ''}
+  data-existing={fotos.length}
+>
   <fieldset class="grid gap-4">
     <legend class="sr-only">Datos de la mascota</legend>
     <div class="grid sm:grid-cols-2 gap-4">
@@ -201,13 +207,16 @@ const nuevo = mode === 'create';
                 />
                 <img
                   src={fotoUrl(f.url_foto)}
+                  srcset={fotoSrcset(f.url_foto)}
+                  data-src={fotoUrl(f.url_foto)}
+                  sizes="64px"
                   alt={`Foto ${i + 1} de ${pet?.nombre}`}
                   loading="lazy"
                   decoding="async"
                   width="64"
                   height="64"
                   class="w-16 h-16 rounded-lg object-cover bg-surface"
-                  onerror="this.remove()"
+
                 />
                 <span class="text-xs text-muted tabular">{i + 1}</span>
               </label>
@@ -245,24 +254,27 @@ const nuevo = mode === 'create';
   </button>
 </form>
 
-<script define:vars={{ mode, petId: pet?.id ?? '', existingCount: fotos.length }}>
-  const form = document.getElementById('petForm');
-  const errEl = document.getElementById('err');
-  const btn = document.getElementById('petSubmit');
-  const fotosInput = document.getElementById('fotos');
-  const preview = document.getElementById('preview');
-  const previewVacio = document.getElementById('previewVacio');
+<script>
+  const form = document.getElementById('petForm') as HTMLFormElement;
+  const mode = form.dataset.mode === 'edit' ? 'edit' : 'create';
+  const petId = form.dataset.petId ?? '';
+  const existingCount = Number(form.dataset.existing ?? 0);
+  const errEl = document.getElementById('err') as HTMLElement;
+  const btn = document.getElementById('petSubmit') as HTMLButtonElement;
+  const fotosInput = document.getElementById('fotos') as HTMLInputElement;
+  const preview = document.getElementById('preview') as HTMLElement;
+  const previewVacio = document.getElementById('previewVacio') as HTMLElement;
   const ETIQUETA = mode === 'create' ? 'Publicar mascota' : 'Guardar cambios';
 
-  const mostrarErr = (msg) => {
+  const mostrarErr = (msg: string) => {
     errEl.textContent = msg;
     errEl.classList.remove('hidden');
   };
 
   fotosInput.addEventListener('change', () => {
     preview.innerHTML = '';
-    previewVacio.classList.toggle('hidden', fotosInput.files.length > 0);
-    for (const file of fotosInput.files) {
+    previewVacio.classList.toggle('hidden', (fotosInput.files?.length ?? 0) > 0);
+    for (const file of Array.from(fotosInput.files ?? [])) {
       const li = document.createElement('li');
       const img = document.createElement('img');
       img.src = URL.createObjectURL(file);
@@ -276,15 +288,13 @@ const nuevo = mode === 'create';
     }
   });
 
-  async function cargarImagen(file) {
-    if (window.createImageBitmap) {
-      try {
-        return await createImageBitmap(file);
-      } catch {
-        /* fallback */
-      }
+  async function cargarImagen(file: File): Promise<ImageBitmap | HTMLImageElement> {
+    try {
+      return await createImageBitmap(file);
+    } catch {
+      /* fallback */
     }
-    return new Promise((resolve, reject) => {
+    return new Promise<ImageBitmap | HTMLImageElement>((resolve, reject) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
@@ -300,7 +310,7 @@ const nuevo = mode === 'create';
   }
 
   // Client-side compression: WebP ≤500KB (el servidor revalida con sharp)
-  async function comprimir(file) {
+  async function comprimir(file: File): Promise<Blob> {
     if (file.type === 'image/webp' && file.size <= 480 * 1024) return file;
     const img = await cargarImagen(file);
     const max = 1600;
@@ -308,14 +318,17 @@ const nuevo = mode === 'create';
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(img.width * escala));
     canvas.height = Math.max(1, Math.round(img.height * escala));
-    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-    let ultimo = null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('No se pudo procesar una imagen');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    let ultimo: Blob | null = null;
     for (const q of [0.85, 0.7, 0.55, 0.4]) {
-      const blob = await new Promise((res) => canvas.toBlob(res, 'image/webp', q));
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/webp', q));
       if (!blob) throw new Error('No se pudo procesar una imagen');
       ultimo = blob;
       if (blob.size <= 500 * 1024) return blob;
     }
+    if (!ultimo) throw new Error('No se pudo procesar una imagen');
     return ultimo;
   }
 
@@ -324,8 +337,10 @@ const nuevo = mode === 'create';
     errEl.classList.add('hidden');
     if (!form.reportValidity()) return;
     const fd = new FormData(form);
-    const nuevos = [...fotosInput.files];
-    const keeps = [...form.querySelectorAll('[data-keep]:checked')].map((c) => c.value);
+    const nuevos = Array.from(fotosInput.files ?? []);
+    const keeps = [...form.querySelectorAll<HTMLInputElement>('[data-keep]:checked')].map(
+      (c) => c.value,
+    );
     try {
       if (mode === 'create' && nuevos.length < 1) throw 'Sube al menos 1 foto';
       if (nuevos.length + keeps.length > 5) throw 'Máximo 5 fotos en total';
@@ -348,7 +363,7 @@ const nuevo = mode === 'create';
 
       btn.disabled = true;
       btn.textContent = nuevos.length ? 'Subiendo fotos…' : 'Guardando…';
-      let paths = [];
+      let paths: string[] = [];
       if (nuevos.length) {
         const formFotos = new FormData();
         for (const file of nuevos) {
@@ -381,7 +396,7 @@ const nuevo = mode === 'create';
       if (!res.ok) throw data.error || 'Error al guardar';
       location.href = mode === 'create' ? `/mascota/${data.id}` : `/mascota/${petId}`;
     } catch (msg) {
-      mostrarErr(typeof msg === 'string' ? msg : msg?.message || 'Error inesperado');
+      mostrarErr(typeof msg === 'string' ? msg : (msg as Error)?.message || 'Error inesperado');
       btn.disabled = false;
       btn.textContent = ETIQUETA;
       errEl.scrollIntoView({ block: 'center', behavior: 'smooth' });

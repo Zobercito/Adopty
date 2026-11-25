@@ -9,6 +9,7 @@ import { solicitudAccionSchema } from '../../../lib/validation/request';
 import { registrarAuditoria } from '../../../lib/auditoria';
 import { ipCliente, rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { mensajeError } from '../../../lib/errores';
+import { notificar } from '../../../lib/notificaciones';
 
 export const prerender = false;
 
@@ -32,7 +33,7 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
 
   const { data: sol } = await supabase
     .from('solicitudes')
-    .select('id, estado, id_adoptante, mascotas!inner(id_publicador)')
+    .select('id, estado, id_adoptante, id_mascota, mascotas!inner(id_publicador)')
     .eq('id', id)
     .maybeSingle();
   if (!sol) return Response.json({ error: 'No encontrada' }, { status: 404 });
@@ -65,6 +66,12 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
       datos_nuevos: { estado: 'aprobada' },
       ip: ipCliente(request),
     });
+    await notificar(
+      supabase,
+      'solicitud_aprobada',
+      (sol as { id_mascota: string }).id_mascota,
+      sol.id_adoptante,
+    );
     return Response.json({ ok: true });
   }
   const { error } = await supabase.from('solicitudes').update({ estado: t.siguiente }).eq('id', id);
@@ -79,5 +86,13 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     datos_nuevos: { estado: t.siguiente },
     ip: ipCliente(request),
   });
+  if (accion === 'rechazar') {
+    await notificar(
+      supabase,
+      'solicitud_rechazada',
+      (sol as { id_mascota: string }).id_mascota,
+      sol.id_adoptante,
+    );
+  }
   return Response.json({ ok: true });
 };

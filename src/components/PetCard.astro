@@ -1,7 +1,7 @@
 ---
 import Badge from './Badge.astro';
 import FavButton from './FavButton.astro';
-import { estadoLabel, fotoRender, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
+import { estadoLabel, fotoRender, fotoSrcset, fotosOrdenadas, gradFor, type FotoRow } from '../lib/mascotas';
 
 interface Props {
   id: string;
@@ -48,6 +48,7 @@ const {
 const url = slug ? `/mascota/${slug}` : `/mascota/${id}`;
 const principal = fotosOrdenadas(fotos)[0];
 const foto = fotoRender(principal?.url_foto);
+const srcset = fotoSrcset(principal?.url_foto);
 const grad = gradFor(id);
 const extraFotos = (fotos?.length ?? 0) - (principal ? 1 : 0);
 const etiqueta = [raza, edadLabel, sexo, tamano].filter(Boolean).join(' · ');
@@ -68,6 +69,9 @@ else tags.push({ texto: 'Macho', clase: 'tag-neutral' });
         foto && (
           <img
             src={foto}
+            srcset={srcset}
+            data-src={foto}
+            sizes="(min-width: 1280px) 380px, (min-width: 640px) 45vw, 100vw"
             alt={`${nombre} - ${raza}`}
             loading={prioridad ? 'eager' : 'lazy'}
             fetchpriority={prioridad ? 'high' : undefined}
@@ -76,7 +80,7 @@ else tags.push({ texto: 'Macho', clase: 'tag-neutral' });
             height="416"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             style="object-position:center"
-            onerror="this.remove()"
+
           />
         )
       }

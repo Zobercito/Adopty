@@ -57,7 +57,12 @@ if (!pet || !esDueno) {
             <p class="text-xs mt-1 text-muted">
               Se oculta de Explorar (borrado lógico). Sus solicitudes y mensajes se conservan.
             </p>
-            <button id="delBtn" class="btn-danger text-sm px-5 py-2.5 mt-3" type="button">
+            <button
+              id="delBtn"
+              class="btn-danger text-sm px-5 py-2.5 mt-3"
+              type="button"
+              data-pet-id={pet.id}
+            >
               Eliminar publicación
             </button>
           </section>
@@ -80,10 +85,12 @@ if (!pet || !esDueno) {
   </main>
   {
     pet && esDueno && (
-      <script define:vars={{ petId: pet.id }}>
-        document.getElementById('delBtn').addEventListener('click', async () => {
+      <script>
+        const delBtn = document.getElementById('delBtn') as HTMLButtonElement | null;
+        delBtn?.addEventListener('click', async () => {
           if (!confirm('¿Seguro que quieres eliminar esta publicación?')) return;
-          const btn = document.getElementById('delBtn');
+          const btn = delBtn;
+          const petId = btn.dataset.petId ?? '';
           btn.disabled = true;
           btn.textContent = 'Eliminando…';
           const res = await fetch(`/api/mascotas/${petId}`, { method: 'DELETE' });

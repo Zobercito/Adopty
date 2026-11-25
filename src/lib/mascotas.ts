@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type Estado = 'disponible' | 'en_proceso' | 'adoptada';
 export type Especie = 'perro' | 'gato' | 'otro';
 export type Tamano = 'Pequeño' | 'Mediano' | 'Grande';
+export type RangoEdad = 'cachorro' | 'joven' | 'adulto' | 'senior';
 
 export interface MascotaRow {
   id: string;
@@ -37,6 +38,9 @@ export interface Busqueda {
   especie?: Especie;
   tamano?: Tamano;
   sexo?: 'Macho' | 'Hembra';
+  edad?: RangoEdad;
+  raza?: string;
+  ubicacion?: string;
   q?: string;
   estado?: Estado;
   orden?: 'recientes' | 'antiguos';
@@ -77,6 +81,17 @@ export function fotoRender(path: string | null | undefined): string {
   return fotoUrl(path).replace(/^(\/assets\/[^?#]+)\.(jpe?g|png)$/i, '$1.webp');
 }
 
+/**
+ * `srcset` para fotos del bucket: el upload genera `uuid-640.webp` y
+ * `uuid-1280.webp`. Las fotos locales (`/assets`) no tienen variantes y devuelven
+ * `undefined`; las subidas antiguas caen al `src` gracias al listener de Layout.
+ */
+export function fotoSrcset(path: string | null | undefined): string | undefined {
+  if (!path || !RUTA_STORAGE.test(path)) return undefined;
+  const base = path.replace(/\.webp$/i, '');
+  return `${fotoUrl(`${base}-640.webp`)} 640w, ${fotoUrl(`${base}-1280.webp`)} 1280w`;
+}
+
 export function estadoLabel(estado: Estado | string): 'Disponible' | 'En proceso' | 'Adoptada' {
   return estado === 'en_proceso' ? 'En proceso' : estado === 'adoptada' ? 'Adoptada' : 'Disponible';
 }
@@ -112,6 +127,7 @@ export function paramsFrom(sp: URLSearchParams): Busqueda {
   const tamanoRaw = sp.get('tamano');
   const sexo = sp.get('sexo');
   const orden = sp.get('orden');
+  const edadRaw = sp.get('edad');
   const tamanoMap: Record<string, Tamano> = {
     pequeno: 'Pequeño',
     pequeño: 'Pequeño',
@@ -119,16 +135,25 @@ export function paramsFrom(sp: URLSearchParams): Busqueda {
     grande: 'Grande',
   };
   const tamano = tamanoRaw ? (tamanoMap[tamanoRaw.toLowerCase()] ?? undefined) : undefined;
+  const edad =
+    edadRaw === 'cachorro' || edadRaw === 'joven' || edadRaw === 'adulto' || edadRaw === 'senior'
+      ? (edadRaw as RangoEdad)
+      : undefined;
   const page = Number(sp.get('page') ?? '1');
+  // Texto para ILIKE: fuera comodines y sintaxis de PostgREST; acotado a 80.
+  const limpio = (v: string | null) =>
+    (v ?? '')
+      .replace(/[,()%*_]/g, ' ')
+      .trim()
+      .slice(0, 80) || undefined;
   return {
     especie: especie === 'perro' || especie === 'gato' || especie === 'otro' ? especie : undefined,
     tamano,
     sexo: sexo === 'Macho' || sexo === 'Hembra' ? sexo : undefined,
-    q:
-      (sp.get('q') ?? '')
-        .replace(/[,()%*]/g, ' ')
-        .trim()
-        .slice(0, 80) || undefined,
+    edad,
+    raza: limpio(sp.get('raza')),
+    ubicacion: limpio(sp.get('ubicacion')),
+    q: limpio(sp.get('q')),
     estado: (sp.get('estado') as Estado) ?? 'disponible',
     orden: orden === 'antiguos' ? 'antiguos' : 'recientes',
     page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
@@ -165,6 +190,12 @@ export async function buscarMascotas(
     if (b.especie) q = q.eq('especie', b.especie);
     if (b.tamano) q = q.eq('tamano', b.tamano);
     if (b.sexo) q = q.eq('sexo', b.sexo);
+    if (b.edad === 'cachorro') q = q.lt('edad_meses', 12);
+    else if (b.edad === 'joven') q = q.gte('edad_meses', 12).lt('edad_meses', 36);
+    else if (b.edad === 'adulto') q = q.gte('edad_meses', 36).lt('edad_meses', 84);
+    else if (b.edad === 'senior') q = q.gte('edad_meses', 84);
+    if (b.raza) q = q.ilike('raza', `%${b.raza}%`);
+    if (b.ubicacion) q = q.ilike('ubicacion', `%${b.ubicacion}%`);
     // Nota: pg_trgm (similarity) se usa en /api/mascotas/busqueda-avanzada
     if (b.q) q = q.or(`nombre.ilike.%${b.q}%,raza.ilike.%${b.q}%,ubicacion.ilike.%${b.q}%`);
     return q;

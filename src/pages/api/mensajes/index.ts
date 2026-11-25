@@ -4,6 +4,7 @@ import { mensajeSchema } from '../../../lib/validation/message';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { nombresPublicos, SIN_CUENTA } from '../../../lib/perfil';
 import { mensajeError } from '../../../lib/errores';
+import { notificar } from '../../../lib/notificaciones';
 
 export const prerender = false;
 
@@ -153,6 +154,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     receptor = mascota.id_publicador;
   }
 
+  if (!receptor) return Response.json({ error: 'Destinatario inválido' }, { status: 400 });
+
   const { data, error } = await supabase
     .from('mensajes')
     .insert({
@@ -165,5 +168,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     .single();
   if (error) return Response.json({ error: mensajeError(error, 'api/mensajes') }, { status: 400 });
 
+  await notificar(supabase, 'mensaje_nuevo', id_mascota, receptor);
   return Response.json({ mensaje: data }, { status: 201 });
 };

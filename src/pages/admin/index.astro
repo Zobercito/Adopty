@@ -6,13 +6,16 @@ import {
   cuentaBadge,
   esAdmin,
   fechaCorta,
+  fechaHora,
   LIMITE_PANEL,
+  listarAuditoria,
   listarCuentas,
   listarReportes,
   listarVerificaciones,
   reporteBadge,
   verifBadge,
   urlEvidenciaSegura,
+  type AuditoriaAdmin,
   type CuentaAdmin,
   type EstadoReporte,
   type EstadoVerificacion,
@@ -60,6 +63,7 @@ const ve: EstadoVerificacion = ESTADOS_VERIF.includes(veRaw as EstadoVerificacio
 let reportes: ReporteAdmin[] = [];
 let verificaciones: VerificacionAdmin[] = [];
 let cuentas: CuentaAdmin[] = [];
+let auditoria: AuditoriaAdmin[] = [];
 let pendientesReportes = 0;
 let pendientesVerif = 0;
 let suspendidas = 0;
@@ -84,6 +88,12 @@ if (esAdminUser) {
     suspendidas = listaCuentas.filter((c) => !c.activo).length;
   } catch (e) {
     errorMsg = mensajeError(e, 'GET /admin', 'Error al cargar el panel');
+  }
+  // Si la migración del visor no está aplicada, el panel sigue funcionando.
+  try {
+    auditoria = await listarAuditoria(supabase);
+  } catch {
+    auditoria = [];
   }
 }
 
@@ -460,6 +470,44 @@ const tabVe = (estado: EstadoVerificacion) => ({ href: `/admin?re=${re}&ve=${est
           <p class="text-xs mt-8 text-faint">
             Las decisiones quedan registradas en la auditoría de la base de datos.
           </p>
+
+          {auditoria.length > 0 && (
+            <section class="mt-8" aria-labelledby="t-auditoria">
+              <h2 id="t-auditoria" class="font-display font-extrabold text-lg">
+                Auditoría reciente
+              </h2>
+              <p class="text-xs text-muted mt-1">
+                Últimas 50 acciones registradas. El actor es quien la ejecutó; el objetivo, el
+                usuario o registro afectado.
+              </p>
+              <div class="soft-card mt-3 overflow-x-auto">
+                <table class="w-full text-xs">
+                  <thead>
+                    <tr class="text-left text-faint border-b border-line">
+                      <th scope="col" class="px-4 py-2 font-semibold">Fecha</th>
+                      <th scope="col" class="px-4 py-2 font-semibold">Actor</th>
+                      <th scope="col" class="px-4 py-2 font-semibold">Acción</th>
+                      <th scope="col" class="px-4 py-2 font-semibold">Tabla</th>
+                      <th scope="col" class="px-4 py-2 font-semibold">Objetivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditoria.map((a) => (
+                      <tr class="border-b border-line last:border-0">
+                        <td class="px-4 py-2 whitespace-nowrap tabular">{fechaHora(a.fecha)}</td>
+                        <td class="px-4 py-2">{a.actor}</td>
+                        <td class="px-4 py-2 font-mono">{a.accion}</td>
+                        <td class="px-4 py-2">{a.tabla}</td>
+                        <td class="px-4 py-2 font-mono text-faint">
+                          {a.objetivo ?? a.id_registro}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </>
       )
     }

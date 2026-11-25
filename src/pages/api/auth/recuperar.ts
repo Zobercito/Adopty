@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const prerender = false;
 
 /** POST /api/auth/recuperar — envía email de recuperación (link vuelve al callback). Rate-limit 5/min por IP. */
-export const POST: APIRoute = async ({ request, cookies, url }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
   const supabase = supabaseServer(cookies);
   const rl = await rateLimitDistribuido(supabase, `recuperar:${ipCliente(request)}`, 5, 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
@@ -15,7 +15,8 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     .safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Correo inválido' }, { status: 400 });
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.correo, {
-    redirectTo: `${url.origin}/api/auth/callback?next=/perfil`,
+    // Dominio configurado, no el Host de la petición (evita redirects por Host).
+    redirectTo: `${import.meta.env.SITE}/api/auth/callback?next=/perfil`,
   });
   if (error) {
     // Respuesta uniforme (hallazgo I): el texto de GoTrue puede delatar si el

@@ -4,6 +4,7 @@ import { getMisSolicitudes, getSolicitudesRecibidas } from '../../../lib/solicit
 import { solicitudSchema } from '../../../lib/validation/request';
 import { rateLimitDistribuido, respuestaRateLimit } from '../../../lib/ratelimit';
 import { mensajeError } from '../../../lib/errores';
+import { notificar } from '../../../lib/notificaciones';
 
 export const prerender = false;
 
@@ -109,5 +110,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       { status: dup ? 409 : 400 },
     );
   }
+  await notificar(supabase, 'solicitud_nueva', id_mascota, mascota.id_publicador);
   return Response.json({ id: (data as { id: string }).id }, { status: 201 });
 };

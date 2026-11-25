@@ -86,13 +86,16 @@ const stats = resumen
                 {p.foto && (
                   <img
                     src={p.foto}
+                    srcset={p.srcset}
+                    data-src={p.foto}
+                    sizes="112px"
                     alt=""
                     loading="lazy"
                     decoding="async"
                     width="112"
                     height="112"
                     class="absolute inset-0 w-full h-full object-cover"
-                    onerror="this.remove()"
+
                   />
                 )}
               </a>

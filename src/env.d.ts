@@ -12,3 +12,8 @@ declare namespace App {
     mensajesSinLeer: number;
   }
 }
+
+interface Window {
+  /** Inicializa el botón de favorito que se acaba de pintar (Explorar). */
+  adoptyFavInit?: (boton: Element) => void;
+}

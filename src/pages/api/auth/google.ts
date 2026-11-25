@@ -21,7 +21,10 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   const supabase = supabaseServer(cookies);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${url.origin}/api/auth/callback?next=${encodeURIComponent(next)}` },
+    options: {
+      // Dominio configurado, no el Host de la petición (evita redirects por Host).
+      redirectTo: `${import.meta.env.SITE}/api/auth/callback?next=${encodeURIComponent(next)}`,
+    },
   });
   if (error || !data.url) {
     const msg = encodeURIComponent(

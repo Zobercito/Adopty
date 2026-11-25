@@ -194,6 +194,67 @@ export async function cambiarEstadoCuenta(
   if (error) throw new Error(error.message);
 }
 
+/** Fila del visor de auditoría (solo admin). Sin correo ni datos de terceros. */
+export interface AuditoriaAdmin {
+  id: string;
+  actor: string;
+  accion: string;
+  tabla: string;
+  id_registro: string;
+  /** ID del usuario afectado, si la acción lo dejó en `datos_nuevos`. */
+  objetivo: string | null;
+  fecha: string;
+}
+
+/** Últimas acciones auditadas. La policy `auditoria_select_admin` autoriza. */
+export async function listarAuditoria(
+  supabase: SupabaseClient,
+  limite = LIMITE_PANEL,
+): Promise<AuditoriaAdmin[]> {
+  const { data, error } = await supabase
+    .from('auditoria')
+    .select('id,id_usuario,accion,tabla,id_registro,datos_nuevos,fecha')
+    .order('fecha', { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+
+  const filas = (data ?? []) as unknown as {
+    id: string;
+    id_usuario: string;
+    accion: string;
+    tabla: string;
+    id_registro: string;
+    datos_nuevos: Record<string, unknown> | null;
+    fecha: string;
+  }[];
+  const nombres = await nombresDe(
+    supabase,
+    filas.map((f) => f.id_usuario),
+  );
+  return filas.map((f) => {
+    const objetivo = f.datos_nuevos?.id_objetivo;
+    return {
+      id: f.id,
+      actor: nombres.get(f.id_usuario)?.nombre ?? 'Usuario',
+      accion: f.accion,
+      tabla: f.tabla,
+      id_registro: f.id_registro,
+      objetivo: typeof objetivo === 'string' ? objetivo : null,
+      fecha: f.fecha,
+    };
+  });
+}
+
+/** Fecha y hora corta en español para la auditoría. */
+export function fechaHora(iso: string): string {
+  return new Date(iso).toLocaleString('es-PA', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** Badge [clase, color, etiqueta] para el estado de una cuenta. */
 export function cuentaBadge(a: boolean): [string, string, string] {
   return a

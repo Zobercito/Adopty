@@ -11,7 +11,7 @@ import { registerSchema } from '../../../lib/validation/user';
 export const prerender = false;
 
 /** POST /api/auth/register — validación Zod en servidor + signUp con metadata. Rate-limit 10/min por IP. */
-export const POST: APIRoute = async ({ request, cookies, redirect, url }) => {
+export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const supabase = supabaseServer(cookies);
   const rl = await rateLimitDistribuido(supabase, `register:${ipCliente(request)}`, 10, 60_000);
   if (!rl.ok) return respuestaRateLimit(rl.reintentoEn ?? 60);
@@ -35,8 +35,9 @@ export const POST: APIRoute = async ({ request, cookies, redirect, url }) => {
     options: {
       data: { nombre, tipo_usuario },
       // El link de confirmación vuelve a NUESTRA app (callback canjea `code` por sesión).
-      // Funciona en local/preview/prod siempre que el origen esté en Redirect URLs.
-      emailRedirectTo: `${url.origin}/api/auth/callback?next=/perfil`,
+      // Usa el dominio configurado, no el Host de la petición: evita que un Host
+      // manipulado redirija el enlace a un dominio ajeno.
+      emailRedirectTo: `${import.meta.env.SITE}/api/auth/callback?next=/perfil`,
     },
   });
   if (error) {
