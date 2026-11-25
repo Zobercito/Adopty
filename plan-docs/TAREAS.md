@@ -70,7 +70,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
 ### TASK-007 · Reporte de B visible en el admin
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-006 · AC-006-a, AC-006-b · REQ-005 · AC-005-b
 - depende: TASK-002, TASK-005
 - test: —

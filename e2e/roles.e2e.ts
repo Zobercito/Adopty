@@ -743,3 +743,69 @@ test('AC-006-f · los no leídos se cuentan para cada parte', async () => {
   const { items: deC } = (await bandejaC.json()) as { items: { id_mascota: string }[] };
   expect(deC.map((h) => h.id_mascota)).not.toContain(mascotaChat);
 });
+
+test('AC-006-a / AC-005-b · el reporte llega al admin y ocultar/restaurar cambia la ficha', async () => {
+  test.skip(!adminListo, 'Fixture de admin no disponible (docker/psql)');
+
+  const nombre = `Reportable ${sello}`;
+  const id = await publicar(organizacion, nombre);
+  const q = encodeURIComponent(nombre);
+  const listaPublica = async () => {
+    const res = await tercero.get(`/api/mascotas?q=${q}`);
+    const { items } = (await res.json()) as { items: { id: string }[] };
+    return items.map((p) => p.id);
+  };
+  expect(await listaPublica()).toContain(id);
+
+  const reporte = await adoptante.post('/api/reportes', {
+    data: { id_mascota: id, motivo: 'Publicación de prueba para la suite de roles.' },
+  });
+  expect(reporte.status(), await reporte.text()).toBe(201);
+
+  // El publicador no tiene bandeja de reportes: solo el admin.
+  expect((await organizacion.get('/api/admin/reportes')).status()).toBe(403);
+
+  const pendientes = await admin.get('/api/admin/reportes?estado=pendiente');
+  expect(pendientes.status(), await pendientes.text()).toBe(200);
+  const { reportes } = (await pendientes.json()) as {
+    reportes: { id: string; motivo: string; mascota: { id: string } }[];
+  };
+  const encontrado = reportes.find((r) => r.mascota.id === id);
+  expect(encontrado, 'El reporte no llegó a la bandeja del admin').toBeTruthy();
+  expect(encontrado!.motivo).toContain('suite de roles');
+
+  const ocultar = await admin.post(`/api/admin/reportes/${encontrado!.id}`, {
+    data: { accion: 'ocultar' },
+  });
+  expect(ocultar.status(), await ocultar.text()).toBe(200);
+
+  // Ocultar saca la ficha y el listado público, y el reporte sale de pendientes.
+  expect((await tercero.get(`/api/mascotas/${id}`)).status()).toBe(404);
+  expect(await listaPublica()).not.toContain(id);
+
+  const sinPendiente = await admin.get('/api/admin/reportes?estado=pendiente');
+  const { reportes: pendientesTrasOcultar } = (await sinPendiente.json()) as {
+    reportes: { id: string }[];
+  };
+  expect(pendientesTrasOcultar.map((r) => r.id)).not.toContain(encontrado!.id);
+
+  const resueltos = await admin.get('/api/admin/reportes?estado=resuelto');
+  const { reportes: listaResueltos } = (await resueltos.json()) as {
+    reportes: { id: string }[];
+  };
+  expect(listaResueltos.map((r) => r.id)).toContain(encontrado!.id);
+
+  const restaurar = await admin.post(`/api/admin/mascotas/${id}/restaurar`, { data: {} });
+  expect(restaurar.status(), await restaurar.text()).toBe(200);
+
+  const visible = await tercero.get(`/api/mascotas/${id}`);
+  expect(visible.status(), await visible.text()).toBe(200);
+  expect(await listaPublica()).toContain(id);
+
+  const resueltosTrasRestaurar = await admin.get('/api/admin/reportes?estado=resuelto');
+  const { reportes: conNota } = (await resueltosTrasRestaurar.json()) as {
+    reportes: { id: string; notas_admin: string | null }[];
+  };
+  const restaurado = conNota.find((r) => r.id === encontrado!.id);
+  expect(restaurado?.notas_admin).toContain('restaurada');
+});
