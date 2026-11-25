@@ -60,6 +60,9 @@ jobs:
       - run: npm run test:e2e:flujo
         env:
           CI: true
+      - run: npm run test:e2e:roles
+        env:
+          CI: true
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

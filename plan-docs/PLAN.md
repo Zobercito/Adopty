@@ -37,7 +37,7 @@ que Adopty permite todo lo que cada rol debe poder hacer y nada de lo que no.
 - **AC-002-c** — Dado un adoptante que marca un favorito, cuando consulta `/api/favoritos`, entonces aparece; al borrarlo desaparece; otra cuenta no lo ve.
 - **AC-002-d** — Dado un adoptante, cuando solicita una mascota disponible, entonces recibe 201; una segunda solicitud igual recibe 409; sobre su propia mascota recibe 403.
 - **AC-002-e** — Dado un adoptante, cuando pide `/api/mis-datos`, entonces recibe solo su información y ninguna credencial ni dato de otra cuenta.
-- **AC-002-f** — Dado un adoptante, cuando cambia su contraseña con la actual incorrecta recibe 400; con la correcta recibe 200 y puede iniciar sesión con la nueva.
+- **AC-002-f** — Dado un adoptante, cuando cambia su contraseña con la actual incorrecta recibe 401 con el mensaje de contraseña incorrecta; con la correcta recibe 200 y puede iniciar sesión con la nueva.
 - **AC-002-g** — Dado un adoptante, cuando cambia su preferencia de avisos, entonces `/api/perfil` la refleja al releer.
 - **AC-002-h** — Dada una adopción aprobada sin resolver, cuando pide la baja recibe 409; resuelta la adopción, la baja responde 200 y la cuenta ya no puede iniciar sesión.
 

@@ -1,11 +1,11 @@
 # STATE — Verificación funcional por roles (Adopty)
 
 perfil: ligero
-version: 0.2
+version: 0.3
 fase: 9-tareas
-estado: trabajando
+estado: cerrado
 actualizado: 2026-11-25
-huella: a02aea05166eb667
+huella: e9273c2f8c6f837a
 
 ## Reglas que no se rompen
 
@@ -52,4 +52,4 @@ huella: a02aea05166eb667
 
 ## Siguiente paso
 
-TASK-001 cerrada. Corregidos los encabezados de TAREAS.md (v0.2); el plan ya registra las 12 tareas. Ejecutar TASK-002 (fixture de admin) y seguir el orden hasta TASK-012.
+Plan cerrado (12/12). Follow-ups fuera del plan: `db push` de las migraciones nuevas, push/merge y piloto con acta.

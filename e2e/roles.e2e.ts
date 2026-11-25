@@ -27,6 +27,19 @@ function supabaseUrl(): string {
 
 const esLocal = hostLocal(supabaseUrl());
 
+/** Lee una variable del entorno o de `.env` (el CI escribe ahí las claves locales). */
+function envDe(nombre: string): string {
+  if (process.env[nombre]) return process.env[nombre]!;
+  try {
+    const linea = readFileSync('.env', 'utf8')
+      .split('\n')
+      .find((l) => l.startsWith(`${nombre}=`));
+    return linea?.split('=').slice(1).join('=').trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
 /** true si la URL apunta a esta máquina; false si es remota o no parsea. */
 function hostLocal(valor: string): boolean {
   try {
@@ -358,11 +371,8 @@ test('AC-002-b · el estilo de vida se guarda y se relee', async () => {
 });
 
 test('AC-002-c · los favoritos son del adoptante y no los ve otra cuenta', async () => {
-  const lista = await adoptante.get('/api/mascotas?page=1');
-  expect(lista.status(), await lista.text()).toBe(200);
-  const { items } = (await lista.json()) as { items: { id: string }[] };
-  const idMascota = items[0]?.id;
-  expect(idMascota, 'No hay mascotas disponibles: aplica supabase/seed.sql').toBeTruthy();
+  // Mascota propia de la corrida: la suite no depende del seed.
+  const idMascota = await publicar(organizacion, `Favorito ${sello}`);
 
   const alta = await adoptante.post('/api/favoritos', { data: { id_mascota: idMascota } });
   expect(alta.status(), await alta.text()).toBe(200);
@@ -385,11 +395,9 @@ test('AC-002-c · los favoritos son del adoptante y no los ve otra cuenta', asyn
 });
 
 test('AC-002-e · la exportación trae sus datos y ningún dato ajeno', async () => {
-  const lista = await adoptante.get('/api/mascotas?page=1');
-  const { items } = (await lista.json()) as { items: { id: string }[] };
-  const favPropio = items[0]?.id;
-  const favAjeno = items[1]?.id;
-  expect(favPropio && favAjeno).toBeTruthy();
+  // Dos mascotas propias de la corrida: una para el adoptante y otra para el tercero.
+  const favPropio = await publicar(organizacion, `Favorito Propio ${sello}`);
+  const favAjeno = await publicar(organizacion, `Favorito Ajeno ${sello}`);
 
   // Datos reales que deben aparecer (creados en AC-002-a/b) y un favorito ajeno
   // que no debe filtrarse.
@@ -1074,8 +1082,8 @@ test('AC-007-a/d/e · negativos de acceso y RLS', async () => {
 
   // e) `notificaciones_log` no se puede leer por REST ni con sesión.
   const token = accessToken(await adoptante.storageState());
-  const base = process.env.PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
-  const key = process.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+  const base = envDe('PUBLIC_SUPABASE_URL') || 'http://127.0.0.1:54321';
+  const key = envDe('PUBLIC_SUPABASE_ANON_KEY');
   expect(key, 'Falta PUBLIC_SUPABASE_ANON_KEY en el entorno').toBeTruthy();
   expect(token, 'No se pudo extraer el access token de la cookie').toBeTruthy();
   const headers = { apikey: key, Authorization: `Bearer ${token}` };
