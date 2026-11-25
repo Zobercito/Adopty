@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, request as apiRequest, test, type APIRequestContext } from '@playwright/test';
 
@@ -23,12 +24,12 @@ function supabaseUrl(): string {
   }
 }
 
-const esLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(supabaseUrl());
+const esLocal = hostLocal(supabaseUrl());
 
-/** El destino de las peticiones también debe ser local: un preview apunta a la BD cloud. */
-function destinoLocal(): boolean {
+/** true si la URL apunta a esta máquina; false si es remota o no parsea. */
+function hostLocal(valor: string): boolean {
   try {
-    const { hostname } = new URL(process.env.E2E_BASE_URL ?? 'http://localhost:4321');
+    const { hostname } = new URL(valor);
     return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
   } catch {
     return false;
@@ -37,7 +38,7 @@ function destinoLocal(): boolean {
 
 test.skip(process.env.E2E_FLUJO !== '1', 'Pruebas con escrituras: activar con E2E_FLUJO=1');
 test.skip(
-  !esLocal || !destinoLocal(),
+  !esLocal || !hostLocal(process.env.E2E_BASE_URL ?? 'http://localhost:4321'),
   'La batería por roles solo corre contra Supabase local y un destino local',
 );
 
@@ -50,6 +51,54 @@ const correo = (rol: string) => `roles-${rol}-${sello}@adopty.test`;
 let adoptante: APIRequestContext;
 let organizacion: APIRequestContext;
 let tercero: APIRequestContext;
+let admin: APIRequestContext;
+let adminListo = false;
+
+/** Fixture local: nombra admin a la cuenta por correo (sin service role). */
+function hacerAdmin(correoAdmin: string): void {
+  // El correo lo genera la suite: solo minúsculas, dígitos, punto, guion y @.
+  if (!/^[a-z0-9.@-]+$/.test(correoAdmin)) throw new Error('Correo inesperado en el fixture');
+  const base = [
+    'exec',
+    '-i',
+    process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_adopty',
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-tA',
+  ];
+  // Insertar y contar en sentencias separadas: una CTE no ve sus propias filas
+  // en el SELECT de la misma sentencia.
+  execFileSync(
+    'docker',
+    [
+      ...base,
+      '-c',
+      `insert into administradores (id)
+       select id from usuarios where correo = '${correoAdmin}'
+       on conflict do nothing;`,
+    ],
+    { stdio: 'pipe' },
+  );
+  const salida = execFileSync(
+    'docker',
+    [
+      ...base,
+      '-c',
+      `select count(*) from administradores a
+        join usuarios u on u.id = a.id
+       where u.correo = '${correoAdmin}';`,
+    ],
+    { encoding: 'utf8' },
+  ).trim();
+  if (salida !== '1') {
+    throw new Error(`El fixture de admin no encontró la cuenta ${correoAdmin} (salida: ${salida})`);
+  }
+}
 
 /** Registra una cuenta; cada contexto guarda su propia cookie de sesión. */
 async function registrar(
@@ -78,10 +127,27 @@ test.beforeAll(async () => {
   adoptante = await registrar(`Adoptante Roles ${sello}`, 'adoptante', 'persona');
   organizacion = await registrar(`Refugio Roles ${sello}`, 'organizacion', 'organizacion');
   tercero = await registrar(`Tercero Roles ${sello}`, 'tercero', 'persona');
+  admin = await registrar(`Admin Roles ${sello}`, 'admin', 'persona');
+  // Si Docker no existe, los casos de admin se omiten; un fixture roto debe fallar.
+  try {
+    hacerAdmin(correo('admin'));
+    adminListo = true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.warn('[roles] Docker no disponible: se omiten los casos de admin');
+    } else {
+      throw error;
+    }
+  }
 });
 
 test.afterAll(async () => {
-  await Promise.all([adoptante?.dispose(), organizacion?.dispose(), tercero?.dispose()]);
+  await Promise.all([
+    adoptante?.dispose(),
+    organizacion?.dispose(),
+    tercero?.dispose(),
+    admin?.dispose(),
+  ]);
 });
 
 test('AC-001-a · el registro de persona deja sesión y perfil propio', async () => {
@@ -117,4 +183,20 @@ test('AC-001-c · cerrar sesión deja de autenticar las peticiones privadas', as
 
   const despues = await tercero.get('/api/perfil');
   expect(despues.status()).toBe(401);
+});
+
+test('AC-005-a · solo el admin abre el panel y las APIs de administración', async () => {
+  test.skip(!adminListo, 'Fixture de admin no disponible (docker/psql)');
+
+  const panel = await admin.get('/admin');
+  expect(panel.status(), await panel.text()).toBe(200);
+
+  const api = await admin.get('/api/admin/reportes');
+  expect(api.status(), await api.text()).toBe(200);
+
+  const panelAjeno = await adoptante.get('/admin');
+  expect(panelAjeno.status()).toBe(404);
+
+  const apiAjena = await adoptante.get('/api/admin/reportes');
+  expect(apiAjena.status()).toBe(403);
 });

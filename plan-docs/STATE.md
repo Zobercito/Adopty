@@ -1,9 +1,9 @@
 # STATE — Verificación funcional por roles (Adopty)
 
 perfil: ligero
-version: 0.1
+version: 0.2
 fase: 9-tareas
-estado: esperando_ok
+estado: trabajando
 actualizado: 2026-11-25
 huella: a02aea05166eb667
 
@@ -52,4 +52,4 @@ huella: a02aea05166eb667
 
 ## Siguiente paso
 
-Aprobado el plan, ejecutar TASK-001 y TASK-002 (arnés y admin) y seguir el orden de TAREAS.md hasta TASK-012.
+TASK-001 cerrada. Corregidos los encabezados de TAREAS.md (v0.2); el plan ya registra las 12 tareas. Ejecutar TASK-002 (fixture de admin) y seguir el orden hasta TASK-012.

@@ -25,9 +25,14 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: 'npm run dev',
+        // Al escribir datos, el servidor debe arrancar con el entorno del test:
+        // `--ignore-lock` evita el auto-background de Astro cuando detecta un
+        // agente y permite que Playwright gestione el proceso en primer plano.
+        command: process.env.E2E_FLUJO === '1' ? 'npm run dev -- --ignore-lock' : 'npm run dev',
         url: baseURL,
-        reuseExistingServer: true,
+        // Las suites que escriben no deben reutilizar un dev server con otra
+        // configuración: podría apuntar a Supabase cloud y crear datos reales.
+        reuseExistingServer: process.env.E2E_FLUJO !== '1',
         timeout: 120_000,
       },
 });

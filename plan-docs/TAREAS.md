@@ -14,7 +14,7 @@ E2E_FLUJO=1 PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
 
 Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 
-## TASK-001 · Arnés y sesión por rol
+### TASK-001 · Arnés y sesión por rol
 
 - estado: [x]
 - cubre: REQ-001 · AC-001-a, AC-001-b, AC-001-c
@@ -23,16 +23,16 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: la suite registra una persona, una organización y un tercero; cada contexto lee `/api/perfil` con 200, y tras `logout` la petición privada deja de autenticar. Sin prueba unitaria: el AC se ejecuta en la propia suite.
 
-## TASK-002 · Fixture de administrador
+### TASK-002 · Fixture de administrador
 
-- estado: [ ]
+- estado: [x]
 - cubre: REQ-005 · AC-005-a
 - depende: TASK-001
 - test: —
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: el helper `psql()` inserta el UUID del admin en `administradores` y ese contexto abre `/admin` con 200, mientras una cuenta normal recibe 404. Sin prueba unitaria: requiere la base local.
 
-## TASK-003 · Adoptante: perfil, estilo de vida, favoritos y avisos
+### TASK-003 · Adoptante: perfil, estilo de vida, favoritos y avisos
 
 - estado: [ ]
 - cubre: REQ-002 · AC-002-a, AC-002-b, AC-002-c, AC-002-e, AC-002-g
@@ -41,7 +41,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: el adoptante lee y edita su perfil, guarda estilo de vida, marca y borra un favorito (y otra cuenta no lo ve), exporta sus datos sin datos ajenos y persiste su preferencia de avisos.
 
-## TASK-004 · Adoptante: contraseña, correo y baja
+### TASK-004 · Adoptante: contraseña, correo y baja
 
 - estado: [ ]
 - cubre: REQ-002 · AC-002-f, AC-002-h
@@ -50,7 +50,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: el cambio de contraseña rechaza la actual incorrecta y acepta la correcta, la baja responde 409 con adopción aprobada y 200 sin ella, y la cuenta dada de baja ya no inicia sesión. El cambio de correo se valida hasta la petición (ver SUP-002).
 
-## TASK-005 · Publicador: publicar, editar, panel y borrado lógico
+### TASK-005 · Publicador: publicar, editar, panel y borrado lógico
 
 - estado: [ ]
 - cubre: REQ-003 · AC-003-a, AC-003-b, AC-003-c, AC-003-d, AC-003-e
@@ -59,7 +59,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: el publicador crea una mascota con foto, la edita, el panel cuadra con sus filas, el borrado lógico la saca del listado y una mascota adoptada no vuelve a disponible.
 
-## TASK-006 · Solicitud y chat entre dos cuentas
+### TASK-006 · Solicitud y chat entre dos cuentas
 
 - estado: [ ]
 - cubre: REQ-006 · AC-006-e, AC-006-f · REQ-002 · AC-002-d · REQ-007 · AC-007-b, AC-007-c
@@ -68,7 +68,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: B solicita (201), duplica (409) y no puede solicitar lo suyo (403); A ve la solicitud y aprueba; B y A chatean con `no_leidos` 1/1; C no la ve, no escribe y no puede aprobar.
 
-## TASK-007 · Reporte de B visible en el admin
+### TASK-007 · Reporte de B visible en el admin
 
 - estado: [ ]
 - cubre: REQ-006 · AC-006-a, AC-006-b · REQ-005 · AC-005-b
@@ -77,7 +77,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: el reporte de B aparece en `/api/admin/reportes` y no en la bandeja de A; ocultar deja la ficha fuera de público y restaurar la devuelve.
 
-## TASK-008 · Organización verificada y badge
+### TASK-008 · Organización verificada y badge
 
 - estado: [ ]
 - cubre: REQ-004 · AC-004-a, AC-004-b, AC-004-c
@@ -86,7 +86,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: la organización envía su verificación, el admin la aprueba y su perfil público muestra el distintivo; con otra organización rechazada no aparece.
 
-## TASK-009 · Suspensión, reactivación y auditoría
+### TASK-009 · Suspensión, reactivación y auditoría
 
 - estado: [ ]
 - cubre: REQ-006 · AC-006-c, AC-006-d, AC-006-h · REQ-005 · AC-005-c, AC-005-d · REQ-001 · AC-001-d
@@ -95,7 +95,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: suspender a A bloquea sus mutaciones y oculta su mascota pública, reactivar lo devuelve, el login de suspendido falla y la auditoría deja dos filas con actor admin y objetivo A.
 
-## TASK-010 · Encolado de avisos y antispam
+### TASK-010 · Encolado de avisos y antispam
 
 - estado: [ ]
 - cubre: REQ-006 · AC-006-g · REQ-008 · AC-008-c
@@ -104,7 +104,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: una solicitud crea una fila en `notificaciones_log` y repetirla en la misma hora no añade otra; la aserción no depende de `net._http_response`.
 
-## TASK-011 · Negativos de acceso y RLS
+### TASK-011 · Negativos de acceso y RLS
 
 - estado: [ ]
 - cubre: REQ-007 · AC-007-a, AC-007-d, AC-007-e · REQ-005 · AC-005-a
@@ -113,7 +113,7 @@ Cada tarea añade casos a ese archivo (o a su helper), no crea suites paralelas.
 - archivos: e2e/roles.e2e.ts
 - hecho cuando: sin sesión las rutas de admin responden 401/404, un usuario normal no lee `notificaciones_log` por REST y C no edita la mascota de A ni ve su solicitud.
 
-## TASK-012 · Evidencia, repetición y limpieza
+### TASK-012 · Evidencia, repetición y limpieza
 
 - estado: [ ]
 - cubre: REQ-008 · AC-008-a, AC-008-b · REQ-009 · AC-009-a, AC-009-b, AC-009-c
