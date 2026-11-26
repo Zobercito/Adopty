@@ -80,10 +80,33 @@ try {
     hilos = hilos.map((h) => ({ ...h, solicitud: mapa.get(h.id_mascota) }));
   } catch { /* bandeja funciona igual sin badge */ }
 
-  // Chat activo (si hay mascotaId+con en URL)
+  // Chat activo (si hay mascotaId+con en URL). Se monta aunque no haya mensajes
+  // previos cuando la solicitud está aprobada: así alguien puede escribir el primero.
   if (mascotaId && con) {
+    const { data: mascotaRow } = await supabase
+      .from('mascotas')
+      .select('id, nombre, id_publicador, fotos_mascota(url_foto, es_principal, orden)')
+      .eq('id', mascotaId)
+      .maybeSingle();
+    const publicadorId =
+      (mascotaRow as unknown as { id_publicador?: string } | null)?.id_publicador ?? '';
+    const esPublicador = publicadorId === currentUserId;
+    const adoptanteId = esPublicador ? con : currentUserId;
+    // Solo el publicador o el adoptante de la solicitud aprobada pueden abrir el hilo.
+    const parValido = esPublicador || publicadorId === con;
+
+    const { data: aprobada } = parValido
+      ? await supabase
+          .from('solicitudes')
+          .select('id, fecha_solicitud, mensaje_inicial')
+          .eq('id_mascota', mascotaId)
+          .eq('id_adoptante', adoptanteId)
+          .eq('estado', 'aprobada')
+          .maybeSingle()
+      : { data: null };
+
     const h = hilos.find((h) => h.id_mascota === mascotaId && h.otra_parte === con);
-    if (h) {
+    if (h || aprobada) {
       const { data: msgs } = await supabase
         .from('mensajes')
         .select('id, id_emisor, id_receptor, contenido, leido, fecha_envio')
@@ -91,12 +114,41 @@ try {
         .or(`id_emisor.eq.${currentUserId},id_receptor.eq.${currentUserId}`)
         .order('fecha_envio', { ascending: true })
         .limit(100);
-      const nombre_otra = nombres.get(con) ?? SIN_CUENTA;
-      const { data: mascotaRow } = await supabase.from('mascotas').select('id, nombre, fotos_mascota(url_foto, es_principal, orden)').eq('id', mascotaId).maybeSingle();
+      let nombreOtra = nombres.get(con);
+      if (!nombreOtra) {
+        // Sin hilo previo `con` no está en el mapa de nombres: se pide aparte.
+        nombreOtra = (await nombresPublicos(supabase, [con])).get(con);
+      }
+      const nombre_otra = nombreOtra ?? SIN_CUENTA;
       const mascota = mascotaRow
-        ? { id: mascotaRow.id, nombre: mascotaRow.nombre, fotos: fotosOrdenadas((mascotaRow as unknown as { fotos_mascota: FotoRow[] }).fotos_mascota) }
+        ? {
+            id: mascotaRow.id,
+            nombre: mascotaRow.nombre,
+            fotos: fotosOrdenadas(
+              (mascotaRow as unknown as { fotos_mascota: FotoRow[] }).fotos_mascota,
+            ),
+          }
         : null;
-      chatActivo = { id_mascota: mascotaId, otra_parte: con, nombre_otra, mascota, mensajes: msgs ?? [] };
+      // El texto con el que se solicitó la adopción abre la conversación.
+      const inicial = aprobada
+        ? [
+            {
+              id: `solicitud-${aprobada.id}`,
+              id_emisor: adoptanteId,
+              id_receptor: publicadorId,
+              contenido: aprobada.mensaje_inicial,
+              leido: false,
+              fecha_envio: aprobada.fecha_solicitud,
+            },
+          ]
+        : [];
+      chatActivo = {
+        id_mascota: mascotaId,
+        otra_parte: con,
+        nombre_otra,
+        mascota,
+        mensajes: [...inicial, ...(msgs ?? [])],
+      };
     }
   }
 } catch (e) {
