@@ -14,15 +14,12 @@ export interface PanelMascota {
   pendientes: number;
   aprobadas: number;
   noLeidos: number;
-  /** Plan §4.1: interesados = solicitantes + conversantes distintos (sin contarme a mí) */
-  interesados: number;
 }
 
 export interface PanelResumen {
   publicadas: number;
   pendientes: number;
   noLeidos: number;
-  interesados: number;
   mascotas: PanelMascota[];
 }
 
@@ -51,13 +48,13 @@ export async function getPanelResumen(
   }[];
   const ids = pets.map((p) => p.id);
 
-  type Sol = { id_mascota: string; estado: string; id_adoptante: string };
+  type Sol = { id_mascota: string; estado: string };
   type Msg = { id_mascota: string; id_emisor: string; id_receptor: string; leido: boolean };
   let sols: Sol[] = [];
   let msgs: Msg[] = [];
   if (ids.length) {
     const [s, m] = await Promise.all([
-      supabase.from('solicitudes').select('id_mascota,estado,id_adoptante').in('id_mascota', ids),
+      supabase.from('solicitudes').select('id_mascota,estado').in('id_mascota', ids),
       supabase
         .from('mensajes')
         .select('id_mascota,id_emisor,id_receptor,leido')
@@ -74,16 +71,8 @@ export async function getPanelResumen(
   for (const s of sols) porMascota.get(s.id_mascota)?.sol.push(s);
   for (const m of msgs) porMascota.get(m.id_mascota)?.msg.push(m);
 
-  const interesadosGlobal = new Set<string>();
   const mascotas: PanelMascota[] = pets.map((p) => {
     const { sol, msg } = porMascota.get(p.id)!;
-    const interesados = new Set<string>();
-    for (const s of sol) if (s.id_adoptante !== userId) interesados.add(s.id_adoptante);
-    for (const m of msg) {
-      if (m.id_emisor !== userId) interesados.add(m.id_emisor);
-      if (m.id_receptor !== userId) interesados.add(m.id_receptor);
-    }
-    for (const i of interesados) interesadosGlobal.add(i);
     const fotos = fotosOrdenadas(p.fotos_mascota);
     return {
       id: p.id,
@@ -97,7 +86,6 @@ export async function getPanelResumen(
       pendientes: sol.filter((s) => s.estado === 'pendiente').length,
       aprobadas: sol.filter((s) => s.estado === 'aprobada').length,
       noLeidos: msg.filter((m) => m.id_receptor === userId && !m.leido).length,
-      interesados: interesados.size,
     };
   });
 
@@ -105,7 +93,6 @@ export async function getPanelResumen(
     publicadas: pets.length,
     pendientes: mascotas.reduce((n, m) => n + m.pendientes, 0),
     noLeidos: mascotas.reduce((n, m) => n + m.noLeidos, 0),
-    interesados: interesadosGlobal.size,
     mascotas,
   };
 }

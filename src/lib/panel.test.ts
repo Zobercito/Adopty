@@ -101,13 +101,10 @@ describe('getPanelResumen (Fase 6)', () => {
     expect(r.publicadas).toBe(2);
     expect(r.pendientes).toBe(1);
     expect(r.noLeidos).toBe(1);
-    // interesados: OTRO (solicitante+conversante) + tercero (rechazado también cuenta como interesado)
-    expect(r.interesados).toBe(2);
     const luna = r.mascotas.find((m) => m.id === 'm1')!;
     expect(luna.solicitudes).toBe(2);
     expect(luna.pendientes).toBe(1);
     expect(luna.noLeidos).toBe(1);
-    expect(luna.interesados).toBe(2);
     expect(r.mascotas.some((m) => m.id === 'ajena')).toBe(false);
   });
 
@@ -120,7 +117,6 @@ describe('getPanelResumen (Fase 6)', () => {
       publicadas: 0,
       pendientes: 0,
       noLeidos: 0,
-      interesados: 0,
       mascotas: [],
     });
   });
