@@ -9,6 +9,7 @@ import { redesVacias } from '../lib/validation/user';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login?next=/perfil');
+const esAdmin = Astro.locals.isAdmin === true;
 
 const supabase = supabaseServer(Astro.cookies);
 const { data: perfil } = await supabase
@@ -97,7 +98,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
         <div class="min-w-0">
           <h1 class="font-display font-extrabold text-2xl truncate">{nombre}</h1>
           <p class="text-sm text-muted truncate">
-            {correo} · {esOrg ? 'Organización' : 'Persona'}
+            {correo} · {esOrg ? 'Organización' : esAdmin ? 'Administrador' : 'Persona'}
             {esOrg && (verificada ? ' · ✓ Verificada' : ' · pendiente de verificación')}
           </p>
         </div>
@@ -106,7 +107,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       <p id="err" class="alert alert-error mt-4 hidden" role="alert" />
       <p id="ok" class="alert alert-ok mt-4 hidden" role="status" />
 
-      {!esOrg && comp.pct < 100 && (
+      {!esOrg && !esAdmin && comp.pct < 100 && (
         <div class="mt-4 rounded-2xl bg-surface p-4">
           <div class="flex items-center justify-between gap-3">
             <p class="text-sm font-semibold text-ink">Tu perfil está al {comp.pct}%</p>
@@ -130,18 +131,20 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
 
       <!-- ---------- Pestañas ---------- -->
       <div class="flex flex-wrap gap-2 mt-6 mb-5" role="tablist" aria-label="Secciones del perfil">
-        <button
-          type="button"
-          id="tab-datos"
-          class="tab"
-          role="tab"
-          aria-selected="true"
-          aria-current="page"
-          data-tab="datos"
-        >
-          Datos del perfil
-        </button>
-        {!esOrg && (
+        {!esAdmin && (
+          <button
+            type="button"
+            id="tab-datos"
+            class="tab"
+            role="tab"
+            aria-selected="true"
+            aria-current="page"
+            data-tab="datos"
+          >
+            Datos del perfil
+          </button>
+        )}
+        {!esOrg && !esAdmin && (
           <button
             type="button"
             id="tab-estilo"
@@ -158,7 +161,8 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
           id="tab-cuenta"
           class="tab"
           role="tab"
-          aria-selected="false"
+          aria-selected={esAdmin ? 'true' : 'false'}
+          aria-current={esAdmin ? 'page' : undefined}
           data-tab="cuenta"
         >
           Cuenta
@@ -166,7 +170,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       </div>
 
       <!-- ---------- Datos de perfil ---------- -->
-      <div id="panel-datos" role="tabpanel" aria-labelledby="tab-datos">
+      <div id="panel-datos" role="tabpanel" aria-labelledby="tab-datos" hidden={esAdmin}>
       {
         esOrg ? (
           <form id="perfForm" class="grid gap-4" enctype="multipart/form-data">
@@ -437,7 +441,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       </div>
 
       <!-- ---------- Estilo de vida (match) ---------- -->
-      {!esOrg && (
+      {!esOrg && !esAdmin && (
       <div id="panel-estilo" role="tabpanel" aria-labelledby="tab-estilo" hidden>
         <section aria-labelledby="t-estilo">
         <h2 id="t-estilo" class="font-display font-bold text-base">Estilo de vida</h2>
@@ -529,7 +533,7 @@ const nombre = (detalle.nombre as string) ?? (detalle.nombre_oficial as string) 
       )}
 
       <!-- ---------- Verificación de organización ---------- -->
-      <div id="panel-cuenta" role="tabpanel" aria-labelledby="tab-cuenta" hidden>
+      <div id="panel-cuenta" role="tabpanel" aria-labelledby="tab-cuenta" hidden={!esAdmin}>
       {
         !verificada && esOrg && !verificacion && (
           <section class="mt-6 p-4 rounded-2xl bg-info-soft border border-sky-200" aria-labelledby="t-verif">
