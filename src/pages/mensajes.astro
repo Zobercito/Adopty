@@ -58,6 +58,39 @@ try {
     }
   }
 
+  // Una solicitud aprobada abre conversación aunque aún no haya mensajes: así el
+  // hilo aparece en la bandeja y el mensaje_inicial se puede leer al abrirlo.
+  const { data: aprobadas } = await supabase
+    .from('solicitudes')
+    .select(
+      'id_adoptante,id_mascota,fecha_solicitud,mascotas!inner(id,nombre,estado,id_publicador,fotos_mascota(url_foto,es_principal,orden))',
+    )
+    .eq('estado', 'aprobada');
+  const aprobadasTipadas = (aprobadas ?? []) as unknown as {
+    id_adoptante: string;
+    id_mascota: string;
+    fecha_solicitud: string;
+    mascotas: {
+      id: string;
+      nombre: string;
+      estado: string;
+      id_publicador: string;
+      fotos_mascota: FotoRow[];
+    };
+  }[];
+  for (const s of aprobadasTipadas) {
+    const otra = s.id_adoptante === currentUserId ? s.mascotas.id_publicador : s.id_adoptante;
+    const key = `${s.id_mascota}:${otra}`;
+    if (hilosMap.has(key)) continue;
+    hilosMap.set(key, {
+      id_mascota: s.id_mascota,
+      otra_parte: otra,
+      ultimo: s.fecha_solicitud,
+      no_leidos: 0,
+      mascota: s.mascotas,
+    });
+  }
+
   // Nombres (Fase A: RPC público, no lectura directa de `personas`)
   const otrasIds = [...hilosMap.values()].map((h) => h.otra_parte);
   const nombres = await nombresPublicos(supabase, otrasIds);
@@ -79,6 +112,11 @@ try {
     const mapa = new Map(mias.map((s) => [s.mascota.id, s.estado] as const));
     hilos = hilos.map((h) => ({ ...h, solicitud: mapa.get(h.id_mascota) }));
   } catch { /* bandeja funciona igual sin badge */ }
+  // El publicador no tiene "mis solicitudes": el hilo aprobado se marca aquí.
+  const aprobadasIds = new Set(aprobadasTipadas.map((s) => s.id_mascota));
+  hilos = hilos.map((h) =>
+    h.solicitud ? h : aprobadasIds.has(h.id_mascota) ? { ...h, solicitud: 'aprobada' } : h,
+  );
 
   // Chat activo (si hay mascotaId+con en URL). Se monta aunque no haya mensajes
   // previos cuando la solicitud está aprobada: así alguien puede escribir el primero.
