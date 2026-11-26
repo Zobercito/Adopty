@@ -29,6 +29,20 @@ let hilos: {
 let chatActivo: { id_mascota: string; otra_parte: string; nombre_otra: string; mascota: any; mensajes: any[] } | null = null;
 
 try {
+  // Abrir un hilo marca como leído lo recibido de esa contraparte. Sin esto el
+  // contador del panel y de la bandeja no baja nunca (solo se marcaba lo que
+  // llegaba en vivo desde ChatView). La RLS solo deja actualizar al receptor.
+  if (mascotaId && con) {
+    const { error: errorLeido } = await supabase
+      .from('mensajes')
+      .update({ leido: true })
+      .eq('id_mascota', mascotaId)
+      .eq('id_emisor', con)
+      .eq('id_receptor', currentUserId)
+      .eq('leido', false);
+    if (errorLeido) console.error(errorLeido);
+  }
+
   // Obtener hilos
   const { data, error } = await supabase
     .from('mensajes')
@@ -193,6 +207,9 @@ try {
   console.error(e);
 }
 const totalNoLeidos = hilos.reduce((n, h) => n + h.no_leidos, 0);
+// El middleware contó los no leídos antes de que esta página marcara el hilo
+// como leído; el navbar debe mostrar ya el estado actualizado.
+Astro.locals.mensajesSinLeer = totalNoLeidos;
 ---
 <Layout title="Adopty — Mis mensajes" noindex>
   <Navbar />
