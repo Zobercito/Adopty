@@ -49,14 +49,18 @@ const enlacesVisitante = [
 // marketing, y el primer destino del menú es el espacio del usuario (Panel).
 // "Panel" solo aparece si el usuario tiene publicaciones (para un adoptante es
 // redundante: sus solicitudes, favoritos y mensajes ya viven en sus pestañas).
-const enlacesApp = [
-  ...(tienePublicaciones ? [{ key: 'panel', href: '/panel', label: 'Panel' }] : []),
-  { key: 'explorar', href: '/explorar', label: 'Explorar' },
-  { key: 'favoritos', href: '/favoritos', label: 'Favoritos' },
-  { key: 'mensajes', href: '/mensajes', label: 'Mensajes' },
-  { key: 'mis-solicitudes', href: '/mis-solicitudes', label: 'Solicitudes' },
-  { key: 'publicar', href: '/mascota/nueva', label: 'Publicar' },
-];
+const enlacesApp = isAdmin
+  ? // El admin solo administra: Explorar queda como vista de solo lectura y
+    // el resto (panel, favoritos, mensajes, solicitudes, publicar) no aplica.
+    [{ key: 'explorar', href: '/explorar', label: 'Explorar' }]
+  : [
+      ...(tienePublicaciones ? [{ key: 'panel', href: '/panel', label: 'Panel' }] : []),
+      { key: 'explorar', href: '/explorar', label: 'Explorar' },
+      { key: 'favoritos', href: '/favoritos', label: 'Favoritos' },
+      { key: 'mensajes', href: '/mensajes', label: 'Mensajes' },
+      { key: 'mis-solicitudes', href: '/mis-solicitudes', label: 'Solicitudes' },
+      { key: 'publicar', href: '/mascota/nueva', label: 'Publicar' },
+    ];
 const visibles = (user ? enlacesApp : enlacesVisitante) as { key: string; href: string; label: string }[];
 ---
 
@@ -156,7 +160,7 @@ const visibles = (user ? enlacesApp : enlacesVisitante) as { key: string; href: 
           </>
         )
       }
-      {user && (
+      {user && !isAdmin && (
         <a href="/explorar" class="btn-primary text-sm px-5 py-2.5 hidden sm:inline-block">
           Adoptar
         </a>
