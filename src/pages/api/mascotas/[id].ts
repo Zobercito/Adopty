@@ -67,6 +67,15 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
       { status: 409 },
     );
   }
+  // `en_proceso → disponible` reabre la publicación: el RPC cambia el estado e
+  // invalida la solicitud aprobada para que se pueda volver a solicitar.
+  const reabre = actual.estado === 'en_proceso' && updates.estado === 'disponible';
+  if (reabre) {
+    delete updates.estado;
+    const { error } = await supabase.rpc('reabrir_mascota', { p_id: id });
+    if (error)
+      return Response.json({ error: mensajeError(error, 'api/mascotas/:id') }, { status: 400 });
+  }
   if (Object.keys(updates).length) {
     const { error } = await supabase.from('mascotas').update(updates).eq('id', id);
     if (error)

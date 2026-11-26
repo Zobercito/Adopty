@@ -353,3 +353,20 @@ follow` en páginas privadas o fichas no públicas.
   Requiere `pg_net` y `resend_api_key` en Vault; sin ellos las funciones no hacen nada.
   `pg_net` es asíncrono y no hay reintentos automáticos: los fallos quedan en
   `net._http_response`. El enlace de los emails usa `https://adopty.lat` fijo.
+
+## ADR-026 — Reabrir una mascota invalida la solicitud aprobada
+
+- **Fecha:** 2026-11-25.
+- **Estado:** aceptada.
+- **Contexto:** `en_proceso → disponible` solo cambiaba `mascotas.estado`; la
+  solicitud aprobada seguía viva y el adoptante la veía como «Aprobada», con la
+  ficha ofreciendo «Abrir chat» en vez de dejar solicitar de nuevo.
+- **Decisión:** la reapertura pasa por la RPC `reabrir_mascota(p_id)`, que exige ser
+  el publicador, bloquea `adoptada` y, en la misma transacción, marca como
+  `rechazada` las solicitudes aprobadas de esa mascota. `validar_solicitud` permite
+  `aprobada → rechazada` solo en ese escenario (mascota ya `disponible` y llamante
+  publicador). Se conserva el historial y el mensaje inicial de la solicitud.
+- **Consecuencias:** el adoptante puede volver a solicitar y el chat de la
+  aprobación anterior deja de admitir mensajes mientras no haya una nueva
+  aprobación. La API (`PATCH /api/mascotas/:id`) usa la RPC al revertir el estado y
+  la regla también queda cerrada ante un bypass por PostgREST.
